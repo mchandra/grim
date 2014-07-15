@@ -46,4 +46,9 @@ extern PetscErrorCode Monitor(TS ts,
                               Vec Prim,
                               void *ptr);
 
+extern PetscErrorCode SNESMonitor(SNES snes,
+                                  PetscInt its,
+                                  PetscReal norm,
+                                  void *ptr);
+
 #endif

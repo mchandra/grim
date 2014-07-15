@@ -44,6 +44,7 @@ PetscErrorCode SetCoordinates(DM dmda)
 int main(int argc, char **argv)
 {
     TS ts;
+    SNES snes;
     Vec soln;
     DM dmda;
 
@@ -52,11 +53,9 @@ int main(int argc, char **argv)
 
     PetscInitialize(&argc, &argv, PETSC_NULL, help);
 
-//    viennacl::ocl::set_context_platform_index(0, 1);
-
     DMDACreate2d(PETSC_COMM_WORLD, 
                  DM_BOUNDARY_GHOSTED, DM_BOUNDARY_GHOSTED,
-                 DMDA_STENCIL_STAR,
+                 DMDA_STENCIL_BOX,
                  N1, N2,
                  PETSC_DECIDE, PETSC_DECIDE,
                  DOF, NG, PETSC_NULL, PETSC_NULL, &dmda);
@@ -87,33 +86,6 @@ int main(int argc, char **argv)
     TSSetDM(ts, dmda);
     TSSetIFunction(ts, PETSC_NULL, ComputeResidual, NULL);
 
-//    std::ifstream sourceFile("computeresidual.cl");
-//    std::string sourceCode((std::istreambuf_iterator<char>(sourceFile)),
-//                            std::istreambuf_iterator<char>());
-//
-//    std::string BuildOptions("\
-//                              -D X1_SIZE=" +
-//                             std::to_string(X1Size) +
-//                             " -D X2_SIZE=" + 
-//                             std::to_string(X2Size) +
-//                             " -D TOTAL_X1_SIZE=" + 
-//                             std::to_string(X1Size+2*NG) + 
-//                             " -D TOTAL_X2_SIZE=" +
-//                             std::to_string(X2Size+2*NG));
-//
-//    viennacl::ocl::current_context().build_options(BuildOptions);
-//
-//    PetscScalar start = std::clock();
-//    program =
-//        viennacl::ocl::current_context().add_program(sourceCode,
-//                                                     "computeresidual");
-//    PetscScalar end = std::clock();
-//    PetscScalar time = (end - start)/(PetscScalar)CLOCKS_PER_SEC;
-//    PetscPrintf(PETSC_COMM_WORLD, 
-//                "Time taken for kernel compilation = %f\n", time);
-//    
-//    program.add_kernel("ComputeResidual");
-
     clErr = cl::Platform::get(&platforms);
     CheckCLErrors(clErr, "cl::Platform::get");
 
@@ -143,7 +115,8 @@ int main(int argc, char **argv)
                              " -D TOTAL_X1_SIZE=" + 
                              std::to_string(X1Size+2*NG) + 
                              " -D TOTAL_X2_SIZE=" +
-                             std::to_string(X2Size+2*NG));
+                             std::to_string(X2Size+2*NG) +
+                             " -DOPENCL");
 
     PetscScalar start = std::clock();
     clErr = program.build(devices, BuildOptions.c_str(), NULL, NULL);
@@ -168,101 +141,27 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-//    PetscViewer viewer;
-//    PetscViewerHDF5Open(PETSC_COMM_WORLD,"init.h5",
-//                        FILE_MODE_READ, &viewer);
-//    PetscObjectSetName((PetscObject) soln,"soln");
-//    VecLoad(soln, viewer);
-//    PetscViewerDestroy(&viewer);
-
     InitialCondition(ts, soln);
 
     PetscViewer viewer;
-    PetscViewerHDF5Open(PETSC_COMM_WORLD,"plot0.h5",
+#if(RESTART)
+    PetscViewerHDF5Open(PETSC_COMM_WORLD,"restartfile.h5",
+                        FILE_MODE_READ, &viewer);
+    PetscObjectSetName((PetscObject) soln,"soln");
+    VecLoad(soln, viewer);
+    PetscViewerDestroy(&viewer);
+#endif /* Restart from "init.h5" */
+
+    PetscViewerHDF5Open(PETSC_COMM_WORLD,"initialconditions.h5",
                         FILE_MODE_WRITE, &viewer);
     PetscObjectSetName((PetscObject) soln, "soln");
     VecView(soln, viewer);
     PetscViewerDestroy(&viewer);
 
-
-//    Vec X;
-//    VecDuplicate(soln, &X);
-//    VecSet(X, 10.);
-//    PetscScalar ***x, ***prim;
-//    DMDAVecGetArrayDOF(dmda, X, &x);
-//    DMDAVecGetArrayDOF(dmda, soln, &prim);
-//    for (int j=0; j<N2; j++)
-//        for (int i=0; i<N1; i++) {
-//            PetscScalar X1 = i_TO_X1_CENTER(i);
-//            PetscScalar X2 = j_TO_X2_CENTER(j);
-//
-//            PetscScalar sources[DOF], var[DOF];
-//            for (int n=0; n<DOF; n++) {
-//                sources[n] = 0.;
-//                var[n] = prim[j][i][n];
-//            }
-//            
-//            PetscScalar gcon[NDIM][NDIM], gcov[NDIM][NDIM], gdet;
-//            PetscScalar ucon[NDIM], ucov[NDIM], bcon[NDIM], bcov[NDIM];
-//            PetscScalar mhd[NDIM][NDIM], flux[DOF], U[DOF];
-//            PetscScalar alpha, gamma, g;
-//            PetscScalar cmin, cmax, bsqr;
-//
-//            gCovCalc(gcov, X1, X2);
-//            gDetCalc(&gdet, gcov);
-//            gConCalc(gcon, gcov, gdet);
-//            g = sqrt(-gdet);
-//
-//            gammaCalc(&gamma, var, gcov);
-//            alphaCalc(&alpha, gcon);
-//            uconCalc(ucon, gamma, alpha, var, gcon);
-//            covFromCon(ucov, ucon, gcov);
-//            bconCalc(bcon, var, ucon, ucov);
-//            covFromCon(bcov, bcon, gcov);
-//
-//            mhdCalc(mhd, var, ucon, ucov, bcon, bcov);
-//
-//            addSources(sources, 
-//                       ucon, ucov, bcon, bcov, 
-//                       gcon, gcov, mhd, var, g,
-//                       X1, X2);
-//
-//
-//            ComputeFluxAndU(flux, U,
-//                            ucon, ucov,
-//                            bcon, bcov,
-//                            gcon, gcov,
-//                            mhd, var, g, 1);
-//
-//            conDotCov(&bsqr, bcon, bcov);
-//            VChar(&cmin, &cmax, ucon, ucov, bsqr, gcon, var, 1); 
-//
-//            x[j][i][RHO] = cmin;
-//            x[j][i][UU] = cmax;
-//            x[j][i][U1] = flux[U1];
-//            x[j][i][U2] = flux[U2];
-//            x[j][i][U3] = flux[U3];
-//            x[j][i][B1] = flux[B1];
-//            x[j][i][B2] = flux[B2];
-//            x[j][i][B3] = flux[B3];
-//
-//        }
-//    DMDAVecRestoreArrayDOF(dmda, X, &x);
-//    DMDAVecRestoreArrayDOF(dmda, soln, &prim);
-//
-//    PetscViewer viewer;
-//    PetscViewerHDF5Open(PETSC_COMM_WORLD,"metric.h5",
-//                        FILE_MODE_WRITE, &viewer);
-//    PetscObjectSetName((PetscObject) X, "gcov00");
-//    VecView(X, viewer);
-//    PetscViewerDestroy(&viewer);
-//    VecDestroy(&X);
-        
-
-//    Benchmark(ts, soln);
-
     TSSetSolution(ts, soln);
     TSMonitorSet(ts, Monitor, NULL, NULL);
+    TSGetSNES(ts, &snes);
+    SNESMonitorSet(snes, SNESMonitor, NULL, NULL);
     TSSetType(ts, TSTHETA);
     TSSetFromOptions(ts);
 
@@ -276,109 +175,25 @@ int main(int argc, char **argv)
     return(0);
 }
 
-//PetscErrorCode ComputeResidual(TS ts,
-//                               PetscScalar t,
-//                               Vec Prim, Vec dPrim_dt,
-//                               Vec F, void *ptr)
-//{
-//    const viennacl::vector<PetscScalar> *prim, *dprim_dt;
-//    viennacl::vector<PetscScalar> *f;
-//
-//    VecViennaCLGetArrayRead(Prim, &prim);
-//    VecViennaCLGetArrayRead(dPrim_dt, &dprim_dt);
-//    VecViennaCLGetArrayWrite(F, &f);
-//
-//    viennacl::ocl::kernel kernel = program.get_kernel("ComputeResidual");
-//
-//    kernel.local_work_size(0, TILE_SIZE_X1);
-//    kernel.local_work_size(1, TILE_SIZE_X2);
-//    kernel.global_work_size(0, N1);
-//    kernel.global_work_size(1, N2);
-//
-//    viennacl::ocl::enqueue(kernel(*prim, *dprim_dt, *f));
-//    viennacl::backend::finish();
-//
-//    VecViennaCLRestoreArrayRead(Prim, &prim);
-//    VecViennaCLRestoreArrayRead(dPrim_dt, &dprim_dt);
-//    VecViennaCLRestoreArrayWrite(F, &f);
-//
-//    return (0);
-//}
-
 PetscErrorCode ComputeResidual(TS ts,
                                PetscScalar t,
                                Vec Prim, Vec dPrim_dt,
                                Vec F, void *ptr)
 {
-//    DM dmda;
-//    int X1Start, X1Size;
-//    int X2Start, X2Size;
-//    TSGetDM(ts, &dmda);
-//
-//    DMDAGetCorners(dmda, 
-//                   &X1Start, &X2Start, NULL,
-//                   &X1Size, &X2Size, NULL);
-//
-//    Vec PrimLocal;
-//    DMGetLocalVector(dmda, &PrimLocal);
-//
-//    DMGlobalToLocalBegin(dmda, Prim, INSERT_VALUES, PrimLocal);
-//    DMGlobalToLocalEnd(dmda, Prim, INSERT_VALUES, PrimLocal);
-//
-//
-//    PetscScalar ***prim, ***dprim_dt, ***f;
-//    DMDAVecGetArrayDOF(dmda, PrimLocal, &prim);
-//    DMDAVecGetArrayDOF(dmda, dPrim_dt, &dprim_dt);
-//    DMDAVecGetArrayDOF(dmda, F, &f);
-//
-//    cl::Buffer primBuffer, dprimBuffer_dt, fbuffer;
-//    PetscInt sizeWithoutNG = DOF*N1*N2*sizeof(PetscScalar);
-//    PetscInt sizeWithNG = DOF*(N1+2*NG)*(N2+2*NG)*sizeof(PetscScalar);
-//
-//    primBuffer = cl::Buffer(context,
-//                            CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-//                            sizeWithNG, &(prim[-2][-2][0]), &clErr);
-//    dprimBuffer_dt = cl::Buffer(context,
-//                                CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-//                                sizeWithoutNG, &(dprim_dt[0][0][0]), &clErr);
-//    fbuffer = cl::Buffer(context,
-//                         CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
-//                         sizeWithoutNG, &(f[0][0][0]), &clErr);
-//
-//
-//    clErr = kernel.setArg(0, primBuffer);
-//    clErr = kernel.setArg(1, dprimBuffer_dt);
-//    clErr = kernel.setArg(2, fbuffer);
-//
-//    cl::NDRange global(N1, N2);
-//    cl::NDRange local(TILE_SIZE_X1, TILE_SIZE_X2);
-//    clErr = queue.enqueueNDRangeKernel(kernel,
-//                                       cl::NullRange,
-//                                       global, local,
-//                                       NULL, NULL);
-//
-////    f = (PetscScalar***)queue.enqueueMapBuffer(fbuffer,
-////                                             CL_FALSE,
-////                                             CL_MAP_READ,
-////                                             0, size,
-////                                             NULL, NULL, &clErr);
-//
-//    clErr = queue.finish();
-//
-//    DMDAVecRestoreArrayDOF(dmda, PrimLocal, &prim);
-//    DMDAVecRestoreArrayDOF(dmda, dPrim_dt, &dprim_dt);
-//    DMDAVecRestoreArrayDOF(dmda, F, &f);
-//
-//    DMRestoreLocalVector(dmda, &PrimLocal);
-
-
     PetscScalar *prim, *dprim_dt, *f;
     VecGetArray(Prim, &prim);
     VecGetArray(dPrim_dt, &dprim_dt);
     VecGetArray(F, &f);
 
+    REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+    REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+
     cl::Buffer primBuffer, dprimBuffer_dt, fbuffer;
     PetscInt size = DOF*N1*N2*sizeof(PetscScalar);
+    PetscInt sizeWithNG = DOF*(N1 + 2*NG)*(N2 + 2*NG)*sizeof(PetscScalar);
+
+
+    cl::Buffer fluxX1Buffer, fluxX2Buffer;
 
     primBuffer = cl::Buffer(context,
                             CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
@@ -390,11 +205,22 @@ PetscErrorCode ComputeResidual(TS ts,
                          CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
                          size, &(f[0]), &clErr);
 
+    fluxX1Buffer = cl::Buffer(context,
+                              CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
+                              sizeWithNG, &(fluxX1[0]), &clErr);
+    fluxX2Buffer = cl::Buffer(context,
+                              CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
+                              sizeWithNG, &(fluxX2[0]), &clErr);
+
+
 
     clErr = kernel.setArg(0, primBuffer);
     clErr = kernel.setArg(1, dprimBuffer_dt);
     clErr = kernel.setArg(2, fbuffer);
+    clErr = kernel.setArg(3, fluxX1Buffer);
+    clErr = kernel.setArg(4, fluxX2Buffer);
 
+//    cl::NDRange global(N1 + 2*NG, N2 + 2*NG);
     cl::NDRange global(N1, N2);
     cl::NDRange local(TILE_SIZE_X1, TILE_SIZE_X2);
     clErr = queue.enqueueNDRangeKernel(kernel,
@@ -410,218 +236,53 @@ PetscErrorCode ComputeResidual(TS ts,
 
     clErr = queue.finish();
 
+    REAL emf[N2+2*NG][N1+2*NG];
+
+    for (int j=0; j<N2+NG; j++) {
+        for (int i=0; i<N1+NG; i++) {
+            emf[j][i] = 
+                        0.25*(fluxX1[INDEX_GLOBAL_WITH_NG(i,j,B2)] +
+                              fluxX1[INDEX_GLOBAL_WITH_NG(i,j-1,B2)] -
+                              fluxX2[INDEX_GLOBAL_WITH_NG(i,j,B1)] -
+                              fluxX2[INDEX_GLOBAL_WITH_NG(i-1,j,B1)]);
+        }
+    }
+
+    for (int j=1; j<N2-1; j++) {
+        for (int i=1; i<N1-1; i++) {
+            
+            fluxX1[INDEX_GLOBAL_WITH_NG(i,j,B1)] = 0.;
+
+            fluxX1[INDEX_GLOBAL_WITH_NG(i,j,B2)] = 
+                                    0.5*(emf[j][i] + emf[j+1][i]);
+
+            fluxX2[INDEX_GLOBAL_WITH_NG(i,j,B1)] =
+                                    -0.5*(emf[j][i] + emf[j][i+1]);
+
+            fluxX2[INDEX_GLOBAL_WITH_NG(i,j,B2)] = 0.;
+
+        }
+    }
+
+    for (int j=0; j<N2; j++) {
+        for (int i=0; i<N1; i++) {
+            for (int var=0; var<DOF; var++) {
+
+//                fluxX2[INDEX_GLOBAL_WITH_NG(i, 0, var)] = 0.;
+//                fluxX2[INDEX_GLOBAL_WITH_NG(i, N2, var)] = 0.;
+
+                f[INDEX_GLOBAL(i,j,var)] = f[INDEX_GLOBAL(i,j,var)] +
+                                (fluxX1[INDEX_GLOBAL_WITH_NG(i+1,j,var)] -
+                                 fluxX1[INDEX_GLOBAL_WITH_NG(i,j,var)])/DX1 +
+                                (fluxX2[INDEX_GLOBAL_WITH_NG(i,j+1,var)] -
+                                 fluxX2[INDEX_GLOBAL_WITH_NG(i,j,var)])/DX2;
+            }
+        }
+    }
+
     VecRestoreArray(Prim, &prim);
     VecRestoreArray(dPrim_dt, &dprim_dt);
     VecRestoreArray(F, &f);
-
-//    DM dmda;
-//    int X1Start, X1Size;
-//    int X2Start, X2Size;
-//    TSGetDM(ts, &dmda);
-//
-//    DMDAGetCorners(dmda, 
-//                   &X1Start, &X2Start, NULL,
-//                   &X1Size, &X2Size, NULL);
-//
-//    Vec PrimLocal;
-//    DMGetLocalVector(dmda, &PrimLocal);
-//
-//    DMGlobalToLocalBegin(dmda, Prim, INSERT_VALUES, PrimLocal);
-//    DMGlobalToLocalEnd(dmda, Prim, INSERT_VALUES, PrimLocal);
-//
-//    PetscScalar ***prim, ***dprim_dt, ***f;
-//    DMDAVecGetArrayDOF(dmda, PrimLocal, &prim);
-//    DMDAVecGetArrayDOF(dmda, dPrim_dt, &dprim_dt);
-//    DMDAVecGetArrayDOF(dmda, F, &f);
-//
-//    REAL primTile[(TILE_SIZE_X1+2*NG)*(TILE_SIZE_X2+2*NG)*DOF];
-//
-//    REAL dU_dt[DOF], primEdge[DOF];
-//    REAL fluxL[DOF], fluxR[DOF];
-//    REAL uL[DOF], uR[DOF];
-//    REAL fluxX1L[DOF], fluxX1R[DOF];
-//    REAL fluxX2L[DOF], fluxX2R[DOF];
-//    REAL X1, X2;
-//
-//    // Geometry
-//    REAL gcon[NDIM][NDIM], gcov[NDIM][NDIM];
-//
-//    //Physics
-//    REAL ucon[NDIM], ucov[NDIM], bcon[NDIM], bcov[NDIM];
-//    REAL mhd[NDIM][NDIM];
-//    REAL vars[DOF], dvars_dt[DOF];
-//
-//    for (int j=0; j<N2; j++)
-//        for (int i=0; i<N1; i++) {
-//            
-//            for (int var=0; var<DOF; var++) {
-//                vars[var] = prim[j][i][DOF];
-//                dU_dt[var] = 0.;
-//            }
-//
-//            X1 = i_TO_X1_FACE(i); X2 = j_TO_X2_CENTER(j);
-//            addSources(dU_dt,
-//                       ucon, ucov, bcon, bcov,
-//                       gcon, gcov, mhd, vars, 
-//                       X1, X2);
-//
-//            for (int var=0; var<DOF; var++)
-//                f[j][i][var] = dU_dt[var];
-//        }
-//
-////    for (int j=0; j<N2; j++) {
-////        for (int iNg=-NG; iNg<0; iNg++) {
-////            for (int var=0; var<DOF; var++) {
-////                prim[j][iNg][var] = prim[j][0][var];
-////            }
-////        }
-////
-////        for (int iNg=N1; iNg<N1+NG; iNg++) {
-////            for (int var=0; var<DOF; var++) {
-////                prim[j][iNg][var] = prim[j][N1-1][var];
-////            }
-////        }
-////    }
-////
-////    for (int jNg=-NG; jNg<0; jNg++) {
-////        for (int i=0; i<N1; i++) {
-////            for (int var=0; var<DOF; var++) {
-////                prim[jNg][i][var] = prim[-jNg-1][i][var];
-////            }
-////        }
-////    }
-////
-////    for (int jNg=N1; jNg<N2+NG; jNg++) {
-////        for (int i=0; i<N1; i++) {
-////            for (int var=0; var<DOF; var++) {
-////                prim[jNg][i][var] = prim[-jNg+2*N1-1][i][var];
-////            }
-////        }
-////    }
-////
-////    for (int jB=0; jB<N2/TILE_SIZE_X2; jB++) {
-////        for (int iB=0; iB<N1/TILE_SIZE_X1; iB++) {
-////            for (int jTile=-NG; jTile<TILE_SIZE_X2+NG; jTile++) {
-////                for (int iTile=-NG; iTile<TILE_SIZE_X1+NG; iTile++) {
-////
-////                        int i = iTile + iB*TILE_SIZE_X1;
-////                        int j = jTile + jB*TILE_SIZE_X2;
-////
-////                    for (int var=0; var<DOF; var++) {
-////                        primTile[INDEX_LOCAL(iTile,jTile,var)] = 
-////                        prim[j][i][var];
-////                    }
-////                }
-////            }
-////
-////            for (int jTile=0; jTile<TILE_SIZE_X2; jTile++) {
-////                for (int iTile=0; iTile<TILE_SIZE_X1; iTile++) {
-////
-////                    int i = iTile + iB*TILE_SIZE_X1;
-////                    int j = jTile + jB*TILE_SIZE_X2;
-////
-////                    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
-////                    //ComputedU_dt
-////
-////                    for (int var=0; var<DOF; var++) {
-////                        dU_dt[var] = 0.;
-////                        vars[var] = primTile[INDEX_LOCAL(iTile,jTile,var)];
-////                        //vars[var] = prim[j][i][var];
-////                    }
-////
-////                    addSources(dU_dt,
-////                               ucon, ucov, bcon, bcov,
-////                               gcon, gcov, mhd, vars, 
-////                               X1, X2);
-////
-//////                    // Compute fluxes along X1
-//////                    X1 = i_TO_X1_FACE(i); X2 = j_TO_X2_CENTER(j);
-//////                    ReconstructX1(primTile, iTile-1, jTile, primEdge, RIGHT);
-//////                    ComputeFluxAndU(fluxR, uR, 
-//////                                   ucon, ucov, bcon, bcov, 
-//////                                   gcon, gcov, mhd, primEdge, 
-//////                                   X1, X2, 1);
-//////
-//////                    ReconstructX1(primTile, iTile, jTile, primEdge, LEFT);
-//////                    ComputeFluxAndU(fluxL, uL, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 1);
-//////
-//////                    RiemannSolver(fluxR, fluxL, uR, uL, fluxX1L);
-//////
-//////
-//////                    X1 = i_TO_X1_FACE(i+1); X2 = j_TO_X2_CENTER(j);
-//////                    ReconstructX1(primTile, iTile, jTile, primEdge, RIGHT);
-//////                    ComputeFluxAndU(fluxR, uR, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 1);
-//////
-//////                    ReconstructX1(primTile, iTile+1, jTile, primEdge, LEFT);
-//////                    ComputeFluxAndU(fluxL, uL, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 1);
-//////
-//////                    RiemannSolver(fluxR, fluxL, uR, uL, fluxX1R);
-//////
-//////
-//////                    // Compute fluxes along X2
-//////                    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j);
-//////                    ReconstructX2(primTile, iTile, jTile-1, primEdge, RIGHT);
-//////                    ComputeFluxAndU(fluxR, uR, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 2);
-//////
-//////                    ReconstructX2(primTile, iTile, jTile, primEdge, LEFT);
-//////                    ComputeFluxAndU(fluxL, uL, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 2);
-//////
-//////                    RiemannSolver(fluxR, fluxL, uR, uL, fluxX2L);
-//////
-//////
-//////                    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j+1);
-//////                    ReconstructX2(primTile, iTile, jTile, primEdge, RIGHT);
-//////                    ComputeFluxAndU(fluxR, uR, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 2);
-//////
-//////                    ReconstructX2(primTile, iTile, jTile+1, primEdge, LEFT);
-//////                    ComputeFluxAndU(fluxL, uL, 
-//////                                    ucon, ucov, bcon, bcov, 
-//////                                    gcon, gcov, mhd, primEdge, 
-//////                                    X1, X2, 2);
-//////
-//////                    RiemannSolver(fluxR, fluxL, uR, uL, fluxX2R);
-////
-////                    for (int var=0; var<DOF; var++) {
-//////                        f[j][i][var] =  dU_dt[var] +
-//////                                        (fluxX1R[var] - fluxX1L[var])/DX1 +
-//////                                        (fluxX2R[var] - fluxX2L[var])/DX2;
-////                        f[j][i][var] = dU_dt[var];
-////                    if (isnan(f[j][i][var])) {
-////                        printf("i = %d, j = %d, iTile = %d, jTile = %d, var=%d, f = %f\n",
-////                                i, j, iTile, jTile, var, f[j][i][var]);
-////                        printf("i = %d, j = %d, iTile = %d, jTile = %d, var=%d, prim= %f\n",
-////                                i, j, iTile, jTile, var, prim[j][i][var]);
-////                    }
-////                    }
-////
-////                }
-////            }
-////        }
-////    }
-//
-//    DMDAVecRestoreArrayDOF(dmda, PrimLocal, &prim);
-//    DMDAVecRestoreArrayDOF(dmda, dPrim_dt, &dprim_dt);
-//    DMDAVecRestoreArrayDOF(dmda, F, &f);
-//                    
-//    DMRestoreLocalVector(dmda, &PrimLocal);
 
     return(0.);
 }
@@ -770,6 +431,13 @@ void InitialCondition(TS ts, Vec Prim)
     Vec localPrim;
     DMGetLocalVector(dmda, &localPrim);
     DMDAVecGetArrayDOF(dmda, localPrim, &prim);
+
+#if(CONDUCTION)
+    for (int j=X2Start-2; j<X2Start+X2Size+2; j++)
+        for (int i=X1Start-2; i<X1Start+X1Size+2; i++) {
+            prim[j][i][FF] = 0.;
+        }
+#endif /* Conduction */
 
 	l =  ( ( (pow(A_SPIN, 2) - 2.*A_SPIN*sqrt(R_MAX) + pow(R_MAX, 2.)) *
 		     ( (-2.*A_SPIN*R_MAX*(pow(A_SPIN, 2.) - 2.*A_SPIN*sqrt(R_MAX) +
@@ -951,13 +619,12 @@ void InitialCondition(TS ts, Vec Prim)
 
         }
 
-
     for (int j=X2Start-2; j<X2Start+X2Size+2; j++) {
         for (int i=X1Start-2; i<X1Start+X1Size+2; i++) {        
             prim[j][i][RHO] = prim[j][i][RHO]/rhoMax;
             prim[j][i][UU] = prim[j][i][UU]/rhoMax;
 
-            AVector[j][i] = 0.;
+            AVector[j+NG][i+NG] = 0.;
         }
     }
 
@@ -978,7 +645,7 @@ void InitialCondition(TS ts, Vec Prim)
             REAL gamma;
             gammaCalc(&gamma, vars, gcov);
 
-            setFloor(vars, gamma, X1, X2);
+            setFloorInit(vars, gamma, X1, X2);
 
             for (int var=0; var<DOF; var++)
                 prim[j][i][var] = vars[var];
@@ -993,7 +660,7 @@ void InitialCondition(TS ts, Vec Prim)
             q = rhoAv - 0.2;
 
             if (q > 0.)
-                AVector[j][i] = q;
+                AVector[j+NG][i+NG] = q;
 
         }
     }
@@ -1012,12 +679,12 @@ void InitialCondition(TS ts, Vec Prim)
             alphaCalc(&alpha, gcon);
             g = sqrt(-gdet);
 
-            prim[j][i][B1] = -(AVector[j][i] - AVector[j+1][i] +
-                               AVector[j][i+1] - AVector[j+1][i+1])/\
+            prim[j][i][B1] = -(AVector[j+NG][i+NG] - AVector[j+NG+1][i+NG] +
+                               AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
                               (2.*DX2*g);
 
-            prim[j][i][B2] = (AVector[j][i] + AVector[j+1][i] -
-                            AVector[j][i+1] - AVector[j+1][i+1])/\
+            prim[j][i][B2] = (AVector[j+NG][i+NG] + AVector[j+1+NG][i+NG] -
+                            AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
                             (2.*DX1*g);
 
             prim[j][i][B3] = 0.;
@@ -1065,7 +732,7 @@ void InitialCondition(TS ts, Vec Prim)
             REAL gamma;
             gammaCalc(&gamma, vars, gcov);
 
-            setFloor(vars, gamma, X1, X2);
+            setFloorInit(vars, gamma, X1, X2);
 
             prim[j][i][RHO] = (vars[RHO]);
             prim[j][i][UU] = (vars[UU]);
@@ -1084,7 +751,6 @@ void InitialCondition(TS ts, Vec Prim)
 
     PetscRandomDestroy(&randNumGen);
 }
-
 
 PetscErrorCode Monitor(TS ts, 
                        PetscInt step,
@@ -1113,7 +779,7 @@ PetscErrorCode Monitor(TS ts,
             REAL gamma;
             gammaCalc(&gamma, vars, gcov);
 
-            setFloor(vars, gamma, X1, X2);
+            setFloorInit(vars, gamma, X1, X2);
 
             for (int var=0; var<DOF; var++)
                 prim[j][i][var] = vars[var];
@@ -1125,38 +791,65 @@ PetscErrorCode Monitor(TS ts,
     REAL dt, dtDump;
     TSGetTimeStep(ts, &dt);
     
-    static PetscInt counter = 1;
+    static PetscInt counter = 0;
     static PetscScalar tDump = 0.;
     dtDump = 1.;
 
+    SNES snes;
+    TSGetSNES(ts, &snes);
+    Vec Res;
+    SNESGetFunction(snes, &Res, NULL, NULL);
+
     if (t > tDump) {
         printf("Dumping data..\n");
-        std::string filename = "plot";
-        filename += std::to_string(counter);
-        filename += ".h5";
+        char filename[50];
+        char errname[50];
+        sprintf(filename, "plot%04d.h5", counter);
+        sprintf(errname, "residual%04d.h5", counter);
 
         PetscViewer viewer;
-        PetscViewerHDF5Open(PETSC_COMM_WORLD, filename.c_str(),
+        PetscViewerHDF5Open(PETSC_COMM_WORLD, filename,
                             FILE_MODE_WRITE, &viewer);
         PetscObjectSetName((PetscObject) Prim, "soln");
         VecView(Prim, viewer);
+        PetscViewerDestroy(&viewer);
+
+        PetscViewerHDF5Open(PETSC_COMM_WORLD, errname,
+                            FILE_MODE_WRITE, &viewer);
+        PetscObjectSetName((PetscObject) Res, "Err");
+        VecView(Res, viewer);
         PetscViewerDestroy(&viewer);
 
         tDump = tDump + dtDump;
         counter++;
     }
 
-
-//    if (t>250) {
-//        dt = 0.01;
-//        TSSetTimeStep(ts, dt);
-//    }
-//    if (dt<0.025) {
-//        dt = 0.025;
-//        TSSetTimeStep(ts, dt);
-//    }
-//    TSSetTimeStep(ts, 0.01);
-
+    REAL time;
+    TSGetTime(ts, &time);
+//    if (time < 1.)
+//        TSSetTimeStep(ts, 0.001);
+//    else
+        TSSetTimeStep(ts, DT);
 
     return(0.);
+}
+
+PetscErrorCode SNESMonitor(SNES snes, PetscInt its, PetscReal norm, void *ptr)
+{
+    if (its==0) {
+        Vec Res;
+        SNESGetFunction(snes, &Res, NULL, NULL);
+
+        char errname[50];
+        sprintf(errname, "SNESresidual.h5");
+
+        PetscViewer viewer;
+        PetscViewerHDF5Open(PETSC_COMM_WORLD, errname,
+                            FILE_MODE_WRITE, &viewer);
+        PetscObjectSetName((PetscObject) Res, "Err");
+        VecView(Res, viewer);
+        PetscViewerDestroy(&viewer);
+    }
+
+    return(0);
 }

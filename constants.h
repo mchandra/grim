@@ -17,20 +17,24 @@
 #define R_IN .98*(1. + sqrt(1. - A_SPIN*A_SPIN))
 #define R_OUT 40.
 #define X1_START log(R_IN - R0)
-#define X2_START 0.1
+#define X2_START 1e-3
 #define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
 #define DX2 ((1.-2.*X2_START)/(REAL)N2)
 //#define DX1 (1./(REAL)N1)
 //#define DX2 (1./(REAL)N2)
-#define DT 1e-5
+#define DT 0.001
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (4./3.)
-#define RHO_MIN (1e-5)
-#define U_MIN (1e-7)
+#define RHO_MIN (1e-4)
+#define U_MIN (1e-5)
 #define RHO_MIN_LIMIT (1e-15)
 #define U_MIN_LIMIT (1e-15)
-#define GAMMA_MAX (50.)
+#define GAMMA_MAX (5.)
+#define TAU_R (1e-5)
+#define PHI (0.01)
+#define CONDUCTION (1)
+#define RESTART (1)
 
 #define EPS (1e-5)
 
@@ -42,7 +46,13 @@
 #define B1 5
 #define B2 6
 #define B3 7
+#if(CONDUCTION)
+#define FF 8
+#define DOF 9
+#else
 #define DOF 8
+#endif
+
 
 // iTile, jTile have ranges [-NG, TILE_SIZE+NG)
 #define INDEX_LOCAL(iTile,jTile,var) (iTile+NG + \
@@ -54,6 +64,8 @@
 
 // i, j have ranges [0, N1), [0, N2)
 #define INDEX_GLOBAL(i,j,var) (var + DOF*((i)+(N1)*(j)))
+
+#define INDEX_GLOBAL_WITH_NG(i,j,var) (var + DOF*((i+NG)+(N1+2*NG)*(j+NG)))
 
 #define i_TO_X1_CENTER(i) (X1_START + (i + 0.5)*DX1)
 #define j_TO_X2_CENTER(j) (X2_START + (j + 0.5)*DX2)
@@ -400,41 +412,128 @@ void bSqrCalc(REAL* bsqr,
             bcon[2]*bcov[2] + bcon[3]*bcov[3];
 }
 
+REAL SlopeLim(REAL y1, REAL y2, REAL y3)
+{
+    REAL Dqm = 2. * (y2 - y1);
+	REAL Dqp = 2. * (y3 - y2);
+	REAL Dqc = 0.5 * (y3 - y1);
+	REAL s = Dqm * Dqp;
+	if (s <= 0.) {
+		return 0.;
+    }
+	else {
+		if (fabs(Dqm) < fabs(Dqp) && fabs(Dqm) < fabs(Dqc))
+			return (Dqm);
+		else if (fabs(Dqp) < fabs(Dqc))
+			return (Dqp);
+		else
+			return (Dqc);
+	}
+
+
+//	REAL Dqm = (y2 - y1);
+//	REAL Dqp = (y3 - y2);
+//	REAL s = Dqm * Dqp;
+//	if (s <= 0.)
+//	    return 0.;
+//	else if (fabs(Dqm) < fabs(Dqp))
+//		return Dqm;
+//	else
+//		return Dqp;
+        
+
+//	REAL Dqm = (y2 - y1);
+//	REAL Dqp = (y3 - y2);
+//	REAL s = Dqm * Dqp;
+//	if (s <= 0.)
+//	    return 0.;
+//	else
+//	    return (2. * s / (Dqm + Dqp));
+}
+
+#ifdef OPENCL
 void mhdCalc(REAL mhd[NDIM][NDIM],
              const REAL var[DOF],
              const REAL ucon[NDIM],
              const REAL ucov[NDIM],
              const REAL bcon[NDIM],
-             const REAL bcov[NDIM])
+             const REAL bcov[NDIM],
+             const REAL dvars_dt[DOF],
+             REAL const __local *primTile)
 {
     REAL P = (ADIABATIC_INDEX - 1.)*var[UU];
     REAL bsqr;
     bSqrCalc(&bsqr, bcon, bcov);
     
+    int iTile = get_local_id(0);
+    int jTile = get_local_id(1);
+
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
+
+    REAL dT_dt, dT_dX1, dT_dX2, bDotGradT, F0, cs;
+
+    dT_dt = (dvars_dt[UU]/primTile[INDEX_LOCAL(iTile, jTile, RHO)]) -
+            (primTile[INDEX_LOCAL(iTile, jTile, UU)]*dvars_dt[RHO]
+            /pow(primTile[INDEX_LOCAL(iTile, jTile, RHO)], 2.));
+
+    dT_dX1 = SlopeLim(primTile[INDEX_LOCAL(iTile-1, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile-1, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile+1, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile+1, jTile, RHO)] )/DX1;
+
+    dT_dX2 = SlopeLim(primTile[INDEX_LOCAL(iTile, jTile-1, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile-1, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile+1, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile+1, RHO)] )/DX2;
+
+    bDotGradT = (bcon[0]*dT_dt) + (bcon[1]*dT_dX1) + (bcon[2]*dT_dX2);
+
+    cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
+              primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+              (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+               primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
+    
+    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs, 3.);
 
     for (int mu=0; mu<NDIM; mu++)
         for (int nu=0; nu<NDIM; nu++) {
+#if(CONDUCTION)
+            mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
+                          (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu] +
+                          (var[FF]*bcon[mu])*ucov[nu] + ucon[mu]*(var[FF]*bcov[nu]);
+#else
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu];
+#endif /* Conduction */
         }
 
 #undef DELTA
 }
+#endif /* OPENCL */
 
+#ifdef OPENCL
 void addSources(REAL dU_dt[DOF],
-                const REAL ucon[NDIM],
-                const REAL ucov[NDIM],
-                const REAL bcon[NDIM],
-                const REAL bcov[NDIM],
-                const REAL gcon[NDIM][NDIM],
-                const REAL gcov[NDIM][NDIM],
-                const REAL mhd[NDIM][NDIM],
-                const REAL var[DOF],
-                const REAL g,
-                const REAL X1, const REAL X2)
+                REAL ucon[NDIM],
+                REAL ucov[NDIM],
+                REAL bcon[NDIM],
+                REAL bcov[NDIM],
+                REAL gcon[NDIM][NDIM],
+                REAL gcov[NDIM][NDIM],
+                REAL mhd[NDIM][NDIM],
+                REAL primVars[DOF],
+                REAL g, REAL gdet, REAL alpha,
+                REAL X1, REAL X2,
+                REAL const __local *primTile,
+                REAL dvars_dt[DOF],
+                const int i, const int j,
+                const int iTile, const int jTile)
+
 {
-    
     REAL gcovh[NDIM][NDIM], gcovl[NDIM][NDIM];
     REAL conntmp[NDIM][NDIM][NDIM], conn[NDIM][NDIM][NDIM];
     REAL Xl[NDIM], Xh[NDIM];
@@ -478,7 +577,115 @@ void addSources(REAL dU_dt[DOF],
             dU_dt[U3] = dU_dt[U3] - g*(mhd[j][k]*conn[k][3][j]);
 
         }
+
+#if(CONDUCTION)
+    REAL left, center, right;
+    REAL ducon, dT_dt, dT_dX1, dT_dX2, cs, F0, gamma, bDotGradT;
+
+    center = g*ucon[1];
+
+    X1 = i_TO_X1_CENTER(i+1); X2 = j_TO_X2_CENTER(j);
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+
+    for (int var=0; var<DOF; var++) {
+        primVars[var] = primTile[INDEX_LOCAL(iTile+1, jTile, var)];
+    }
+
+    gammaCalc(&gamma, primVars, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+    right = sqrt(-gdet)*ucon[1];
+
+    X1 = i_TO_X1_CENTER(i-1); X2 = j_TO_X2_CENTER(j);
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+
+    for (int var=0; var<DOF; var++) {
+        primVars[var] = primTile[INDEX_LOCAL(iTile-1, jTile, var)];
+    }
+
+    gammaCalc(&gamma, primVars, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+    left = sqrt(-gdet)*ucon[1];
+
+    ducon = SlopeLim(left, center, right);
+
+    dU_dt[FF] += -primTile[INDEX_LOCAL(iTile, jTile, FF)]*ducon/DX1;
+
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j+1);
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+
+    for (int var=0; var<DOF; var++) {
+        primVars[var] = primTile[INDEX_LOCAL(iTile, jTile+1, var)];
+    }
+
+    gammaCalc(&gamma, primVars, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+    right = sqrt(-gdet)*ucon[1];
+
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j-1);
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+
+    for (int var=0; var<DOF; var++) {
+        primVars[var] = primTile[INDEX_LOCAL(iTile, jTile-1, var)];
+    }
+
+    gammaCalc(&gamma, primVars, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+    left = sqrt(-gdet)*ucon[1];
+
+    ducon = SlopeLim(left, center, right);
+
+    dU_dt[FF] += -primTile[INDEX_LOCAL(iTile, jTile, FF)]*ducon/DX2;
+
+
+    dT_dt = (dvars_dt[UU]/primTile[INDEX_LOCAL(iTile, jTile, RHO)]) -
+            (primTile[INDEX_LOCAL(iTile, jTile, UU)]*dvars_dt[RHO]
+            /pow(primTile[INDEX_LOCAL(iTile, jTile, RHO)], 2.));
+
+    dT_dX1 = SlopeLim(primTile[INDEX_LOCAL(iTile-1, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile-1, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile+1, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile+1, jTile, RHO)] )/DX1;
+
+    dT_dX2 = SlopeLim(primTile[INDEX_LOCAL(iTile, jTile-1, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile-1, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
+                      primTile[INDEX_LOCAL(iTile, jTile+1, UU)]/
+                      primTile[INDEX_LOCAL(iTile, jTile+1, RHO)] )/DX2;
+
+    bDotGradT = (bcon[0]*dT_dt) + (bcon[1]*dT_dX1) + (bcon[2]*dT_dX2);
+
+    cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
+              primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+              (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+               primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
+    
+    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs, 3.)*tanh(-bDotGradT/1e-2);
+
+    dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/TAU_R;
+#endif /* Conduction */
+
 }
+#endif /*OPENCL code*/
 
 void ComputeFluxAndU(REAL flux[DOF],
                      REAL U[DOF],
@@ -514,7 +721,11 @@ void ComputeFluxAndU(REAL flux[DOF],
     U[B1] = g*(bcon[1]*ucon[0] - bcon[0]*ucon[1]);
     U[B2] = g*(bcon[2]*ucon[0] - bcon[0]*ucon[2]);
     U[B3] = g*(bcon[3]*ucon[0] - bcon[0]*ucon[3]);
-
+    
+#if(CONDUCTION)
+    flux[FF] = g*(ucon[dir]*var[FF]);
+    U[FF] = g*(ucon[0]*var[FF]);
+#endif /* Conduction */
 }
 
 void ComputedU_dt(REAL dU_dt[DOF],
@@ -574,6 +785,13 @@ void ComputedU_dt(REAL dU_dt[DOF],
     dU_dt[B1] = g*dvar_dt[B1];
     dU_dt[B2] = g*dvar_dt[B2];
     dU_dt[B3] = g*dvar_dt[B3];
+
+#if(CONDUCTION)
+    dU_dt[FF] = g*(dvar_dt[FF]*ucon[0] + ducon_dt[0]*var[FF]);
+
+    dU_dt[FF] -= g*var[FF]*ducon_dt[0];
+#endif /* Conduction */
+
 
 }
                   
@@ -635,6 +853,34 @@ void setFloor(REAL var[DOF],
     REAL r, theta;
     BLCoords(&r, &theta, X1, X2);
 
+    REAL rhoFloor = RHO_MIN_LIMIT;
+
+    REAL uFloor = U_MIN_LIMIT;
+    
+    if (var[RHO] < rhoFloor)
+        var[RHO] = rhoFloor;
+
+    if (var[UU] < uFloor)
+        var[UU] = uFloor;
+
+//    if (gamma > GAMMA_MAX) {
+//        REAL f = sqrt((GAMMA_MAX*GAMMA_MAX - 1.) /
+//				      (gamma * gamma - 1.));
+//
+//        var[U1] = f*var[U1];
+//        var[U2] = f*var[U2];
+//        var[U3] = f*var[U3];
+//
+//    }
+}
+
+void setFloorInit(REAL var[DOF], 
+              const REAL gamma,
+              REAL X1, REAL X2)
+{
+    REAL r, theta;
+    BLCoords(&r, &theta, X1, X2);
+
     REAL rhoFloor = RHO_MIN*pow(r, -1.5);
     REAL uFloor = U_MIN*pow(r, -2.5);
 
@@ -660,363 +906,3 @@ void setFloor(REAL var[DOF],
 
     }
 }
-
-//#define LEFT -1
-//#define RIGHT 1
-//
-//REAL SlopeLim(REAL y1, REAL y2, REAL y3)
-//{
-//    REAL Dqm = 2. * (y2 - y1);
-//	REAL Dqp = 2. * (y3 - y2);
-//	REAL Dqc = 0.5 * (y3 - y1);
-//	REAL s = Dqm * Dqp;
-//	if (s <= 0.) {
-//		return 0.;
-//    }
-//	else {
-//		if (fabs(Dqm) < fabs(Dqp) && fabs(Dqm) < fabs(Dqc))
-//			return (Dqm);
-//		else if (fabs(Dqp) < fabs(Dqc))
-//			return (Dqp);
-//		else
-//			return (Dqc);
-//	}
-//
-//}
-//
-//void ReconstructX1(const REAL* primTile, 
-//                   const int iTile, const int jTile,
-//                   REAL primEdge[DOF],
-//                   const int dir)
-//{
-//    REAL left, mid, right, slope;
-//    for (int var=0; var<DOF; var++) {
-//        left = primTile[INDEX_LOCAL(iTile-1, jTile, var)];
-//        mid = primTile[INDEX_LOCAL(iTile, jTile, var)];
-//        right = primTile[INDEX_LOCAL(iTile+1, jTile, var)];
-//        
-//        slope = SlopeLim(left, mid, right);
-//
-//        primEdge[var] = mid + dir*0.5*slope;
-//    }
-//}
-//
-//void ReconstructX2(const REAL* primTile, 
-//                   const int iTile, const int jTile,
-//                   REAL primEdge[DOF],
-//                   const int dir)
-//{
-//    REAL left, mid, right, slope;
-//    for (int var=0; var<DOF; var++) {
-//        left = primTile[INDEX_LOCAL(iTile, jTile-1, var)];
-//        mid = primTile[INDEX_LOCAL(iTile, jTile, var)];
-//        right = primTile[INDEX_LOCAL(iTile, jTile+1, var)];
-//        
-//        slope = SlopeLim(left, mid, right);
-//
-//        primEdge[var] = mid + dir*0.5*slope;
-//    }
-//
-//}
-//
-//void RiemannSolver(const REAL fluxL[DOF],
-//                   const REAL fluxR[DOF],
-//                   const REAL uL[DOF],
-//                   const REAL uR[DOF],
-//                   REAL flux[DOF])
-//{
-//    for (int var=0; var<DOF; var++) {
-//        flux[var] = 0.5*(fluxL[var] + fluxR[var] +
-//                         (uL[var] - uR[var]));
-//    }
-//}
-////Boyer Linquist coordinates
-//#define R_BL(X1,X2) (exp(X1) + R0)
-//#define THETA_BL(X1,X2) (M_PI*(X2) + ((1 - H_SLOPE)/2.)*sin(2.*M_PI*(X2)))
-//
-////Kerr Schild metric
-////Parameters in the Kerr Schild metric
-//#define RHO_SQR(X1,X2) \
-//    (R_BL(X1,X2)*R_BL(X1,X2) + \
-//     A_SPIN*A_SPIN*cos(THETA_BL(X1,X2))*cos(THETA_BL(X1,X2)))
-//
-//#define R_FACTOR(X1,X2) (R_BL(X1,X2) - R0)
-//#define H_FACTOR(X1,X2) (M_PI + (1. - H_SLOPE)*M_PI*cos(2.*M_PI*(X2)))
-//
-//#define GCOV00(X1,X2) (-1. + 2.*R_BL(X1,X2)/RHO_SQR(X1,X2))
-//#define GCOV01(X1,X2) ((2.*R_BL(X1,X2)/RHO_SQR(X1,X2))*R_FACTOR(X1,X2))
-//#define GCOV02(X1,X2) (0.)
-//#define GCOV03(X1,X2) \
-//    (-2.*A_SPIN*R_BL(X1,X2)*sin(THETA_BL(X1,X2))*sin(THETA_BL(X1,X2))\
-//     /RHO_SQR(X1,X2) )
-//
-//#define GCOV10(X1,X2) (GCOV01(X1,X2))
-//#define GCOV11(X1,X2) \
-//    ( (1. + 2.*R_BL(X1,X2)/RHO_SQR(X1,X2))*R_FACTOR(X1,X2)*R_FACTOR(X1,X2) )
-//
-//#define GCOV12(X1,X2) (0.)
-//#define GCOV13(X1,X2) \
-//    (-A_SPIN*sin(THETA_BL(X1,X2))*sin(THETA_BL(X1,X2))* \
-//     (1.+2.*R_BL(X1,X2)/RHO_SQR(X1,X2))*R_FACTOR(X1,X2))
-//
-//#define GCOV20(X1,X2) (GCOV02(X1,X2))
-//#define GCOV21(X1,X2) (GCOV12(X1,X2))
-//#define GCOV22(X1,X2) (RHO_SQR(X1,X2)*H_FACTOR(X1,X2)*H_FACTOR(X1,X2))
-//#define GCOV23(X1,X2) (0.)
-//#define GCOV30(X1,X2) (GCOV03(X1,X2))
-//#define GCOV31(X1,X2) (GCOV13(X1,X2))
-//#define GCOV32(X1,X2) (GCOV23(X1,X2))
-//#define GCOV33(X1,X2) \
-//    (sin(THETA_BL(X1,X2))*sin(THETA_BL(X1,X2))*(RHO_SQR(X1,X2) + \
-//     A_SPIN*A_SPIN*sin(THETA_BL(X1,X2))*sin(THETA_BL(X1,X2))*\
-//     (1. + 2.*R_BL(X1,X2)/RHO_SQR(X1,X2)) ) )
-//
-//
-//#define GCOV00(X1,X2) (-1.)
-//#define GCOV01(X1,X2) (0.)
-//#define GCOV02(X1,X2) (0.)
-//#define GCOV03(X1,X2) (0.)
-//
-//#define GCOV10(X1,X2) (0.)
-//#define GCOV11(X1,X2) (1.)
-//#define GCOV12(X1,X2) (0.)
-//#define GCOV13(X1,X2) (0.)
-//
-//#define GCOV20(X1,X2) (0.)
-//#define GCOV21(X1,X2) (0.)
-//#define GCOV22(X1,X2) (1.)
-//#define GCOV23(X1,X2) (0.)
-//
-//#define GCOV30(X1,X2) (0.)
-//#define GCOV31(X1,X2) (0.)
-//#define GCOV32(X1,X2) (0.)
-//#define GCOV33(X1,X2) (1.)
-
-//#define GDET(X1,X2) \
-//    (GCOV00(X1,X2)*GCOV11(X1,X2)*GCOV22(X1,X2)*GCOV33(X1,X2) + \
-//     GCOV00(X1,X2)*GCOV12(X1,X2)*GCOV23(X1,X2)*GCOV31(X1,X2) + \
-//     GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV21(X1,X2)*GCOV32(X1,X2) + \
-//     GCOV01(X1,X2)*GCOV10(X1,X2)*GCOV23(X1,X2)*GCOV32(X1,X2) + \
-//     GCOV01(X1,X2)*GCOV12(X1,X2)*GCOV20(X1,X2)*GCOV33(X1,X2) + \
-//     GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV22(X1,X2)*GCOV30(X1,X2) + \
-//     GCOV02(X1,X2)*GCOV10(X1,X2)*GCOV21(X1,X2)*GCOV33(X1,X2) + \
-//     GCOV02(X1,X2)*GCOV11(X1,X2)*GCOV23(X1,X2)*GCOV30(X1,X2) + \
-//     GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV20(X1,X2)*GCOV31(X1,X2) + \
-//     GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV22(X1,X2)*GCOV31(X1,X2) + \
-//     GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV20(X1,X2)*GCOV32(X1,X2) + \
-//     GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV21(X1,X2)*GCOV30(X1,X2) - \
-//     GCOV00(X1,X2)*GCOV11(X1,X2)*GCOV23(X1,X2)*GCOV32(X1,X2) - \
-//     GCOV00(X1,X2)*GCOV12(X1,X2)*GCOV21(X1,X2)*GCOV33(X1,X2) - \
-//     GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV22(X1,X2)*GCOV31(X1,X2) - \
-//     GCOV01(X1,X2)*GCOV10(X1,X2)*GCOV22(X1,X2)*GCOV33(X1,X2) - \
-//     GCOV01(X1,X2)*GCOV12(X1,X2)*GCOV23(X1,X2)*GCOV30(X1,X2) - \
-//     GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV20(X1,X2)*GCOV32(X1,X2) - \
-//     GCOV02(X1,X2)*GCOV10(X1,X2)*GCOV23(X1,X2)*GCOV31(X1,X2) - \
-//     GCOV02(X1,X2)*GCOV11(X1,X2)*GCOV20(X1,X2)*GCOV33(X1,X2) - \
-//     GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV21(X1,X2)*GCOV30(X1,X2) - \
-//     GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV21(X1,X2)*GCOV32(X1,X2) - \
-//     GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV22(X1,X2)*GCOV30(X1,X2) - \
-//     GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV20(X1,X2)*GCOV31(X1,X2))
-//
-//#define GCON00(X1,X2,gDet) \
-//    ((GCOV11(X1,X2)*GCOV22(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV12(X1,X2)*GCOV23(X1,X2)*GCOV31(X1,X2) + \
-//      GCOV13(X1,X2)*GCOV21(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV11(X1,X2)*GCOV23(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV12(X1,X2)*GCOV21(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV13(X1,X2)*GCOV22(X1,X2)*GCOV31(X1,X2))/gDet) 
-//
-//#define GCON01(X1,X2,gDet) \
-//    ((GCOV01(X1,X2)*GCOV23(X1,X2)*GCOV32(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV21(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV22(X1,X2)*GCOV31(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV22(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV23(X1,X2)*GCOV31(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV21(X1,X2)*GCOV32(X1,X2))/gDet) 
-//
-//#define GCON02(X1,X2,gDet) \
-//    ((GCOV01(X1,X2)*GCOV12(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV31(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV11(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV31(X1,X2))/gDet) 
-//
-//#define GCON03(X1,X2,gDet) \
-//    ((GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV22(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV11(X1,X2)*GCOV23(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV21(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV12(X1,X2)*GCOV23(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV21(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV22(X1,X2))/gDet) 
-//
-//#define GCON10(X1,X2,gDet) (GCON01(X1,X2,gDet))
-//    
-//#define GCON11(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV22(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV23(X1,X2)*GCOV30(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV20(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV23(X1,X2)*GCOV32(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV20(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV22(X1,X2)*GCOV30(X1,X2))/gDet) 
-//
-//#define GCON12(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV32(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV10(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV30(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV12(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV30(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV32(X1,X2))/gDet) 
-//
-//#define GCON13(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV12(X1,X2)*GCOV23(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV13(X1,X2)*GCOV20(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV22(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV22(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV10(X1,X2)*GCOV23(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV12(X1,X2)*GCOV20(X1,X2))/gDet) 
-//
-//#define GCON20(X1,X2,gDet) (GCON02(X1,X2,gDet))
-//#define GCON21(X1,X2,gDet) (GCON12(X1,X2,gDet))
-//
-//#define GCON22(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV11(X1,X2)*GCOV33(X1,X2) + \
-//      GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV30(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV31(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV31(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV10(X1,X2)*GCOV33(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV30(X1,X2))/gDet)
-//
-//#define GCON23(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV13(X1,X2)*GCOV21(X1,X2) + \
-//      GCOV01(X1,X2)*GCOV10(X1,X2)*GCOV23(X1,X2) + \
-//      GCOV03(X1,X2)*GCOV11(X1,X2)*GCOV20(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV11(X1,X2)*GCOV23(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV13(X1,X2)*GCOV20(X1,X2) - \
-//      GCOV03(X1,X2)*GCOV10(X1,X2)*GCOV21(X1,X2))/gDet)
-//
-//#define GCON30(X1,X2,gDet) (GCON03(X1,X2,gDet))
-//#define GCON31(X1,X2,gDet) (GCON13(X1,X2,gDet))
-//#define GCON32(X1,X2,gDet) (GCON23(X1,X2,gDet))
-//
-//#define GCON33(X1,X2,gDet) \
-//    ((GCOV00(X1,X2)*GCOV11(X1,X2)*GCOV22(X1,X2) + \
-//      GCOV01(X1,X2)*GCOV12(X1,X2)*GCOV20(X1,X2) + \
-//      GCOV02(X1,X2)*GCOV10(X1,X2)*GCOV21(X1,X2) - \
-//      GCOV00(X1,X2)*GCOV12(X1,X2)*GCOV21(X1,X2) - \
-//      GCOV01(X1,X2)*GCOV10(X1,X2)*GCOV22(X1,X2) - \
-//      GCOV02(X1,X2)*GCOV11(X1,X2)*GCOV20(X1,X2))/gDet)
-//
-//#define ALPHA (1./sqrt(-GCON00(X1,X2,gDet)))
-//
-//#define GAMMA (sqrt(1 + GCOV11(X1,X2)*var[U1]*var[U1] + \
-//                        GCOV22(X1,X2)*var[U2]*var[U2] + \
-//                        GCOV33(X1,X2)*var[U3]*var[U3] + \
-//                     2*(GCOV12(X1,X2)*var[U1]*var[U2] + \
-//                        GCOV13(X1,X2)*var[U1]*var[U3] + \
-//                        GCOV23(X1,X2)*var[U2]*var[U3])) )
-//
-//#define DGAMMA_DT ( ((GCOV11(X1,X2)*var[U1]*dvar_dt[U1] + \
-//                      GCOV22(X1,X2)*var[U2]*dvar_dt[U2] + \
-//                      GCOV33(X1,X2)*var[U3]*dvar_dt[U3]) + \
-//                     (GCOV12(X1,X2)*dvar_dt[U1]*var[U2] + \
-//                      GCOV12(X1,X2)*var[U1]*dvar_dt[U2] + \
-//                      GCOV13(X1,X2)*dvar_dt[U1]*var[U3] + \
-//                      GCOV13(X1,X2)*var[U1]*dvar_dt[U3] + \
-//                      GCOV23(X1,X2)*dvar_dt[U2]*var[U3] + \
-//                      GCOV23(X1,X2)*var[U2]*dvar_dt[U3]))/GAMMA)
-//
-//#define UCON0 (gamma/alpha)
-//#define UCON1 (var[U1] - gamma*GCON01(X1,X2,gDet)*alpha)
-//#define UCON2 (var[U2] - gamma*GCON02(X1,X2,gDet)*alpha)
-//#define UCON3 (var[U3] - gamma*GCON03(X1,X2,gDet)*alpha)
-//
-//#define DUCON0_DT (dgamma_dt/alpha)
-//#define DUCON1_DT (dvar_dt[U1] - dgamma_dt*GCON01(X1,X2)*alpha)
-//#define DUCON2_DT (dvar_dt[U2] - dgamma_dt*GCON02(X1,X2)*alpha)
-//#define DUCON3_DT (dvar_dt[U3] - dgamma_dt*GCON03(X1,X2)*alpha)
-//
-//#define UCOV0 (GCOV00(X1,X2)*UCON0 + GCOV01(X1,X2)*UCON1 + \
-//               GCOV02(X1,X2)*UCON2 + GCOV03(X1,X2)*UCON3 )
-//#define UCOV1 (GCOV10(X1,X2)*UCON0 + GCOV11(X1,X2)*UCON1 + \
-//               GCOV12(X1,X2)*UCON2 + GCOV13(X1,X2)*UCON3 )
-//#define UCOV2 (GCOV20(X1,X2)*UCON0 + GCOV21(X1,X2)*UCON1 + \
-//               GCOV22(X1,X2)*UCON2 + GCOV23(X1,X2)*UCON3 )
-//#define UCOV3 (GCOV30(X1,X2)*UCON0 + GCOV31(X1,X2)*UCON1 + \
-//               GCOV32(X1,X2)*UCON2 + GCOV33(X1,X2)*UCON3 )
-//
-//#define DUCOV0_DT (GCOV00(X1,X2)*DUCON0_DT + GCOV01(X1,X2)*DUCON1_DT + \
-//                   GCOV02(X1,X2)*DUCON2_DT + GCOV03(X1,X2)*DUCON3_DT )
-//#define DUCOV1_DT (GCOV10(X1,X2)*DUCON0_DT + GCOV11(X1,X2)*DUCON1_DT + \
-//                   GCOV12(X1,X2)*DUCON2_DT + GCOV13(X1,X2)*DUCON3_DT )
-//#define DUCOV2_DT (GCOV20(X1,X2)*DUCON0_DT + GCOV21(X1,X2)*DUCON1_DT + \
-//                   GCOV22(X1,X2)*DUCON2_DT + GCOV23(X1,X2)*DUCON3_DT )
-//#define DUCOV3_DT (GCOV30(X1,X2)*DUCON0_DT + GCOV31(X1,X2)*DUCON1_DT + \
-//                   GCOV32(X1,X2)*DUCON2_DT + GCOV33(X1,X2)*DUCON3_DT )
-//
-//#define BCON0 (var[B1]*UCOV1+ var[B2]*UCOV2+ var[B3]*UCOV3)
-//
-//#define BCON1 ((var[B1] + BCON0*UCON1)/UCON0)
-//#define BCON2 ((var[B2] + BCON0*UCON2)/UCON0)
-//#define BCON3 ((var[B3] + BCON0*UCON3)/UCON0)
-//
-//#define DBCON0_DT (dvar_dt[B1]*UCOV1 + dvar_dt[B2]*UCOV2 + dvar_dt[B3]*UCOV3 +\
-//                   var[B1]*DUCOV1_DT + var[B2]*DUCOV2_DT + var[B3]*DUCOV3_DT)
-//
-//#define DBCON1_DT (-(var[B1] + BCON0*UCON1)*DUCON0_DT/(UCON0*UCON0) + \
-//                   (dvar_dt[B1] + BCON0*DUCON1_DT + DBCON0_DT*UCON1)/UCON0)
-//
-//#define DBCON2_DT (-(var[B2] + BCON0*UCON2)*DUCON0_DT/(UCON0*UCON0) + \
-//                   (dvar_dt[B2] + BCON0*DUCON2_DT + DBCON0_DT*UCON2)/UCON0)
-//
-//#define DBCON3_DT (-(var[B3] + BCON0*UCON3)*DUCON0_DT/(UCON0*UCON0) + \
-//                   (dvar_dt[B3] + BCON0*DUCON3_DT + DBCON0_DT*UCON3)/UCON0)
-//
-//#define BCOV0 (GCOV00(X1,X2)*BCON0 + GCOV01(X1,X2)*BCON1 + \
-//               GCOV02(X1,X2)*BCON2 + GCOV03(X1,X2)*BCON3 )
-//#define BCOV1 (GCOV10(X1,X2)*BCON0 + GCOV11(X1,X2)*BCON1 + \
-//               GCOV12(X1,X2)*BCON2 + GCOV13(X1,X2)*BCON3 )
-//#define BCOV2 (GCOV20(X1,X2)*BCON0 + GCOV21(X1,X2)*BCON1 + \
-//               GCOV22(X1,X2)*BCON2 + GCOV23(X1,X2)*BCON3 )
-//#define BCOV3 (GCOV30(X1,X2)*BCON0 + GCOV31(X1,X2)*BCON1 + \
-//               GCOV32(X1,X2)*BCON2 + GCOV33(X1,X2)*BCON3 )
-//
-//#define DBCOV0_DT (GCOV00(X1,X2)*DBCON0_DT + GCOV01(X1,X2)*DBCON1_DT + \
-//                   GCOV02(X1,X2)*DBCON2_DT + GCOV03(X1,X2)*DBCON3_DT )
-//#define DBCOV1_DT (GCOV10(X1,X2)*DBCON0_DT + GCOV11(X1,X2)*DBCON1_DT + \
-//                   GCOV12(X1,X2)*DBCON2_DT + GCOV13(X1,X2)*DBCON3_DT )
-//#define DBCOV2_DT (GCOV20(X1,X2)*DBCON0_DT + GCOV21(X1,X2)*DBCON1_DT + \
-//                   GCOV22(X1,X2)*DBCON2_DT + GCOV23(X1,X2)*DBCON3_DT )
-//#define DBCOV3_DT (GCOV30(X1,X2)*DBCON0_DT + GCOV31(X1,X2)*DBCON1_DT + \
-//                   GCOV32(X1,X2)*DBCON2_DT + GCOV33(X1,X2)*DBCON3_DT )
-//
-//#define BSQR (BCON0*BCOV0 + BCON1*BCOV1 + \
-//              BCON2*BCOV2 + BCON3*BCOV3 )
-//
-//#define DBSQR_DT (BCON0*DBCOV0_DT + DBCON0_DT*BCOV0 + \
-//                  BCON1*DBCOV1_DT + DBCON1_DT*BCOV1 + \
-//                  BCON2*DBCOV2_DT + DBCON2_DT*BCOV2 + \
-//                  BCON3*DBCOV3_DT + DBCON3_DT*BCOV3 )
-//
-//#define P ((ADIABATIC_INDEX - 1.)*var[UU])
-//#define DP_DT ((ADIABATIC_INDEX - 1.)*dvar_dt[UU])
-//
-//#define MHD0_0 (tmp1*UCON0*UCOV0 + tmp2 - BCON0*BCOV0)
-//#define MHD0_1 (tmp1*UCON0*UCOV1 - BCON0*BCOV1)
-//#define MHD0_2 (tmp1*UCON0*UCOV2 - BCON0*BCOV2)
-//#define MHD0_3 (tmp1*UCON0*UCOV3 - BCON0*BCOV3)
-//
-//#define MHD1_0 (tmp1*UCON1*UCOV0 - BCON1*BCOV0)
-//#define MHD1_1 (tmp1*UCON1*UCOV1 + tmp2 - BCON1*BCOV1)
-//#define MHD1_2 (tmp1*UCON1*UCOV2 - BCON1*BCOV2)
-//#define MHD1_3 (tmp1*UCON1*UCOV3 - BCON1*BCOV3)
-//
-//#define MHD2_0 (tmp1*UCON2*UCOV0 - BCON2*BCOV0)
-//#define MHD2_1 (tmp1*UCON2*UCOV1 - BCON2*BCOV1)
-//#define MHD2_2 (tmp1*UCON2*UCOV2 + tmp2 - BCON2*BCOV2)
-//#define MHD2_3 (tmp1*UCON2*UCOV3 - BCON2*BCOV3)
-// 
-//#define MHD3_0 (tmp1*UCON3*UCOV0 - BCON3*BCOV0)
-//#define MHD3_1 (tmp1*UCON3*UCOV1 - BCON3*BCOV1)
-//#define MHD3_2 (tmp1*UCON3*UCOV2 - BCON3*BCOV2)
-//#define MHD3_3 (tmp1*UCON3*UCOV3 + tmp2 - BCON3*BCOV3)

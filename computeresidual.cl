@@ -5,10 +5,16 @@
 
 __kernel void ComputeResidual(__global const REAL* restrict prim, 
                               __global const REAL* restrict dprim_dt,
-                              __global REAL* restrict F)
+                              __global REAL* restrict F,
+                              __global REAL* restrict fluxX1,
+                              __global REAL* restrict fluxX2)
 {
+//    int i = get_global_id(0) - NG;
+//    int j = get_global_id(1) - NG;
+
     int i = get_global_id(0);
     int j = get_global_id(1);
+
     int iTile = get_local_id(0);
     int jTile = get_local_id(1);
     
@@ -34,87 +40,171 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     __local REAL primTile[(TILE_SIZE_X1+2*NG)*(TILE_SIZE_X2+2*NG)*DOF];
 
-    for (int var=0; var<DOF; var++) {
-        primTile[INDEX_LOCAL(iTile,jTile,var)] = prim[INDEX_GLOBAL(i,j,var)];
+    if (i>=0 && i<N1 && j>=0 && j<N2) {
+        for (int var=0; var<DOF; var++) {
+            primTile[INDEX_LOCAL(iTile,jTile,var)] =
+            prim[INDEX_GLOBAL(i,j,var)];
+        }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-//    primEdge[RHO] = exp(primTile[INDEX_LOCAL(iTile,jTile,RHO)]);
-//    dvars_dt[RHO] = primEdge[RHO]*dprim_dt[INDEX_GLOBAL(i,j,RHO)];
-//
-//    primEdge[UU] = exp(primTile[INDEX_LOCAL(iTile,jTile,UU)]);
-//    dvars_dt[UU] = primEdge[UU]*dprim_dt[INDEX_GLOBAL(i,j,UU)];
-//
-//    if (i==10 && j==30)
-//    printf("i = %d, j = %d, primEdge[RHO] = %.15f\n", i, j, primEdge[RHO]);
+    if (i>=0 && i<N1 && j>=0 && j<N2) {
+        for (int var=0; var<DOF; var++) {
+            primEdge[var] = primTile[INDEX_LOCAL(iTile,jTile,var)];
+            dvars_dt[var] = dprim_dt[INDEX_GLOBAL(i,j,var)];
+        }
 
-    for (int var=0; var<DOF; var++) {
-        primEdge[var] = primTile[INDEX_LOCAL(iTile,jTile,var)];
-        dvars_dt[var] = dprim_dt[INDEX_GLOBAL(i,j,var)];
-    }
+        X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
+        gCovCalc(gcov, X1, X2);
+        gDetCalc(&gdet, gcov);
+        gConCalc(gcon, gcov, gdet);
+        g = sqrt(-gdet);
     
+        gammaCalc(&gamma, primEdge, gcov);
+        setFloor(primEdge, gamma, X1, X2);
+        gammaCalc(&gamma, primEdge, gcov);
+        alphaCalc(&alpha, gcon);
+        uconCalc(ucon, gamma, alpha, primEdge, gcon);
+        covFromCon(ucov, ucon, gcov);
+        bconCalc(bcon, primEdge, ucon, ucov);
+        covFromCon(bcov, bcon, gcov);
+    
+        mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
+    
+        dgammaCalc_dt(&dgamma_dt, gamma, primEdge, dvars_dt, gcov);
+        duconCalc_dt(ducon_dt, dgamma_dt, alpha, dvars_dt, gcon);
+        covFromCon(ducov_dt, ducon_dt, gcov);
+    
+        dbconCalc_dt(dbcon_dt, ucon, ducon_dt, ucov, ducov_dt, bcon, 
+                     primEdge, dvars_dt);
+        covFromCon(dbcov_dt, dbcon_dt, gcov);
+    
+        ComputedU_dt(dU_dt,
+                     ucon, ducon_dt, ucov, ducov_dt,
+                     bcon, dbcon_dt, bcov, dbcov_dt,
+                     gcon, gcov, primEdge, dvars_dt,
+                     gamma, dgamma_dt, alpha, g);
+    }
 
-    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
-    gCovCalc(gcov, X1, X2);
-    gDetCalc(&gdet, gcov);
-    gConCalc(gcon, gcov, gdet);
-    g = sqrt(-gdet);
+    
+//    for (int var=0; var<DOF; var++) {
+//        if (iTile==0) {
+//            
+//            if (i<0 && j>=0 && j<N2) {
+//                /* i=0 cooresponds to iTile=NG */
+//    
+//                for (int iNg=-NG; iNg<NG; iNg++) {
+//                    primTile[INDEX_LOCAL(iNg, jTile, var)] = 
+//                    primTile[INDEX_LOCAL(NG, jTile, var)];
+//                }
+//            }
+//            else if (i>=0 && i<N1 && j>=0 && j<N2){
+//                for (int iNg=-NG; iNg<0; iNg++) {
+//                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
+//                        prim[INDEX_GLOBAL(i+iNg,j,var)];
+//                }
+//            }
+//        }
+//
+//        if (iTile==TILE_SIZE_X1-1) {
+//    
+//            if (i>N1-1 && j>=0 && j<N2) {
+//                /* i=N1-1 cooresponds to iTile=TILE_SIZE_X1-1-NG */
+//    
+//                for (int iNg=-NG; iNg<NG; iNg++) {
+//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg, jTile, var)] = 
+//                    primTile[INDEX_LOCAL(TILE_SIZE_X1-1-NG, jTile, var)];
+//                }
+//            }
+//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
+//                for (int iNg=0; iNg<NG; iNg++) {
+//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] = 
+//                        prim[INDEX_GLOBAL(i+iNg+1,j,var)];
+//                }
+//            }
+//        }
+//    }
+//    
+//    barrier(CLK_LOCAL_MEM_FENCE);
+//
+//    for (int var=0; var<DOF; var++) {
+//        if (jTile==0) {
+//    
+//            if (j<0 && i>=0 && i<N1) {
+//                /* Mirror about jTile=NG (equivalent to j=0) */
+//    
+//                for (int jNg=-NG; jNg<NG; jNg++) {
+//                    primTile[INDEX_LOCAL(iTile, jNg, var)] = 
+//                    primTile[INDEX_LOCAL(iTile, NG-jNg+1, var)];
+//                }
+//            }
+//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
+//                for (int jNg=-NG; jNg<0; jNg++) {
+//                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
+//                        prim[INDEX_GLOBAL(i,j+jNg,var)];
+//                }
+//            }
+//        }
+//    
+//        if (jTile==TILE_SIZE_X2-1) {
+//    
+//            if (j>N2-1 && i>=0 && i<N1) {
+//                /* Mirror about jTile=TILE_SIZE_X2-1-NG (equivalent to j=N2-1) */
+//    
+//                for (int jNg=0; jNg<2*NG; jNg++) {
+//                    primTile[INDEX_LOCAL(iTile, TILE_SIZE_X2-NG+jNg, var)] = 
+//                    primTile[INDEX_LOCAL(iTile, TILE_SIZE_X2-NG-jNg-1, var)];
+//                }
+//            }
+//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
+//                for (int jNg=0; jNg<NG; jNg++) {
+//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] = 
+//                        prim[INDEX_GLOBAL(i,j+jNg+1,var)];
+//                }
+//            }
+//        }
+//    }
+//
+//    if (jTile==0 && j<0) {
+//        for (int jNg=-NG; jNg<NG; jNg++) {
+//            primTile[INDEX_LOCAL(iTile,jNg,U2)] = 
+//           -primTile[INDEX_LOCAL(iTile,jNg,U2)];
+//            primTile[INDEX_LOCAL(iTile,jNg,B2)] = 
+//           -primTile[INDEX_LOCAL(iTile,jNg,B2)];
+//        }
+//    }
+//
+//    if (jTile==TILE_SIZE_X2-1 && j>N2-1) {
+//        for (int jNg=-NG; jNg<NG; jNg++) {
+//            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)] = 
+//           -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)];
+//            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)] = 
+//           -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)];
+//        }
+//    }
 
-    gammaCalc(&gamma, primEdge, gcov);
-    setFloor(primEdge, gamma, X1, X2);
-    gammaCalc(&gamma, primEdge, gcov);
-    alphaCalc(&alpha, gcon);
-    uconCalc(ucon, gamma, alpha, primEdge, gcon);
-    covFromCon(ucov, ucon, gcov);
-    bconCalc(bcon, primEdge, ucon, ucov);
-    covFromCon(bcov, bcon, gcov);
-
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
-
-    dgammaCalc_dt(&dgamma_dt, gamma, primEdge, dvars_dt, gcov);
-    duconCalc_dt(ducon_dt, dgamma_dt, alpha, dvars_dt, gcon);
-    covFromCon(ducov_dt, ducon_dt, gcov);
-
-    dbconCalc_dt(dbcon_dt, ucon, ducon_dt, ucov, ducov_dt, bcon, 
-                 primEdge, dvars_dt);
-    covFromCon(dbcov_dt, dbcon_dt, gcov);
-
-    ComputedU_dt(dU_dt,
-                 ucon, ducon_dt, ucov, ducov_dt,
-                 bcon, dbcon_dt, bcov, dbcov_dt,
-                 gcon, gcov, primEdge, dvars_dt,
-                 gamma, dgamma_dt, alpha, g);
-
-    addSources(dU_dt, 
-               ucon, ucov, bcon, bcov, 
-               gcon, gcov, mhd, primEdge, g,
-               X1, X2);
 
     for (int var=0; var<DOF; var++) {
 
         if (iTile==0) {
             if (i>=NG) {
                 for (int iNg=-NG; iNg<0; iNg++) {
-                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
+                    primTile[INDEX_LOCAL(iNg,jTile,var)] =
                         prim[INDEX_GLOBAL(i+iNg,j,var)];
                 }
             } else {
                 for (int iNg=-NG; iNg<0; iNg++) {
-                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
+                    primTile[INDEX_LOCAL(iNg,jTile,var)] =
                     primTile[INDEX_LOCAL(0,jTile,var)];
                 }
-//                for (int iNg=-NG; iNg<0; iNg++) {
-//                    primTile[INDEX_LOCAL(iNg,jTile,var)] =
-//                        prim[INDEX_GLOBAL(N1+iNg,j,var)];
-//                }
             }
         }
     
         if (iTile==TILE_SIZE_X1-1) {
             if (i<=N1-NG) {
                 for (int iNg=0; iNg<NG; iNg++) {
-                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] = 
+                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
                         prim[INDEX_GLOBAL(i+iNg+1,j,var)];
                 }
             } else {
@@ -122,35 +212,27 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                     primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
                     primTile[INDEX_LOCAL(TILE_SIZE_X1-1,jTile,var)];
                 }
-//                for (int iNg=0; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
-//                    prim[INDEX_GLOBAL(iNg,j,var)];
-//                }
             }
         }
        
         if (jTile==0) {
             if (j>=NG) {
                 for (int jNg=-NG; jNg<0; jNg++) {
-                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
+                    primTile[INDEX_LOCAL(iTile,jNg,var)] =
                         prim[INDEX_GLOBAL(i,j+jNg,var)];
                 }
             } else {
                 for (int jNg=-NG; jNg<0; jNg++) {
-                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
+                    primTile[INDEX_LOCAL(iTile,jNg,var)] =
                     primTile[INDEX_LOCAL(iTile,-jNg-1,var)];
                 }
-//                for (int jNg=-NG; jNg<0; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
-//                    prim[INDEX_GLOBAL(i,N2+jNg,var)];
-//                }
             }
         }
     
         if (jTile==TILE_SIZE_X2-1) {
             if (j<=N2-NG) {
                 for (int jNg=0; jNg<NG; jNg++) {
-                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] = 
+                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
                         prim[INDEX_GLOBAL(i,j+jNg+1,var)];
                 }
             } else {
@@ -158,10 +240,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                     primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
                     primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2-1-jNg,var)];
                 }
-//                for (int jNg=0; jNg<NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
-//                        prim[INDEX_GLOBAL(i,jNg,var)];
-//                }
             }
         }
     
@@ -169,24 +247,132 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     if (jTile==0 && j<NG) {
         for (int jNg=-NG; jNg<0; jNg++) {
-            primTile[INDEX_LOCAL(iTile,jNg,U2)] = 
+            primTile[INDEX_LOCAL(iTile,jNg,U2)] =
            -primTile[INDEX_LOCAL(iTile,jNg,U2)];
-            primTile[INDEX_LOCAL(iTile,jNg,B2)] = 
+            primTile[INDEX_LOCAL(iTile,jNg,B2)] =
            -primTile[INDEX_LOCAL(iTile,jNg,B2)];
         }
     }
 
     if (jTile==TILE_SIZE_X2-1 && j>N2-NG) {
         for (int jNg=0; jNg<NG; jNg++) {
-            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)] = 
+            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)] =
            -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)];
-            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)] = 
+            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)] =
            -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)];
         }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
+    if (i>=N1-1 && iTile==TILE_SIZE_X1-1) {
+//        for (int iNg=-NG; iNg<NG; iNg++) {
+        for (int iNg=0; iNg<NG; iNg++) {
+            for (int var=0; var<DOF; var++) {
+                primEdge[var] = 
+                primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)];
+            }
+
+            X1 = i_TO_X1_CENTER(i+1+iNg); X2 = j_TO_X2_CENTER(j);
+            
+            gCovCalc(gcov, X1, X2);
+            gDetCalc(&gdet, gcov);
+            gConCalc(gcon, gcov, gdet);
+            g = sqrt(-gdet);
+
+            gammaCalc(&gamma, primEdge, gcov);
+            setFloor(primEdge, gamma, X1, X2);
+            gammaCalc(&gamma, primEdge, gcov);
+            alphaCalc(&alpha, gcon);
+            uconCalc(ucon, gamma, alpha, primEdge, gcon);
+
+            if (ucon[1] < 0.) {
+
+                primEdge[U1] /= gamma;
+                primEdge[U2] /= gamma;
+                primEdge[U3] /= gamma;
+
+                alpha = 1./sqrt(-gcon[0][0]);
+                
+                primEdge[U1] = gcon[0][1]*alpha;
+
+                double vSqr = gcov[1][1]*primEdge[U1]*primEdge[U1] +
+                              gcov[1][2]*primEdge[U1]*primEdge[U2] + 
+                              gcov[1][3]*primEdge[U1]*primEdge[U3] +
+                              gcov[2][1]*primEdge[U2]*primEdge[U1] +
+                              gcov[2][2]*primEdge[U2]*primEdge[U2] +
+                              gcov[2][3]*primEdge[U2]*primEdge[U3] +
+                              gcov[3][1]*primEdge[U3]*primEdge[U1] +
+                              gcov[3][2]*primEdge[U3]*primEdge[U2] +
+                              gcov[3][3]*primEdge[U3]*primEdge[U3];
+                
+                if (fabs(vSqr) < 1e-13) vSqr = 1e-13;
+                if (fabs(vSqr) >= 1.) vSqr = 1. - 1./(GAMMA_MAX*GAMMA_MAX);
+
+                gamma = 1./sqrt(1. - vSqr);
+                primEdge[U1] *= gamma;
+                primEdge[U2] *= gamma;
+                primEdge[U3] *= gamma;
+            }
+            for (int var=0; var<DOF; var++)
+                primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] = primEdge[var];
+        }
+    }
+
+    if (i<=0 && iTile==0) {
+//        for (int iNg=-NG; iNg<NG; iNg++) {
+        for (int iNg=-NG; iNg<0; iNg++) {
+            for (int var=0; var<DOF; var++) {
+                primEdge[var] = 
+                primTile[INDEX_LOCAL(iNg,jTile,var)];
+            }
+
+            X1 = i_TO_X1_CENTER(iNg); X2 = j_TO_X2_CENTER(j);
+            
+            gCovCalc(gcov, X1, X2);
+            gDetCalc(&gdet, gcov);
+            gConCalc(gcon, gcov, gdet);
+            g = sqrt(-gdet);
+
+            gammaCalc(&gamma, primEdge, gcov);
+            setFloor(primEdge, gamma, X1, X2);
+            gammaCalc(&gamma, primEdge, gcov);
+            alphaCalc(&alpha, gcon);
+            uconCalc(ucon, gamma, alpha, primEdge, gcon);
+
+            if (ucon[1] > 0.) {
+
+                primEdge[U1] /= gamma;
+                primEdge[U2] /= gamma;
+                primEdge[U3] /= gamma;
+
+                alpha = 1./sqrt(-gcon[0][0]);
+                
+                primEdge[U1] = gcon[0][1]*alpha;
+
+                double vSqr = gcov[1][1]*primEdge[U1]*primEdge[U1] +
+                              gcov[1][2]*primEdge[U1]*primEdge[U2] + 
+                              gcov[1][3]*primEdge[U1]*primEdge[U3] +
+                              gcov[2][1]*primEdge[U2]*primEdge[U1] +
+                              gcov[2][2]*primEdge[U2]*primEdge[U2] +
+                              gcov[2][3]*primEdge[U2]*primEdge[U3] +
+                              gcov[3][1]*primEdge[U3]*primEdge[U1] +
+                              gcov[3][2]*primEdge[U3]*primEdge[U2] +
+                              gcov[3][3]*primEdge[U3]*primEdge[U3];
+                
+                if (fabs(vSqr) < 1e-13) vSqr = 1e-13;
+                if (fabs(vSqr) >= 1.) vSqr = 1. - 1./(GAMMA_MAX*GAMMA_MAX);
+
+                gamma = 1./sqrt(1. - vSqr);
+                primEdge[U1] *= gamma;
+                primEdge[U2] *= gamma;
+                    primEdge[U3] *= gamma;
+            }
+            for (int var=0; var<DOF; var++) {
+                primTile[INDEX_LOCAL(iNg,jTile,var)] = primEdge[var];
+            }
+        }
+    }
     
 /*
      (i,j) 
@@ -210,6 +396,33 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     |o____| X2 = j_TO_X2_FACE(j)
 
 */
+    for (int var=0; var<DOF; var++) {
+        primEdge[var] = primTile[INDEX_LOCAL(iTile,jTile,var)];
+    }
+
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+    g = sqrt(-gdet);
+    
+    gammaCalc(&gamma, primEdge, gcov);
+    setFloor(primEdge, gamma, X1, X2);
+    gammaCalc(&gamma, primEdge, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primEdge, gcon);
+    covFromCon(ucov, ucon, gcov);
+    bconCalc(bcon, primEdge, ucon, ucov);
+    covFromCon(bcov, bcon, gcov);
+    
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
+
+    addSources(dU_dt, 
+               ucon, ucov, bcon, bcov, 
+               gcon, gcov, mhd, primEdge, g, gdet, alpha,
+               X1, X2, primTile,
+               dvars_dt,
+               i, j, iTile, jTile);
 
 /*
       i-2   i-1    i    i+1   i+2
@@ -220,9 +433,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 */
 
     ReconstructX1(primTile, iTile-1, jTile, primEdge, RIGHT);
-
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
 
     X1 = i_TO_X1_FACE(i); X2 = j_TO_X2_CENTER(j);
     gCovCalc(gcov, X1, X2);
@@ -239,7 +449,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile); 
 
     ComputeFluxAndU(fluxL, uL,
                     ucon, ucov,
@@ -260,9 +470,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX1(primTile, iTile, jTile, primEdge, LEFT);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_FACE(i); X2 = j_TO_X2_CENTER(j);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -278,7 +485,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxR, uR,
                     ucon, ucov,
@@ -303,9 +510,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX1(primTile, iTile, jTile, primEdge, RIGHT);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_FACE(i+1); X2 = j_TO_X2_CENTER(j);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -321,7 +525,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxL, uL,
                     ucon, ucov,
@@ -342,9 +546,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX1(primTile, iTile+1, jTile, primEdge, LEFT);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_FACE(i+1); X2 = j_TO_X2_CENTER(j);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -360,7 +561,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxR, uR,
                     ucon, ucov,
@@ -373,7 +574,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     RiemannSolver(fluxX1R, fluxL, fluxR, uL, uR,
                   cminL, cmaxL, cminR, cmaxR);
-
 
 /*
                  _____ 
@@ -397,9 +597,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX2(primTile, iTile, jTile-1, primEdge, UP);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -415,7 +612,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxL, uL,
                     ucon, ucov,
@@ -448,9 +645,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX2(primTile, iTile, jTile, primEdge, DOWN);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -466,7 +660,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxR, uR,
                     ucon, ucov,
@@ -503,9 +697,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX2(primTile, iTile, jTile, primEdge, UP);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j+1);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -521,7 +712,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxL, uL,
                     ucon, ucov,
@@ -554,9 +745,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
 
     ReconstructX2(primTile, iTile, jTile+1, primEdge, DOWN);
 
-//    primEdge[RHO] = exp(primEdge[RHO]);
-//    primEdge[UU] = exp(primEdge[UU]);
-
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j+1);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
@@ -572,7 +760,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     bconCalc(bcon, primEdge, ucon, ucov);
     covFromCon(bcov, bcon, gcov);
 
-    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov);
+    mhdCalc(mhd, primEdge, ucon, ucov, bcon, bcov, dvars_dt, primTile);
 
     ComputeFluxAndU(fluxR, uR,
                     ucon, ucov,
@@ -586,260 +774,25 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     RiemannSolver(fluxX2R, fluxL, fluxR, uL, uR,
                   cminL, cmaxL, cminR, cmaxR);
 
+
     for (int var=0; var<DOF; var++) {
-        F[INDEX_GLOBAL(i,j,var)] = (dU_dt[var] +
-                                  (fluxX1R[var] - fluxX1L[var])/DX1 +
-                                  (fluxX2R[var] - fluxX2L[var])/DX2);
+        
+        if (i>=0 && i<N1 && j>=0 && j<N2) {
+            F[INDEX_GLOBAL(i,j,var)] = dU_dt[var];
+        }
+
+        fluxX1[INDEX_GLOBAL_WITH_NG(i,j,var)] = fluxX1L[var];
+        fluxX2[INDEX_GLOBAL_WITH_NG(i,j,var)] = fluxX2L[var];
+
+//        if (i==N1+NG-2) {
+        if (i==N1-1) {
+            fluxX1[INDEX_GLOBAL_WITH_NG(i+1, j, var)] = fluxX1R[var];
+        }
+
+//        if (j==N2+NG-2) {
+        if (j==N2-1) {
+            fluxX2[INDEX_GLOBAL_WITH_NG(i, j+1, var)] = fluxX2R[var];
+        }
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//__kernel void ComputeResidual(__global const REAL* restrict prim, 
-//                              __global const REAL* restrict dprim_dt,
-//                              __global REAL* restrict F)
-//{
-//
-//    int i = get_global_id(0);
-//    int j = get_global_id(1);
-//    int iTile = get_local_id(0);
-//    int jTile = get_local_id(1);
-//
-//    __local REAL primTile[(TILE_SIZE_X1+2*NG)*(TILE_SIZE_X2+2*NG)*DOF];
-//
-//    REAL dU_dt[DOF], primEdge[DOF];
-//    REAL fluxL[DOF], fluxR[DOF];
-//    REAL uL[DOF], uR[DOF];
-//    REAL fluxX1L[DOF], fluxX1R[DOF];
-//    REAL fluxX2L[DOF], fluxX2R[DOF];
-//    REAL X1, X2;
-//
-//    // Geometry
-//    REAL gcon[NDIM][NDIM], gcov[NDIM][NDIM];
-//
-//    //Physics
-//    REAL ucon[NDIM], ucov[NDIM], bcon[NDIM], bcov[NDIM];
-//    REAL mhd[NDIM][NDIM], vars[DOF], dvars_dt[DOF];
-//
-//    for (int var=0; var<DOF; var++) {
-//        primTile[INDEX_LOCAL(iTile,jTile,var)] = prim[INDEX_GLOBAL(i,j,var)];
-//    }
-//
-//    barrier(CLK_LOCAL_MEM_FENCE);
-//
-//    for (int var=0; var<DOF; var++) {
-//        vars[var] = primTile[INDEX_LOCAL(iTile,jTile,var)];
-//        dvars_dt[var] = dprim_dt[INDEX_GLOBAL(i,j,var)];
-//    }
-//
-//    for (int var=0; var<DOF; var++) {
-//        vars[var] = prim[INDEX_GLOBAL(i,j,var)];
-//    }
-//
-//    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
-////    ComputedU_dt(vars, dvars_dt, dU_dt, X1, X2);
-//    for (int n=0; n<DOF; n++)
-//        dU_dt[n] = 0.;
-//
-////    addSources(dU_dt,
-////               ucon, ucov, bcon, bcov,
-////               gcon, gcov, mhd, vars, 
-////               X1, X2);
-//
-//    for (int var=0; var<DOF; var++) {
-//
-//        if (iTile==0) {
-//            if (i>=NG) {
-//                for (int iNg=-NG; iNg<0; iNg++) {
-//                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
-//                        prim[INDEX_GLOBAL(i+iNg,j,var)];
-//                }
-//            } else {
-//                for (int iNg=-NG; iNg<0; iNg++) {
-//                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
-//                    primTile[INDEX_LOCAL(0,jTile,var)];
-//                }
-////                for (int iNg=-NG; iNg<0; iNg++) {
-////                    primTile[INDEX_LOCAL(iNg,jTile,var)] =
-////                        prim[INDEX_GLOBAL(N1+iNg,j,var)];
-////                }
-//            }
-//        }
-//    
-//        if (iTile==TILE_SIZE_X1-1) {
-//            if (i<=N1-NG) {
-//                for (int iNg=0; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] = 
-//                        prim[INDEX_GLOBAL(i+iNg+1,j,var)];
-//                }
-//            } else {
-//                for (int iNg=0; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1-1,jTile,var)];
-//                }
-////                for (int iNg=0; iNg<NG; iNg++) {
-////                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
-////                    prim[INDEX_GLOBAL(iNg,j,var)];
-////                }
-//            }
-//        }
-//       
-//        if (jTile==0) {
-//            if (j>=NG) {
-//                for (int jNg=-NG; jNg<0; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
-//                        prim[INDEX_GLOBAL(i,j+jNg,var)];
-//                }
-//            } else {
-//                for (int jNg=-NG; jNg<0; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
-//                    primTile[INDEX_LOCAL(iTile,-jNg-1,var)];
-//                }
-////                for (int jNg=-NG; jNg<0; jNg++) {
-////                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
-////                    prim[INDEX_GLOBAL(i,N2+jNg,var)];
-////                }
-//            }
-//        }
-//    
-//        if (jTile==TILE_SIZE_X2-1) {
-//            if (j<=N2-NG) {
-//                for (int jNg=0; jNg<NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] = 
-//                        prim[INDEX_GLOBAL(i,j+jNg+1,var)];
-//                }
-//            } else {
-//                for (int jNg=0; jNg<NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
-//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2-1-jNg,var)];
-//                }
-////                for (int jNg=0; jNg<NG; jNg++) {
-////                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
-////                        prim[INDEX_GLOBAL(i,jNg,var)];
-////                }
-//            }
-//        }
-//    
-//    }
-//
-//    if (jTile==0 && j<NG) {
-//        for (int jNg=-NG; jNg<0; jNg++) {
-//            primTile[INDEX_LOCAL(iTile,jNg,U2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,U2)];
-//            primTile[INDEX_LOCAL(iTile,jNg,B2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,B2)];
-//        }
-//    }
-//
-//    if (jTile==TILE_SIZE_X2-1 && j>N2-NG) {
-//        for (int jNg=0; jNg<NG; jNg++) {
-//            primTile[INDEX_LOCAL(iTile,jNg,U2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,U2)];
-//            primTile[INDEX_LOCAL(iTile,jNg,B2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,B2)];
-//        }
-//    }
-//
-//    barrier(CLK_LOCAL_MEM_FENCE);
-//
-//    // Compute fluxes along X1
-//    X1 = i_TO_X1_FACE(i); X2 = j_TO_X2_CENTER(j);
-//    ReconstructX1(primTile, iTile-1, jTile, primEdge, RIGHT);
-//    ComputeFluxAndU(fluxR, uR, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 1);
-//
-//    ReconstructX1(primTile, iTile, jTile, primEdge, LEFT);
-//    ComputeFluxAndU(fluxL, uL, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 1);
-//
-//    RiemannSolver(fluxR, fluxL, uR, uL, fluxX1L);
-//
-//
-//    X1 = i_TO_X1_FACE(i+1); X2 = j_TO_X2_CENTER(j);
-//    ReconstructX1(primTile, iTile, jTile, primEdge, RIGHT);
-//    ComputeFluxAndU(fluxR, uR, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 1);
-//
-//    ReconstructX1(primTile, iTile+1, jTile, primEdge, LEFT);
-//    ComputeFluxAndU(fluxL, uL, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 1);
-//
-//    RiemannSolver(fluxR, fluxL, uR, uL, fluxX1R);
-//
-//
-//    // Compute fluxes along X2
-//    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j);
-//    ReconstructX2(primTile, iTile, jTile-1, primEdge, RIGHT);
-//    ComputeFluxAndU(fluxR, uR, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 2);
-//
-//    ReconstructX2(primTile, iTile, jTile, primEdge, LEFT);
-//    ComputeFluxAndU(fluxL, uL, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 2);
-//
-//    RiemannSolver(fluxR, fluxL, uR, uL, fluxX2L);
-//
-//
-//    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_FACE(j+1);
-//    ReconstructX2(primTile, iTile, jTile, primEdge, RIGHT);
-//    ComputeFluxAndU(fluxR, uR, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 2);
-//
-//    ReconstructX2(primTile, iTile, jTile+1, primEdge, LEFT);
-//    ComputeFluxAndU(fluxL, uL, 
-//                    ucon, ucov, bcon, bcov, 
-//                    gcon, gcov, mhd, primEdge, 
-//                    X1, X2, 2);
-//
-//    RiemannSolver(fluxR, fluxL, uR, uL, fluxX2R);
-//
-//
-//    for (int var=0; var<DOF; var++) {
-//        F[INDEX_GLOBAL(i,j,var)] = dU_dt[var] +
-//                                   (fluxX1R[var] - fluxX1L[var])/DX1 + 
-//                                   (fluxX2R[var] - fluxX2L[var])/DX2;
-//
-////        if (isnan(F[INDEX_GLOBAL(i,j,var)]))
-////        printf("i = %d, j = %d, iTile = %d, jTile = %d, var = %d, vars = %f, f = %f\n",
-////                i, j, iTile, jTile, var, vars[var], F[INDEX_GLOBAL(i,j,var)]);
-//    }
-//}
-
-
-
