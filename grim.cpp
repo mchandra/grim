@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     clErr = cl::Platform::get(&platforms);
     CheckCLErrors(clErr, "cl::Platform::get");
 
-    clErr = platforms.at(1).getDevices(CL_DEVICE_TYPE_CPU, &devices);
+    clErr = platforms.at(0).getDevices(CL_DEVICE_TYPE_CPU, &devices);
     CheckCLErrors(clErr, "cl::Platform::getDevices");
 
     context = cl::Context(devices, NULL, NULL, NULL, &clErr);

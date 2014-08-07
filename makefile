@@ -1,9 +1,9 @@
 ALL: grim
 
-PETSC_DIR=/home/mc/Downloads/petsc_optimized
+PETSC_DIR=/home/manic/petsc_optimized
 #PETSC_DIR=/home/mc/Downloads/petsc_debug
 
-CFLAGS = -std=c++0x -lOpenCL -O3 
+CFLAGS = -std=c++0x -lOpenCL -O3
 
 FFLAGS =
 

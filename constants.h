@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 64
-#define N2 64
+#define N1 128
+#define N2 128
 #define NG 2
 
 #define REAL double
@@ -22,7 +22,7 @@
 #define DX2 ((1.-2.*X2_START)/(REAL)N2)
 //#define DX1 (1./(REAL)N1)
 //#define DX2 (1./(REAL)N2)
-#define DT 0.001
+#define DT 0.03
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (4./3.)
@@ -31,10 +31,10 @@
 #define RHO_MIN_LIMIT (1e-15)
 #define U_MIN_LIMIT (1e-15)
 #define GAMMA_MAX (5.)
-#define TAU_R (1e-5)
-#define PHI (0.01)
-#define CONDUCTION (1)
-#define RESTART (1)
+#define TAU_R (1e-2)
+#define PHI (0.1)
+#define CONDUCTION (0)
+#define RESTART (0)
 
 #define EPS (1e-5)
 
