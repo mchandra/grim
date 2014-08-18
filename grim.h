@@ -11,6 +11,9 @@
 #include <fstream>
 #include <ctime>
 #include <petscviewerhdf5.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_roots.h>
 #include "constants.h"
 
 static const char help[] = 
@@ -51,4 +54,8 @@ extern PetscErrorCode SNESMonitor(SNES snes,
                                   PetscReal norm,
                                   void *ptr);
 
+void transformBLtoMKS(REAL uConBL[NDIM], REAL uConMKS[NDIM], 
+                      REAL X1, REAL X2, REAL r, REAL theta);
+
+void InitialConditionMTITest(TS ts, Vec Prim);
 #endif

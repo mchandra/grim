@@ -8,7 +8,7 @@
 #define TILE_SIZE_X1 8
 #define TILE_SIZE_X2 8
 
-#define A_SPIN 0.9375
+#define A_SPIN 0.
 #define M 1.
 #define R_MIN 6.
 #define R_MAX 12.
@@ -22,7 +22,7 @@
 #define DX2 ((1.-2.*X2_START)/(REAL)N2)
 //#define DX1 (1./(REAL)N1)
 //#define DX2 (1./(REAL)N2)
-#define DT 0.001
+#define DT 0.03
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (4./3.)
@@ -33,8 +33,8 @@
 #define GAMMA_MAX (5.)
 #define TAU_R (1e-5)
 #define PHI (0.01)
-#define CONDUCTION (1)
-#define RESTART (1)
+#define CONDUCTION (0)
+#define RESTART (0)
 
 #define EPS (1e-5)
 

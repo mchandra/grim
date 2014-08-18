@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    InitialCondition(ts, soln);
+    InitialConditionMTITest(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -398,6 +398,261 @@ void InitialConditionTest(TS ts, Vec X)
     DMDAVecRestoreArrayDOF(dmda, X, &x);
 }
 
+struct rootFinderParams
+{
+  REAL C1, C2, r;
+};
+
+REAL inputFunctionForRootFinder(REAL T, void *ptr)
+{
+  struct rootFinderParams *params = 
+    (struct rootFinderParams *)ptr;
+
+  REAL C1 = params->C1;
+  REAL C2 = params->C2;
+  REAL r  = params->r;
+
+  REAL n = 1./(ADIABATIC_INDEX-1.);
+
+  return pow(1. + (1. + n)*T, 2.)*(1 - 2./r + C1*C1/(pow(r, 4.) * pow(T, 2.*n)) ) - C2;
+}
+
+REAL inputDerForRootFinder(REAL T, void *ptr)
+{
+  struct rootFinderParams *params = 
+    (struct rootFinderParams *)ptr;
+
+  REAL C1 = params->C1;
+  REAL r  = params->r;
+
+  REAL n = 1./(ADIABATIC_INDEX-1.);
+
+  REAL ans;
+  ans  =  2.*(1 + n)*(1. + (1.+n)*T)*(1 - 2./r 
+                                     + C1*C1/(pow(r, 4.) * pow(T, 2.*n))
+                                    )
+         + pow(1 + (1 + n)*T, 2.)*(-2*n*C1*C1/(pow(r, 4.) * pow(T, 2*n+1)) );
+
+  return ans;
+}
+
+void inputFunctionAndDerForRootFinder(REAL T, void *ptr, REAL *y, REAL *dy)
+{
+  struct rootFinderParams *params = 
+    (struct rootFinderParams *)ptr;
+
+  REAL C1 = params->C1;
+  REAL C2 = params->C2;
+  REAL r  = params->r;
+
+  REAL n = 1./(ADIABATIC_INDEX-1.);
+
+  *y = pow(1. + (1. + n)*T, 2.)*(1 - 2./r + C1*C1/(pow(r, 4.) * pow(T, 2.*n)) ) - C2;
+
+  *dy = 2.*(1 + n)*(1. + (1.+n)*T)*(1 - 2./r 
+                                    + C1*C1/(pow(r, 4.) * pow(T, 2.*n))
+                                   )
+        + pow(1 + (1 + n)*T, 2.)*(-2*n*C1*C1/(pow(r, 4.) * pow(T, 2*n+1)) );
+}
+
+void InitialConditionMTITest(TS ts, Vec Prim)
+{
+  DM dmda;
+  REAL ***prim;
+
+  int X1Start, X2Start;
+  int X1Size, X2Size;
+
+  TSGetDM(ts, &dmda);
+
+  DMDAGetCorners(dmda, 
+                 &X1Start, &X2Start, NULL,
+                 &X1Size, &X2Size, NULL);
+
+  Vec localPrim;
+  DMGetLocalVector(dmda, &localPrim);
+  DMDAVecGetArrayDOF(dmda, localPrim, &prim);
+
+  REAL r_c = 8.;
+  REAL u_c = -sqrt(1./(2.*r_c));
+  REAL V_c = sqrt(u_c*u_c/(1. - (3*u_c*u_c)) );
+
+  REAL n = 1./(ADIABATIC_INDEX - 1.);
+
+  REAL T_c = (n*V_c*V_c)/( (1. + n)*(1. - (n*V_c*V_c)) );
+
+  REAL C1 = pow(T_c, n) * u_c * r_c*r_c;
+
+  REAL C2 = pow(1 + (1 + n)*T_c, 2.)*(1. - 2./r_c + u_c*u_c);
+
+  for (int j=X2Start; j<X2Start+X2Size; j++) {
+    for (int i=X1Start; i<X1Start+X1Size; i++) {
+  
+      REAL X1 = i_TO_X1_CENTER(i);
+      REAL X2 = j_TO_X2_CENTER(j);
+
+      REAL r, theta;
+
+      BLCoords(&r, &theta, X1, X2);
+
+      gsl_function_fdf fdf;
+      struct rootFinderParams params = {C1, C2, r};
+
+      fdf.f = &inputFunctionForRootFinder;
+      fdf.df = &inputDerForRootFinder;
+      fdf.fdf = &inputFunctionAndDerForRootFinder;
+      fdf.params = &params;
+
+      const gsl_root_fdfsolver_type *solverType;
+      gsl_root_fdfsolver *solver;
+
+      solverType = gsl_root_fdfsolver_newton;
+      solver = gsl_root_fdfsolver_alloc(solverType);
+
+      gsl_root_fdfsolver_set(solver, &fdf, T_c);
+
+      int status = GSL_CONTINUE;
+      int maxIter = 10000, iter=0;
+
+      REAL T = T_c, T0;
+      do
+        {
+          printf("iter = %d, T = %f\n", iter, T);
+          iter++;
+          status = gsl_root_fdfsolver_iterate(solver);
+          T0 = T;
+          T = gsl_root_fdfsolver_root(solver);
+          status = gsl_root_test_delta (T, T0, 0, 1e-10);
+
+          if (status == GSL_SUCCESS)
+            printf ("Converged for r = %f\n", r);
+
+        }
+      while (status == GSL_CONTINUE && iter < maxIter);
+
+      gsl_root_fdfsolver_free(solver);
+      /* End of root finding. We now have T */
+
+      prim[j][i][RHO] = pow(T, n);
+      prim[j][i][UU] = T*prim[j][i][RHO]/(ADIABATIC_INDEX-1.);
+
+      REAL uConBL[NDIM], uConMKS[NDIM];
+      uConBL[1] = C1/(pow(T, n)*r*r);
+      uConBL[2] = 0.;
+      uConBL[3] = 0.;
+
+      transformBLtoMKS(uConBL, uConMKS, X1, X2, r, theta);
+
+      prim[j][i][U1] = uConMKS[1];
+      prim[j][i][U2] = uConMKS[2];
+      prim[j][i][U3] = uConMKS[3];
+
+      REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
+      REAL gdet, alpha;
+      gCovCalc(gcov, X1, X2);
+      gDetCalc(&gdet, gcov);
+      gConCalc(gcon, gcov, gdet);
+      alphaCalc(&alpha, gcon);
+
+      prim[j][i][U1] = uConMKS[1] + 
+                       alpha*alpha*uConMKS[0]*gcon[0][1];
+      prim[j][i][U2] = uConMKS[2] + 
+                       alpha*alpha*uConMKS[0]*gcon[0][2];
+      prim[j][i][U3] = uConMKS[3] +
+                       alpha*alpha*uConMKS[0]*gcon[0][3];
+
+      prim[j][i][B1] = 0.;
+      prim[j][i][B2] = 0.;
+      prim[j][i][B3] = 0.;
+    }
+  }
+
+
+}
+
+void transformBLtoMKS(REAL uconBL[NDIM], REAL uconMKS[NDIM], 
+                      REAL X1, REAL X2, REAL r, REAL theta)
+{
+  REAL gcovBL[NDIM][NDIM], gconBL[NDIM][NDIM], transform[NDIM][NDIM];
+
+  for (int ii=0; ii<NDIM; ii++)
+      for (int jj=0; jj<NDIM; jj++) {
+          gcovBL[ii][jj] = 0.;
+          gconBL[ii][jj] = 0.;
+          transform[ii][jj] = 0.;
+      }
+
+  REAL DD = 1. - 2./r + A_SPIN*A_SPIN/(r*r);
+  REAL mu = 1 + A_SPIN*A_SPIN*cos(theta)*cos(theta)/(r*r);
+
+  gcovBL[0][0] = -(1. - 2./(r*mu));
+  gcovBL[0][3] = -2.*A_SPIN*sin(theta)*sin(theta)/(r*mu);
+  gcovBL[3][0] = gcovBL[0][3];
+  gcovBL[1][1] = mu/DD;
+  gcovBL[2][2] = r*r*mu;
+  gcovBL[3][3] = r*r*sin(theta)*sin(theta)*\
+                 (1. + A_SPIN*A_SPIN/(r*r) + 
+                  2.*A_SPIN*A_SPIN*sin(theta)*sin(theta)/\
+                  (r*r*r*mu));
+
+  gconBL[0][0] = -1. -2.*(1 + A_SPIN*A_SPIN/(r*r))/(r*DD*mu);
+  gconBL[0][3] = -2.*A_SPIN/(r*r*r*DD*mu);
+  gconBL[3][0] = gconBL[0][3];
+  gconBL[1][1] = DD/mu;
+  gconBL[2][2] = 1./(r*r*mu);
+  gconBL[3][3] = (1. - 2./(r*mu))/(r*r*sin(theta)*sin(theta)*DD);
+
+  transform[0][0] = 1.;
+  transform[1][1] = 1.;
+  transform[2][2] = 1.;
+  transform[3][3] = 1.;
+  transform[0][1] = 2.*r/(r*r* - 2.*r + A_SPIN*A_SPIN);
+  transform[3][1] = A_SPIN/(r*r - 2.*r + A_SPIN*A_SPIN);
+
+  REAL AA = gcovBL[0][0];
+  REAL BB = 2.*(gcovBL[0][1]*uconBL[1] + 
+                gcovBL[0][2]*uconBL[2] +
+                gcovBL[0][3]*uconBL[3]);
+  REAL CC = 1. + gcovBL[1][1]*uconBL[1]*uconBL[1] +
+                 gcovBL[2][2]*uconBL[2]*uconBL[2] +
+                 gcovBL[3][3]*uconBL[3]*uconBL[3] +
+             2.*(gcovBL[1][2]*uconBL[1]*uconBL[2] +
+                 gcovBL[1][3]*uconBL[1]*uconBL[3] +
+                 gcovBL[2][3]*uconBL[2]*uconBL[3]);
+
+  REAL discriminent = BB*BB - 4.*AA*CC;
+  uconBL[0] = -(BB + sqrt(discriminent))/(2.*AA);
+
+  REAL uconKS[NDIM];
+  uconKS[0] = transform[0][0]*uconBL[0] + 
+              transform[0][1]*uconBL[1] +
+              transform[0][2]*uconBL[2] +
+              transform[0][3]*uconBL[3];
+
+  uconKS[1] = transform[1][0]*uconBL[0] + 
+              transform[1][1]*uconBL[1] +
+              transform[1][2]*uconBL[2] +
+              transform[1][3]*uconBL[3];
+
+  uconKS[2] = transform[2][0]*uconBL[0] + 
+              transform[2][1]*uconBL[1] +
+              transform[2][2]*uconBL[2] +
+              transform[2][3]*uconBL[3];
+
+  uconKS[3] = transform[3][0]*uconBL[0] + 
+              transform[3][1]*uconBL[1] +
+              transform[3][2]*uconBL[2] +
+              transform[3][3]*uconBL[3];
+
+  PetscScalar rFactor, hFactor;
+  rFactor = r - R0;
+  hFactor = M_PI + (1. - H_SLOPE)*M_PI*cos(2.*M_PI*X2);
+  uconMKS[0] = uconKS[0];
+  uconMKS[1] = uconKS[1]*(1./rFactor);
+  uconMKS[2] = uconKS[2]*(1./hFactor);
+  uconMKS[3] = uconKS[3];
+
+}
 void InitialCondition(TS ts, Vec Prim)
 {
     DM dmda;
