@@ -31,8 +31,8 @@
 #define RHO_MIN_LIMIT (1e-15)
 #define U_MIN_LIMIT (1e-15)
 #define GAMMA_MAX (5.)
-#define TAU_R (1e-5)
-#define PHI (0.01)
+#define TAU_R (1e-2)
+#define PHI (0.1)
 #define CONDUCTION (0)
 #define RESTART (0)
 
