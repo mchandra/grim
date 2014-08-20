@@ -1,5 +1,10 @@
 #include "grim.h"
 
+struct data
+{
+  REAL primBoundaries[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+};
+
 PetscErrorCode SetCoordinates(DM dmda)
 {
     DM coordDM;
@@ -84,12 +89,11 @@ int main(int argc, char **argv)
 
     TSCreate(PETSC_COMM_WORLD, &ts);
     TSSetDM(ts, dmda);
-    TSSetIFunction(ts, PETSC_NULL, ComputeResidual, NULL);
 
     clErr = cl::Platform::get(&platforms);
     CheckCLErrors(clErr, "cl::Platform::get");
 
-    clErr = platforms.at(1).getDevices(CL_DEVICE_TYPE_CPU, &devices);
+    clErr = platforms.at(0).getDevices(CL_DEVICE_TYPE_CPU, &devices);
     CheckCLErrors(clErr, "cl::Platform::getDevices");
 
     context = cl::Context(devices, NULL, NULL, NULL, &clErr);
@@ -116,7 +120,17 @@ int main(int argc, char **argv)
                              std::to_string(X1Size+2*NG) + 
                              " -D TOTAL_X2_SIZE=" +
                              std::to_string(X2Size+2*NG) +
-                             " -DOPENCL");
+                             " -DOPENCL" + 
+                             " -DLEFT_BOUNDARY=" + 
+                             std::to_string(LEFT_BOUNDARY) +
+                             " -DRIGHT_BOUNDARY=" + 
+                             std::to_string(RIGHT_BOUNDARY) +
+                             " -DBOTTOM_BOUNDARY=" + 
+                             std::to_string(BOTTOM_BOUNDARY) +
+                             " -DTOP_BOUNDARY=" + 
+                             std::to_string(TOP_BOUNDARY) +
+                             " -DINFLOW_CHECK=" + 
+                             std::to_string(INFLOW_CHECK));
 
     PetscScalar start = std::clock();
     clErr = program.build(devices, BuildOptions.c_str(), NULL, NULL);
@@ -141,7 +155,8 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    InitialConditionMTITest(ts, soln);
+    struct data tsData;
+    InitialConditionMTITest(ts, soln, &tsData);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -152,11 +167,9 @@ int main(int argc, char **argv)
     PetscViewerDestroy(&viewer);
 #endif /* Restart from "init.h5" */
 
-    PetscViewerHDF5Open(PETSC_COMM_WORLD,"initialconditions.h5",
-                        FILE_MODE_WRITE, &viewer);
-    PetscObjectSetName((PetscObject) soln, "soln");
-    VecView(soln, viewer);
-    PetscViewerDestroy(&viewer);
+    Monitor(ts, 0., 0., soln, NULL);
+
+    TSSetIFunction(ts, PETSC_NULL, ComputeResidual, &tsData);
 
     TSSetSolution(ts, soln);
     TSMonitorSet(ts, Monitor, NULL, NULL);
@@ -180,6 +193,8 @@ PetscErrorCode ComputeResidual(TS ts,
                                Vec Prim, Vec dPrim_dt,
                                Vec F, void *ptr)
 {
+    struct data *tsData = (struct data*)ptr;
+    
     PetscScalar *prim, *dprim_dt, *f;
     VecGetArray(Prim, &prim);
     VecGetArray(dPrim_dt, &dprim_dt);
@@ -188,7 +203,7 @@ PetscErrorCode ComputeResidual(TS ts,
     REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
     REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
 
-    cl::Buffer primBuffer, dprimBuffer_dt, fbuffer;
+    cl::Buffer primBuffer, dprimBuffer_dt, fbuffer, primBoundariesBuffer;
     PetscInt size = DOF*N1*N2*sizeof(PetscScalar);
     PetscInt sizeWithNG = DOF*(N1 + 2*NG)*(N2 + 2*NG)*sizeof(PetscScalar);
 
@@ -198,6 +213,10 @@ PetscErrorCode ComputeResidual(TS ts,
     primBuffer = cl::Buffer(context,
                             CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
                             size, &(prim[0]), &clErr);
+    primBoundariesBuffer = cl::Buffer(context,
+                                      CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
+                                      sizeWithNG, &(tsData->primBoundaries[0]),
+                                      &clErr);
     dprimBuffer_dt = cl::Buffer(context,
                                 CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
                                 size, &(dprim_dt[0]), &clErr);
@@ -219,8 +238,8 @@ PetscErrorCode ComputeResidual(TS ts,
     clErr = kernel.setArg(2, fbuffer);
     clErr = kernel.setArg(3, fluxX1Buffer);
     clErr = kernel.setArg(4, fluxX2Buffer);
+    clErr = kernel.setArg(5, primBoundariesBuffer);
 
-//    cl::NDRange global(N1 + 2*NG, N2 + 2*NG);
     cl::NDRange global(N1, N2);
     cl::NDRange local(TILE_SIZE_X1, TILE_SIZE_X2);
     clErr = queue.enqueueNDRangeKernel(kernel,
@@ -267,9 +286,6 @@ PetscErrorCode ComputeResidual(TS ts,
     for (int j=0; j<N2; j++) {
         for (int i=0; i<N1; i++) {
             for (int var=0; var<DOF; var++) {
-
-//                fluxX2[INDEX_GLOBAL_WITH_NG(i, 0, var)] = 0.;
-//                fluxX2[INDEX_GLOBAL_WITH_NG(i, N2, var)] = 0.;
 
                 f[INDEX_GLOBAL(i,j,var)] = f[INDEX_GLOBAL(i,j,var)] +
                                 (fluxX1[INDEX_GLOBAL_WITH_NG(i+1,j,var)] -
@@ -455,10 +471,9 @@ void inputFunctionAndDerForRootFinder(REAL T, void *ptr, REAL *y, REAL *dy)
         + pow(1 + (1 + n)*T, 2.)*(-2*n*C1*C1/(pow(r, 4.) * pow(T, 2*n+1)) );
 }
 
-void InitialConditionMTITest(TS ts, Vec Prim)
+void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 {
   DM dmda;
-  REAL ***prim;
 
   int X1Start, X2Start;
   int X1Size, X2Size;
@@ -470,6 +485,7 @@ void InitialConditionMTITest(TS ts, Vec Prim)
                  &X1Size, &X2Size, NULL);
 
   Vec localPrim;
+  REAL ***prim;
   DMGetLocalVector(dmda, &localPrim);
   DMDAVecGetArrayDOF(dmda, localPrim, &prim);
 
@@ -485,8 +501,23 @@ void InitialConditionMTITest(TS ts, Vec Prim)
 
   REAL C2 = pow(1 + (1 + n)*T_c, 2.)*(1. - 2./r_c + u_c*u_c);
 
-  for (int j=X2Start; j<X2Start+X2Size; j++) {
-    for (int i=X1Start; i<X1Start+X1Size; i++) {
+  FILE *rCoords;
+  rCoords = fopen("rCoords.txt", "w");
+
+  for (int i=X1Start; i<X1Start+X1Size; i++) {
+    REAL X1 = i_TO_X1_CENTER(i);
+    REAL X2 = j_TO_X2_CENTER(0);
+
+    REAL r, theta;
+
+    BLCoords(&r, &theta, X1, X2);
+
+    fprintf(rCoords, "%f\n", r);
+  }
+  fclose(rCoords);
+
+  for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
+    for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
   
       REAL X1 = i_TO_X1_CENTER(i);
       REAL X2 = j_TO_X2_CENTER(j);
@@ -543,10 +574,6 @@ void InitialConditionMTITest(TS ts, Vec Prim)
 
       transformBLtoMKS(uConBL, uConMKS, X1, X2, r, theta);
 
-      prim[j][i][U1] = uConMKS[1];
-      prim[j][i][U2] = uConMKS[2];
-      prim[j][i][U3] = uConMKS[3];
-
       REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
       REAL gdet, alpha;
       gCovCalc(gcov, X1, X2);
@@ -564,9 +591,18 @@ void InitialConditionMTITest(TS ts, Vec Prim)
       prim[j][i][B1] = 0.;
       prim[j][i][B2] = 0.;
       prim[j][i][B3] = 0.;
+
+      for (int var=0; var<DOF; var++) {
+        tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
+      }
     }
   }
 
+  DMLocalToGlobalBegin(dmda, localPrim, INSERT_VALUES, Prim);
+  DMLocalToGlobalEnd(dmda, localPrim, INSERT_VALUES, Prim);
+
+  DMDAVecRestoreArrayDOF(dmda, localPrim, &prim);
+  DMRestoreLocalVector(dmda, &localPrim);
 
 }
 
@@ -1055,7 +1091,7 @@ PetscErrorCode Monitor(TS ts,
     Vec Res;
     SNESGetFunction(snes, &Res, NULL, NULL);
 
-    if (t > tDump) {
+    if (t >= tDump) {
         printf("Dumping data..\n");
         char filename[50];
         char errname[50];

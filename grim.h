@@ -57,5 +57,5 @@ extern PetscErrorCode SNESMonitor(SNES snes,
 void transformBLtoMKS(REAL uConBL[NDIM], REAL uConMKS[NDIM], 
                       REAL X1, REAL X2, REAL r, REAL theta);
 
-void InitialConditionMTITest(TS ts, Vec Prim);
+void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData);
 #endif

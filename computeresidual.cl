@@ -7,17 +7,15 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                               __global const REAL* restrict dprim_dt,
                               __global REAL* restrict F,
                               __global REAL* restrict fluxX1,
-                              __global REAL* restrict fluxX2)
+                              __global REAL* restrict fluxX2,
+                              __global const REAL* restrict primBoundaries)
 {
-//    int i = get_global_id(0) - NG;
-//    int j = get_global_id(1) - NG;
-
     int i = get_global_id(0);
     int j = get_global_id(1);
 
     int iTile = get_local_id(0);
     int jTile = get_local_id(1);
-    
+
     // Finite Volume variables
     REAL primEdge[DOF];
     REAL fluxL[DOF], uL[DOF], fluxR[DOF], uR[DOF];
@@ -87,104 +85,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                      gamma, dgamma_dt, alpha, g);
     }
 
-    
-//    for (int var=0; var<DOF; var++) {
-//        if (iTile==0) {
-//            
-//            if (i<0 && j>=0 && j<N2) {
-//                /* i=0 cooresponds to iTile=NG */
-//    
-//                for (int iNg=-NG; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(iNg, jTile, var)] = 
-//                    primTile[INDEX_LOCAL(NG, jTile, var)];
-//                }
-//            }
-//            else if (i>=0 && i<N1 && j>=0 && j<N2){
-//                for (int iNg=-NG; iNg<0; iNg++) {
-//                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
-//                        prim[INDEX_GLOBAL(i+iNg,j,var)];
-//                }
-//            }
-//        }
-//
-//        if (iTile==TILE_SIZE_X1-1) {
-//    
-//            if (i>N1-1 && j>=0 && j<N2) {
-//                /* i=N1-1 cooresponds to iTile=TILE_SIZE_X1-1-NG */
-//    
-//                for (int iNg=-NG; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg, jTile, var)] = 
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1-1-NG, jTile, var)];
-//                }
-//            }
-//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
-//                for (int iNg=0; iNg<NG; iNg++) {
-//                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] = 
-//                        prim[INDEX_GLOBAL(i+iNg+1,j,var)];
-//                }
-//            }
-//        }
-//    }
-//    
-//    barrier(CLK_LOCAL_MEM_FENCE);
-//
-//    for (int var=0; var<DOF; var++) {
-//        if (jTile==0) {
-//    
-//            if (j<0 && i>=0 && i<N1) {
-//                /* Mirror about jTile=NG (equivalent to j=0) */
-//    
-//                for (int jNg=-NG; jNg<NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile, jNg, var)] = 
-//                    primTile[INDEX_LOCAL(iTile, NG-jNg+1, var)];
-//                }
-//            }
-//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
-//                for (int jNg=-NG; jNg<0; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
-//                        prim[INDEX_GLOBAL(i,j+jNg,var)];
-//                }
-//            }
-//        }
-//    
-//        if (jTile==TILE_SIZE_X2-1) {
-//    
-//            if (j>N2-1 && i>=0 && i<N1) {
-//                /* Mirror about jTile=TILE_SIZE_X2-1-NG (equivalent to j=N2-1) */
-//    
-//                for (int jNg=0; jNg<2*NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile, TILE_SIZE_X2-NG+jNg, var)] = 
-//                    primTile[INDEX_LOCAL(iTile, TILE_SIZE_X2-NG-jNg-1, var)];
-//                }
-//            }
-//            else if (i>=0 && i<N1 && j>=0 && j<N2) {
-//                for (int jNg=0; jNg<NG; jNg++) {
-//                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] = 
-//                        prim[INDEX_GLOBAL(i,j+jNg+1,var)];
-//                }
-//            }
-//        }
-//    }
-//
-//    if (jTile==0 && j<0) {
-//        for (int jNg=-NG; jNg<NG; jNg++) {
-//            primTile[INDEX_LOCAL(iTile,jNg,U2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,U2)];
-//            primTile[INDEX_LOCAL(iTile,jNg,B2)] = 
-//           -primTile[INDEX_LOCAL(iTile,jNg,B2)];
-//        }
-//    }
-//
-//    if (jTile==TILE_SIZE_X2-1 && j>N2-1) {
-//        for (int jNg=-NG; jNg<NG; jNg++) {
-//            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)] = 
-//           -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)];
-//            primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)] = 
-//           -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)];
-//        }
-//    }
-
-
+    /* Set boundaries */
     for (int var=0; var<DOF; var++) {
 
         if (iTile==0) {
@@ -195,8 +96,13 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                 }
             } else {
                 for (int iNg=-NG; iNg<0; iNg++) {
+                  #if (LEFT_BOUNDARY==OUTFLOW)
                     primTile[INDEX_LOCAL(iNg,jTile,var)] =
                     primTile[INDEX_LOCAL(0,jTile,var)];
+                  #elif (LEFT_BOUNDARY==DIRICHLET)
+                    primTile[INDEX_LOCAL(iNg,jTile,var)] = 
+                    primBoundaries[INDEX_GLOBAL_WITH_NG(i+iNg,j,var)];
+                  #endif
                 }
             }
         }
@@ -209,8 +115,13 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                 }
             } else {
                 for (int iNg=0; iNg<NG; iNg++) {
+                  #if (RIGHT_BOUNDARY==OUTFLOW)
                     primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
                     primTile[INDEX_LOCAL(TILE_SIZE_X1-1,jTile,var)];
+                  #elif (RIGHT_BOUNDARY==DIRICHLET)
+                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
+                    primBoundaries[INDEX_GLOBAL_WITH_NG(i+iNg+1,j,var)];
+                  #endif
                 }
             }
         }
@@ -223,8 +134,13 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                 }
             } else {
                 for (int jNg=-NG; jNg<0; jNg++) {
+                  #if (BOTTOM_BOUNDARY==MIRROR)
                     primTile[INDEX_LOCAL(iTile,jNg,var)] =
                     primTile[INDEX_LOCAL(iTile,-jNg-1,var)];
+                  #elif (BOTTOM_BOUNDARY==DIRICHLET)
+                    primTile[INDEX_LOCAL(iTile,jNg,var)] =
+                    primBoundaries[INDEX_GLOBAL_WITH_NG(i,j+jNg,var)];
+                  #endif
                 }
             }
         }
@@ -237,14 +153,20 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                 }
             } else {
                 for (int jNg=0; jNg<NG; jNg++) {
+                  #if (TOP_BOUNDARY==MIRROR)
                     primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
                     primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2-1-jNg,var)];
+                  #elif (TOP_BOUNDARY==DIRICHLET)
+                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
+                    primBoundaries[INDEX_GLOBAL_WITH_NG(i,j+jNg+1,var)];
+                  #endif
                 }
             }
         }
     
     }
 
+#if (BOTTOM_BOUNDARY==MIRROR)
     if (jTile==0 && j<NG) {
         for (int jNg=-NG; jNg<0; jNg++) {
             primTile[INDEX_LOCAL(iTile,jNg,U2)] =
@@ -253,7 +175,9 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
            -primTile[INDEX_LOCAL(iTile,jNg,B2)];
         }
     }
+#endif
 
+#if (TOP_BOUNDARY==MIRROR)
     if (jTile==TILE_SIZE_X2-1 && j>N2-NG) {
         for (int jNg=0; jNg<NG; jNg++) {
             primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,U2)] =
@@ -262,11 +186,12 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
            -primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,B2)];
         }
     }
+#endif
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
+#if (INFLOW_CHECK)
     if (i>=N1-1 && iTile==TILE_SIZE_X1-1) {
-//        for (int iNg=-NG; iNg<NG; iNg++) {
         for (int iNg=0; iNg<NG; iNg++) {
             for (int var=0; var<DOF; var++) {
                 primEdge[var] = 
@@ -320,7 +245,6 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
     }
 
     if (i<=0 && iTile==0) {
-//        for (int iNg=-NG; iNg<NG; iNg++) {
         for (int iNg=-NG; iNg<0; iNg++) {
             for (int var=0; var<DOF; var++) {
                 primEdge[var] = 
@@ -373,6 +297,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
             }
         }
     }
+#endif
     
 /*
      (i,j) 
