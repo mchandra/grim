@@ -709,12 +709,10 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
         fluxX1[INDEX_GLOBAL_WITH_NG(i,j,var)] = fluxX1L[var];
         fluxX2[INDEX_GLOBAL_WITH_NG(i,j,var)] = fluxX2L[var];
 
-//        if (i==N1+NG-2) {
         if (i==N1-1) {
             fluxX1[INDEX_GLOBAL_WITH_NG(i+1, j, var)] = fluxX1R[var];
         }
 
-//        if (j==N2+NG-2) {
         if (j==N2-1) {
             fluxX2[INDEX_GLOBAL_WITH_NG(i, j+1, var)] = fluxX2R[var];
         }

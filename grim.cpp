@@ -572,7 +572,7 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       uConBL[2] = 0.;
       uConBL[3] = 0.;
 
-      transformBLtoMKS(uConBL, uConMKS, X1, X2, r, theta);
+//      transformBLtoMKS(uConBL, uConMKS, X1, X2, r, theta);
 
       REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
       REAL gdet, alpha;
@@ -581,12 +581,23 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       gConCalc(gcon, gcov, gdet);
       alphaCalc(&alpha, gcon);
 
-      prim[j][i][U1] = uConMKS[1] + 
-                       alpha*alpha*uConMKS[0]*gcon[0][1];
-      prim[j][i][U2] = uConMKS[2] + 
-                       alpha*alpha*uConMKS[0]*gcon[0][2];
-      prim[j][i][U3] = uConMKS[3] +
-                       alpha*alpha*uConMKS[0]*gcon[0][3];
+      /* Initial conditions given by Ben */
+	    REAL a = gcov[1][1];
+	    REAL b = gcon[0][1];
+	    REAL c = gcon[0][0];
+	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
+                 a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
+
+//      REAL a = gcon[0][0] - gcov[1][1]*pow(gcon[0][1], 2.);
+//      REAL b = -(2*sqrt(gcov[0][0])*uConBL[1]/r);
+//      REAL c = pow(uConBL[1]/r, 2.) - pow(gcon[0][1], 2.);
+//      REAL v1 = -b + sqrt(b*b - 4*a*c)/(2.*a);
+      
+//      prim[j][i][U1] = uConBL[1]/r + 
+//                       alpha*alpha*uConBL[0]*gcon[0][1];
+      prim[j][i][U1] = v1;
+      prim[j][i][U2] = 0.;
+      prim[j][i][U3] = 0.;
 
       prim[j][i][B1] = 0.;
       prim[j][i][B2] = 0.;

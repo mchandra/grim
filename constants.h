@@ -14,7 +14,7 @@
 #define R_MAX 12.
 #define H_SLOPE 0.3
 #define R0 0.
-#define R_IN 2.*(1. + sqrt(1. - A_SPIN*A_SPIN))
+#define R_IN 1.*(1. + sqrt(1. - A_SPIN*A_SPIN))
 #define R_OUT 40.
 #define X1_START log(R_IN - R0)
 #define X2_START 1e-3
@@ -425,7 +425,7 @@ void bSqrCalc(REAL* bsqr,
 
 REAL SlopeLim(REAL y1, REAL y2, REAL y3)
 {
-    REAL Dqm = 2. * (y2 - y1);
+  REAL Dqm = 2. * (y2 - y1);
 	REAL Dqp = 2. * (y3 - y2);
 	REAL Dqc = 0.5 * (y3 - y1);
 	REAL s = Dqm * Dqp;
