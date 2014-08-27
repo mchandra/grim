@@ -501,20 +501,10 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 
   REAL C2 = pow(1 + (1 + n)*T_c, 2.)*(1. - 2./r_c + u_c*u_c);
 
-  FILE *rCoords;
-  rCoords = fopen("rCoords.txt", "w");
+  FILE *bondiSoln;
+  bondiSoln = fopen("bondi_soln.txt", "w");
 
-  for (int i=X1Start; i<X1Start+X1Size; i++) {
-    REAL X1 = i_TO_X1_CENTER(i);
-    REAL X2 = j_TO_X2_CENTER(0);
-
-    REAL r, theta;
-
-    BLCoords(&r, &theta, X1, X2);
-
-    fprintf(rCoords, "%f\n", r);
-  }
-  fclose(rCoords);
+  fprintf(bondiSoln, "#r  rho  u  u^r  b^r\n");
 
   for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
     for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
@@ -599,15 +589,27 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       prim[j][i][U2] = 0.;
       prim[j][i][U3] = 0.;
 
-      prim[j][i][B1] = 0.;
+      /* Monopolar magnetic field */
+      REAL qB = 0.016;
+      prim[j][i][B1] = qB/(r*r);
       prim[j][i][B2] = 0.;
       prim[j][i][B3] = 0.;
 
       for (int var=0; var<DOF; var++) {
         tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
       }
+
+      if (j==0 && i>=0 && i<=X1Start+X1Size)
+      {
+        fprintf(bondiSoln, "%f  %f  %f  %f  %f\n", r,
+                prim[j][i][RHO], prim[j][i][UU],
+                uConBL[1]/r, prim[j][i][B1]);
+
+      }
     }
   }
+
+  fclose(bondiSoln);
 
   DMLocalToGlobalBegin(dmda, localPrim, INSERT_VALUES, Prim);
   DMLocalToGlobalEnd(dmda, localPrim, INSERT_VALUES, Prim);

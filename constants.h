@@ -14,7 +14,7 @@
 #define R_MAX 12.
 #define H_SLOPE 0.3
 #define R0 0.
-#define R_IN 1.*(1. + sqrt(1. - A_SPIN*A_SPIN))
+#define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
 #define R_OUT 40.
 #define X1_START log(R_IN - R0)
 #define X2_START 1e-3
@@ -32,8 +32,8 @@
 #define U_MIN_LIMIT (1e-15)
 #define GAMMA_MAX (5.)
 #define TAU_R (1e-2)
-#define PHI (0.1)
-#define CONDUCTION (0)
+#define PHI (1.)
+#define CONDUCTION (1)
 #define RESTART (0)
 
 /* Boundary mnemonics */
@@ -481,42 +481,12 @@ void mhdCalc(REAL mhd[NDIM][NDIM],
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
 
-    REAL dT_dt, dT_dX1, dT_dX2, bDotGradT, F0, cs;
-
-    dT_dt = (dvars_dt[UU]/primTile[INDEX_LOCAL(iTile, jTile, RHO)]) -
-            (primTile[INDEX_LOCAL(iTile, jTile, UU)]*dvars_dt[RHO]
-            /pow(primTile[INDEX_LOCAL(iTile, jTile, RHO)], 2.));
-
-    dT_dX1 = SlopeLim(primTile[INDEX_LOCAL(iTile-1, jTile, UU)]/
-                      primTile[INDEX_LOCAL(iTile-1, jTile, RHO)],
-                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
-                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
-                      primTile[INDEX_LOCAL(iTile+1, jTile, UU)]/
-                      primTile[INDEX_LOCAL(iTile+1, jTile, RHO)] )/DX1;
-
-    dT_dX2 = SlopeLim(primTile[INDEX_LOCAL(iTile, jTile-1, UU)]/
-                      primTile[INDEX_LOCAL(iTile, jTile-1, RHO)],
-                      primTile[INDEX_LOCAL(iTile, jTile, UU)]/
-                      primTile[INDEX_LOCAL(iTile, jTile, RHO)],
-                      primTile[INDEX_LOCAL(iTile, jTile+1, UU)]/
-                      primTile[INDEX_LOCAL(iTile, jTile+1, RHO)] )/DX2;
-
-    bDotGradT = (bcon[0]*dT_dt) + (bcon[1]*dT_dX1) + (bcon[2]*dT_dX2);
-
-    cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
-              primTile[INDEX_LOCAL(iTile, jTile, UU)]/
-              (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-               primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
-    
-    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs, 3.);
-
     for (int mu=0; mu<NDIM; mu++)
         for (int nu=0; nu<NDIM; nu++) {
 #if(CONDUCTION)
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu] +
-                          (var[FF]*bcon[mu])*ucov[nu] + ucon[mu]*(var[FF]*bcov[nu]);
+                          0.*(var[FF]*bcon[mu])*ucov[nu] + 0.*ucon[mu]*(var[FF]*bcov[nu]);
 #else
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu];
@@ -689,8 +659,13 @@ void addSources(REAL dU_dt[DOF],
               (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
                primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
     
+//    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+//              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
+//              3.)*tanh(-bDotGradT/1e-4);
+
     F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs, 3.)*tanh(-bDotGradT/1e-2);
+              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
+              3.);
 
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/TAU_R;
 #endif /* Conduction */
