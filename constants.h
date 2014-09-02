@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 256
-#define N2 256
+#define N1 512
+#define N2 512
 #define NG 2
 
 #define REAL double
@@ -32,7 +32,7 @@
 #define U_MIN_LIMIT (1e-15)
 #define GAMMA_MAX (5.)
 #define TAU_R (1e-2)
-#define PHI (1.)
+#define PHI (5.)
 #define CONDUCTION (1)
 #define RESTART (0)
 
@@ -757,8 +757,17 @@ void addSources(REAL dU_dt[DOF],
       }
     }
 
-    REAL qEckartCon[NDIM], kappa = 0.1;
+    REAL qEckartCon[NDIM], kappa;
     REAL dT[NDIM];
+
+    /* Set value for kappa using pitch angle scattering estimates from Sharma,
+     * Quataert and Stone, 2008.
+     * kappa = .2 (GMr)^0.5
+     */
+    REAL r, theta;
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
+    BLCoords(&r, &theta, X1, X2);
+    kappa = 0.2*sqrt(r);
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
@@ -784,9 +793,11 @@ void addSources(REAL dU_dt[DOF],
               (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
                primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
     
-    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
-              3.)*tanh(bDotq/1e-4);
+    REAL qsat = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+                     primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
+                     3.);
+    
+    F0 = qsat*tanh(bDotq/qsat);
 
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/TAU_R;
 #endif /* Conduction */
