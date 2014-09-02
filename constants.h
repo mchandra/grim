@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 128
-#define N2 128
+#define N1 256
+#define N2 256
 #define NG 2
 
 #define REAL double
@@ -14,7 +14,7 @@
 #define R_MAX 12.
 #define H_SLOPE 0.3
 #define R0 0.
-#define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
+#define R_IN 2.1*(1. + sqrt(1. - A_SPIN*A_SPIN))
 #define R_OUT 40.
 #define X1_START log(R_IN - R0)
 #define X2_START 1e-3
@@ -486,7 +486,7 @@ void mhdCalc(REAL mhd[NDIM][NDIM],
 #if(CONDUCTION)
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu] +
-                          0.*(var[FF]*bcon[mu])*ucov[nu] + 0.*ucon[mu]*(var[FF]*bcov[nu]);
+                          (var[FF]*bcon[mu])*ucov[nu] + ucon[mu]*(var[FF]*bcov[nu]);
 #else
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu];
@@ -511,6 +511,7 @@ void addSources(REAL dU_dt[DOF],
                 REAL X1, REAL X2,
                 REAL const __local *primTile,
                 REAL dvars_dt[DOF],
+                REAL ducon_dt[NDIM],
                 const int i, const int j,
                 const int iTile, const int jTile)
 
@@ -561,19 +562,27 @@ void addSources(REAL dU_dt[DOF],
 
 #if(CONDUCTION)
     REAL left, center, right;
-    REAL ducon, dT_dt, dT_dX1, dT_dX2, cs, F0, gamma, bDotGradT;
+    REAL ducon, dT_dt, dT_dX1, dT_dX2, cs, F0, gamma;
 
-    center = g*ucon[1];
+    REAL uconCenter[NDIM];
+    uconCenter[0] = ucon[0];
+    uconCenter[1] = ucon[1];
+    uconCenter[2] = ucon[2];
+    uconCenter[3] = ucon[3];
+
+    /* Compute -F*(g*u^\mu),\mu - (1)
+               = -F*( d(g*u^0)/dt + d(g*u^1)/dX1 + d(g*u^2)/dX2
+     */
+
+    center = g*uconCenter[1];
 
     X1 = i_TO_X1_CENTER(i+1); X2 = j_TO_X2_CENTER(j);
-    gCovCalc(gcov, X1, X2);
-    gDetCalc(&gdet, gcov);
-    gConCalc(gcon, gcov, gdet);
-
     for (int var=0; var<DOF; var++) {
         primVars[var] = primTile[INDEX_LOCAL(iTile+1, jTile, var)];
     }
-
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
     gammaCalc(&gamma, primVars, gcov);
     alphaCalc(&alpha, gcon);
     uconCalc(ucon, gamma, alpha, primVars, gcon);
@@ -581,14 +590,12 @@ void addSources(REAL dU_dt[DOF],
     right = sqrt(-gdet)*ucon[1];
 
     X1 = i_TO_X1_CENTER(i-1); X2 = j_TO_X2_CENTER(j);
-    gCovCalc(gcov, X1, X2);
-    gDetCalc(&gdet, gcov);
-    gConCalc(gcon, gcov, gdet);
-
     for (int var=0; var<DOF; var++) {
         primVars[var] = primTile[INDEX_LOCAL(iTile-1, jTile, var)];
     }
-
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
     gammaCalc(&gamma, primVars, gcov);
     alphaCalc(&alpha, gcon);
     uconCalc(ucon, gamma, alpha, primVars, gcon);
@@ -599,73 +606,187 @@ void addSources(REAL dU_dt[DOF],
 
     dU_dt[FF] += -primTile[INDEX_LOCAL(iTile, jTile, FF)]*ducon/DX1;
 
-    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j+1);
-    gCovCalc(gcov, X1, X2);
-    gDetCalc(&gdet, gcov);
-    gConCalc(gcon, gcov, gdet);
+    center = g*uconCenter[2];
 
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j+1);
     for (int var=0; var<DOF; var++) {
         primVars[var] = primTile[INDEX_LOCAL(iTile, jTile+1, var)];
     }
-
-    gammaCalc(&gamma, primVars, gcov);
-    alphaCalc(&alpha, gcon);
-    uconCalc(ucon, gamma, alpha, primVars, gcon);
-
-    right = sqrt(-gdet)*ucon[1];
-
-    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j-1);
     gCovCalc(gcov, X1, X2);
     gDetCalc(&gdet, gcov);
     gConCalc(gcon, gcov, gdet);
-
-    for (int var=0; var<DOF; var++) {
-        primVars[var] = primTile[INDEX_LOCAL(iTile, jTile-1, var)];
-    }
-
     gammaCalc(&gamma, primVars, gcov);
     alphaCalc(&alpha, gcon);
     uconCalc(ucon, gamma, alpha, primVars, gcon);
 
-    left = sqrt(-gdet)*ucon[1];
+    right = sqrt(-gdet)*ucon[2];
+
+    X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j-1);
+    for (int var=0; var<DOF; var++) {
+        primVars[var] = primTile[INDEX_LOCAL(iTile, jTile-1, var)];
+    }
+    gCovCalc(gcov, X1, X2);
+    gDetCalc(&gdet, gcov);
+    gConCalc(gcon, gcov, gdet);
+    gammaCalc(&gamma, primVars, gcov);
+    alphaCalc(&alpha, gcon);
+    uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+    left = sqrt(-gdet)*ucon[2];
 
     ducon = SlopeLim(left, center, right);
 
     dU_dt[FF] += -primTile[INDEX_LOCAL(iTile, jTile, FF)]*ducon/DX2;
 
+    dU_dt[FF] += -primTile[INDEX_LOCAL(iTile, jTile, FF)]*(g*ducon_dt[0]);
 
-    dT_dt = (dvars_dt[UU]/primTile[INDEX_LOCAL(iTile, jTile, RHO)]) -
-            (primTile[INDEX_LOCAL(iTile, jTile, UU)]*dvars_dt[RHO]
-            /pow(primTile[INDEX_LOCAL(iTile, jTile, RHO)], 2.));
+    dT_dt = (ADIABATIC_INDEX-1.)*
+            ((dvars_dt[UU]/primTile[INDEX_LOCAL(iTile, jTile, RHO)]) -
+              (primTile[INDEX_LOCAL(iTile, jTile, UU)]*dvars_dt[RHO]
+              /pow(primTile[INDEX_LOCAL(iTile, jTile, RHO)], 2.))
+            );
 
-    dT_dX1 = SlopeLim(primTile[INDEX_LOCAL(iTile-1, jTile, UU)]/
+    dT_dX1 = (ADIABATIC_INDEX-1.)*
+             SlopeLim(primTile[INDEX_LOCAL(iTile-1, jTile, UU)]/
                       primTile[INDEX_LOCAL(iTile-1, jTile, RHO)],
                       primTile[INDEX_LOCAL(iTile, jTile, UU)]/
                       primTile[INDEX_LOCAL(iTile, jTile, RHO)],
                       primTile[INDEX_LOCAL(iTile+1, jTile, UU)]/
                       primTile[INDEX_LOCAL(iTile+1, jTile, RHO)] )/DX1;
 
-    dT_dX2 = SlopeLim(primTile[INDEX_LOCAL(iTile, jTile-1, UU)]/
+    dT_dX2 = (ADIABATIC_INDEX-1.)*
+             SlopeLim(primTile[INDEX_LOCAL(iTile, jTile-1, UU)]/
                       primTile[INDEX_LOCAL(iTile, jTile-1, RHO)],
                       primTile[INDEX_LOCAL(iTile, jTile, UU)]/
                       primTile[INDEX_LOCAL(iTile, jTile, RHO)],
                       primTile[INDEX_LOCAL(iTile, jTile+1, UU)]/
                       primTile[INDEX_LOCAL(iTile, jTile+1, RHO)] )/DX2;
 
-    bDotGradT = (bcon[0]*dT_dt) + (bcon[1]*dT_dX1) + (bcon[2]*dT_dX2);
+    REAL acon[NDIM], acov[NDIM];
+
+    /* Compute a^\mu = u^\mu\del_\nu u^\mu 
+                     = u^0 d(u^\mu)/dt + u^1 d(u^\mu)/dX1 + u^2 d(u^\mu)/dX2
+     */
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+        acon[mu] = uconCenter[0]*ducon_dt[mu];
+
+        center = uconCenter[mu];
+
+        X1 = i_TO_X1_CENTER(i+1); X2 = j_TO_X2_CENTER(j);
+        for (int var=0; var<DOF; var++)
+        {
+          primVars[var] = primTile[INDEX_LOCAL(iTile+1, jTile, var)];
+        }
+        gCovCalc(gcov, X1, X2);
+        gDetCalc(&gdet, gcov);
+        gConCalc(gcon, gcov, gdet);
+        gammaCalc(&gamma, primVars, gcov);
+        alphaCalc(&alpha, gcon);
+        uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+        right = ucon[mu];
+
+        X1 = i_TO_X1_CENTER(i-1); X2 = j_TO_X2_CENTER(j);
+        for (int var=0; var<DOF; var++)
+        {
+          primVars[var] = primTile[INDEX_LOCAL(iTile-1, jTile, var)];
+        }
+        gCovCalc(gcov, X1, X2);
+        gDetCalc(&gdet, gcov);
+        gConCalc(gcon, gcov, gdet);
+        gammaCalc(&gamma, primVars, gcov);
+        alphaCalc(&alpha, gcon);
+        uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+        left = ucon[mu];
+
+        ducon = SlopeLim(left, center, right);
+
+        acon[mu] += uconCenter[1]*ducon/DX1;
+
+        X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j+1);
+        for (int var=0; var<DOF; var++)
+        {
+          primVars[var] = primTile[INDEX_LOCAL(iTile, jTile+1, var)];
+        }
+        gCovCalc(gcov, X1, X2);
+        gDetCalc(&gdet, gcov);
+        gConCalc(gcon, gcov, gdet);
+        gammaCalc(&gamma, primVars, gcov);
+        alphaCalc(&alpha, gcon);
+        uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+        right = ucon[mu];
+
+        X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j-1);
+        for (int var=0; var<DOF; var++)
+        {
+          primVars[var] = primTile[INDEX_LOCAL(iTile, jTile-1, var)];
+        }
+        gCovCalc(gcov, X1, X2);
+        gDetCalc(&gdet, gcov);
+        gConCalc(gcon, gcov, gdet);
+        gammaCalc(&gamma, primVars, gcov);
+        alphaCalc(&alpha, gcon);
+        uconCalc(ucon, gamma, alpha, primVars, gcon);
+
+        left = ucon[mu];
+
+        ducon = SlopeLim(left, center, right);
+
+        acon[mu] += uconCenter[2]*ducon/DX2;
+
+        for (int alpha=0; alpha<NDIM; alpha++)
+        {
+          for (int beta=0; beta<NDIM; beta++)
+          {
+            acon[mu] += conn[mu][alpha][beta]
+                        *uconCenter[alpha]*uconCenter[beta];
+          }
+        }
+    }
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+      acov[mu] = 0.;
+      for (int nu=0; nu<NDIM; nu++)
+      {
+        acov[mu] += gcov[mu][nu]*acon[nu];
+      }
+    }
+
+    REAL qEckartCon[NDIM], kappa = 0.1;
+    REAL dT[NDIM];
+
+    dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
+
+    REAL T = (primTile[INDEX_LOCAL(iTile, jTile, UU)]/
+              primTile[INDEX_LOCAL(iTile, jTile, RHO)])*
+             (ADIABATIC_INDEX-1.);
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+      qEckartCon[mu] = 0.;
+      for (int nu=0; nu<NDIM; nu++)
+      {
+        qEckartCon[mu] += -kappa*(uconCenter[mu]*uconCenter[nu] + gcon[mu][nu])
+                                *(dT[nu] + T*acov[nu]);
+      }                   
+    }
+
+    REAL bDotq = bcov[0]*qEckartCon[0] + bcov[1]*qEckartCon[1] +
+                 bcov[2]*qEckartCon[2] + bcov[3]*qEckartCon[3];
 
     cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
               primTile[INDEX_LOCAL(iTile, jTile, UU)]/
               (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
                primTile[INDEX_LOCAL(iTile, jTile, UU)]) );
     
-//    F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-//              primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
-//              3.)*tanh(-bDotGradT/1e-4);
-
     F0 = PHI*(primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
               primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
-              3.);
+              3.)*tanh(bDotq/1e-4);
 
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/TAU_R;
 #endif /* Conduction */
@@ -773,9 +894,9 @@ void ComputedU_dt(REAL dU_dt[DOF],
     dU_dt[B3] = g*dvar_dt[B3];
 
 #if(CONDUCTION)
+
     dU_dt[FF] = g*(dvar_dt[FF]*ucon[0] + ducon_dt[0]*var[FF]);
 
-    dU_dt[FF] -= g*var[FF]*ducon_dt[0];
 #endif /* Conduction */
 
 

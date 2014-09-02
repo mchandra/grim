@@ -346,7 +346,7 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                ucon, ucov, bcon, bcov, 
                gcon, gcov, mhd, primEdge, g, gdet, alpha,
                X1, X2, primTile,
-               dvars_dt,
+               dvars_dt, ducon_dt,
                i, j, iTile, jTile);
 
 /*

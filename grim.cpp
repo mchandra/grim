@@ -5,6 +5,11 @@ struct data
   REAL primBoundaries[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
 };
 
+static struct data tsData;
+static REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+static REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+static REAL emf[N2+2*NG][N1+2*NG];
+
 PetscErrorCode SetCoordinates(DM dmda)
 {
     DM coordDM;
@@ -155,8 +160,7 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    struct data tsData;
-    InitialConditionMTITest(ts, soln, &tsData);
+    InitialConditionAtmosphereTest(ts, soln, &tsData);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -200,8 +204,8 @@ PetscErrorCode ComputeResidual(TS ts,
     VecGetArray(dPrim_dt, &dprim_dt);
     VecGetArray(F, &f);
 
-    REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
-    REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+//    REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
+//    REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
 
     cl::Buffer primBuffer, dprimBuffer_dt, fbuffer, primBoundariesBuffer;
     PetscInt size = DOF*N1*N2*sizeof(PetscScalar);
@@ -255,7 +259,7 @@ PetscErrorCode ComputeResidual(TS ts,
 
     clErr = queue.finish();
 
-    REAL emf[N2+2*NG][N1+2*NG];
+//    REAL emf[N2+2*NG][N1+2*NG];
 
     for (int j=0; j<N2+NG; j++) {
         for (int i=0; i<N1+NG; i++) {
@@ -595,6 +599,8 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       prim[j][i][B2] = 0.;
       prim[j][i][B3] = 0.;
 
+      prim[j][i][FF] = 0.;
+
       for (int var=0; var<DOF; var++) {
         tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
       }
@@ -618,6 +624,142 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
   DMRestoreLocalVector(dmda, &localPrim);
 
 }
+
+struct integratorParams
+{
+  REAL T0;
+};
+
+int dP_dr(REAL r, const REAL y[], REAL f[], void *ptr)
+{
+  struct integratorParams *params = 
+    (struct integratorParams *)ptr;
+
+  REAL T0 = params->T0;
+
+  REAL P = y[0];
+
+  REAL dLnSqrtMinusgCov00_dr = M/(r*r* (1. - 2.*M/r) );
+ 
+  REAL gCov00 = -(1. - 2.*M/r);
+
+  REAL T = T0/sqrt(-gCov00);
+  REAL rho = P/T;
+    
+  REAL dP_dr = -(rho + P)*dLnSqrtMinusgCov00_dr;
+
+  f[0] = dP_dr;
+
+  return GSL_SUCCESS;
+}
+
+void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
+{
+  DM dmda;
+
+  int X1Start, X2Start;
+  int X1Size, X2Size;
+
+  TSGetDM(ts, &dmda);
+
+  DMDAGetCorners(dmda, 
+                 &X1Start, &X2Start, NULL,
+                 &X1Size, &X2Size, NULL);
+
+  Vec localPrim;
+  REAL ***prim;
+  DMGetLocalVector(dmda, &localPrim);
+  DMDAVecGetArrayDOF(dmda, localPrim, &prim);
+
+  FILE *atmosphereSolnRHO, *atmosphereSolnUU, *atmosphereSolnRCoords;
+  atmosphereSolnRHO = fopen("atmosphere_soln_rho.txt", "r");
+  atmosphereSolnUU = fopen("atmosphere_soln_u.txt", "r");
+  atmosphereSolnRCoords = fopen("atmosphere_soln_rCoords.txt", "r");
+
+  char *rhoLine = NULL, *uLine = NULL, *rLine = NULL;
+  size_t rhoLen=0; ssize_t rhoRead;
+  size_t uLen=0; ssize_t uRead;
+  size_t rLen=0; ssize_t rRead;
+
+  REAL rho[N1+2*NG], uu[N1+2*NG], rCoords[N1+2*NG];
+
+  for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
+    rhoRead = getline(&rhoLine, &rhoLen, atmosphereSolnRHO);
+    uRead = getline(&uLine, &uLen, atmosphereSolnUU);
+    rRead = getline(&rLine, &rLen, atmosphereSolnRCoords);
+
+    rho[i+NG] = atof(rhoLine);
+    uu[i+NG] = atof(uLine);
+    rCoords[i+NG] = atof(rLine);
+  }
+
+  free(rhoLine); free(uLine);
+  fclose(atmosphereSolnRHO);
+  fclose(atmosphereSolnUU);
+  fclose(atmosphereSolnRCoords);
+
+  for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
+    for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
+
+      REAL X1 = i_TO_X1_CENTER(i);
+      REAL X2 = j_TO_X2_CENTER(j);
+      REAL r, theta;
+      BLCoords(&r, &theta, X1, X2);
+
+      if (abs(r - rCoords[i+NG])>1e-15)
+      {
+        PetscPrintf(PETSC_COMM_SELF, "r = %f, rCoords = %f, DX1 = %f\n", r,
+        rCoords[i+NG], DX1);
+        PetscPrintf(PETSC_COMM_SELF, "Mismatch in rCoords! Check r coords in python script\n");
+        exit(1);
+      }
+  
+      REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM], alpha, gdet;
+      gCovCalc(gcov, X1, X2);
+      gDetCalc(&gdet, gcov);
+      gConCalc(gcon, gcov, gdet);
+      alphaCalc(&alpha, gcon);
+    
+      prim[j][i][RHO] = rho[i+NG];
+      prim[j][i][UU] = uu[i+NG];
+
+      REAL uConBL[NDIM];
+      uConBL[0] = 1./sqrt(-gcov[0][0]); uConBL[1] = 0.;
+      uConBL[2] = 0.; uConBL[3] = 0.;
+
+	    REAL a = gcov[1][1];
+	    REAL b = gcon[0][1];
+	    REAL c = gcon[0][0];
+	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
+                 a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
+
+      prim[j][i][U1] = v1;
+      prim[j][i][U2] = 0.;
+      prim[j][i][U3] = 0.;
+
+      /* Monopolar magnetic field */
+      REAL qB = 0.0016;
+      prim[j][i][B1] = qB/(r*r);
+      prim[j][i][B2] = 0.;
+      prim[j][i][B3] = 0.;
+
+      prim[j][i][FF] = 0.;
+
+      for (int var=0; var<DOF; var++) {
+        tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
+      }
+
+    }
+  }
+
+  DMLocalToGlobalBegin(dmda, localPrim, INSERT_VALUES, Prim);
+  DMLocalToGlobalEnd(dmda, localPrim, INSERT_VALUES, Prim);
+
+  DMDAVecRestoreArrayDOF(dmda, localPrim, &prim);
+  DMRestoreLocalVector(dmda, &localPrim);
+
+}
+
 
 void transformBLtoMKS(REAL uconBL[NDIM], REAL uconMKS[NDIM], 
                       REAL X1, REAL X2, REAL r, REAL theta)
