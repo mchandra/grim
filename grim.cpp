@@ -9,6 +9,7 @@ static struct data tsData;
 static REAL fluxX1[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
 static REAL fluxX2[(N1 + 2*NG)*(N2 + 2*NG)*DOF];
 static REAL emf[N2+2*NG][N1+2*NG];
+static REAL AVector[N2+2*NG][N1+2*NG];
 
 PetscErrorCode SetCoordinates(DM dmda)
 {
@@ -160,7 +161,7 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    InitialConditionAtmosphereTest(ts, soln, &tsData);
+    InitialConditionMTITest(ts, soln, &tsData);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -418,63 +419,6 @@ void InitialConditionTest(TS ts, Vec X)
     DMDAVecRestoreArrayDOF(dmda, X, &x);
 }
 
-struct rootFinderParams
-{
-  REAL C1, C2, r;
-};
-
-REAL inputFunctionForRootFinder(REAL T, void *ptr)
-{
-  struct rootFinderParams *params = 
-    (struct rootFinderParams *)ptr;
-
-  REAL C1 = params->C1;
-  REAL C2 = params->C2;
-  REAL r  = params->r;
-
-  REAL n = 1./(ADIABATIC_INDEX-1.);
-
-  return pow(1. + (1. + n)*T, 2.)*(1 - 2./r + C1*C1/(pow(r, 4.) * pow(T, 2.*n)) ) - C2;
-}
-
-REAL inputDerForRootFinder(REAL T, void *ptr)
-{
-  struct rootFinderParams *params = 
-    (struct rootFinderParams *)ptr;
-
-  REAL C1 = params->C1;
-  REAL r  = params->r;
-
-  REAL n = 1./(ADIABATIC_INDEX-1.);
-
-  REAL ans;
-  ans  =  2.*(1 + n)*(1. + (1.+n)*T)*(1 - 2./r 
-                                     + C1*C1/(pow(r, 4.) * pow(T, 2.*n))
-                                    )
-         + pow(1 + (1 + n)*T, 2.)*(-2*n*C1*C1/(pow(r, 4.) * pow(T, 2*n+1)) );
-
-  return ans;
-}
-
-void inputFunctionAndDerForRootFinder(REAL T, void *ptr, REAL *y, REAL *dy)
-{
-  struct rootFinderParams *params = 
-    (struct rootFinderParams *)ptr;
-
-  REAL C1 = params->C1;
-  REAL C2 = params->C2;
-  REAL r  = params->r;
-
-  REAL n = 1./(ADIABATIC_INDEX-1.);
-
-  *y = pow(1. + (1. + n)*T, 2.)*(1 - 2./r + C1*C1/(pow(r, 4.) * pow(T, 2.*n)) ) - C2;
-
-  *dy = 2.*(1 + n)*(1. + (1.+n)*T)*(1 - 2./r 
-                                    + C1*C1/(pow(r, 4.) * pow(T, 2.*n))
-                                   )
-        + pow(1 + (1 + n)*T, 2.)*(-2*n*C1*C1/(pow(r, 4.) * pow(T, 2*n+1)) );
-}
-
 void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 {
   DM dmda;
@@ -493,22 +437,37 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
   DMGetLocalVector(dmda, &localPrim);
   DMDAVecGetArrayDOF(dmda, localPrim, &prim);
 
-  REAL r_c = 8.;
-  REAL u_c = -sqrt(1./(2.*r_c));
-  REAL V_c = sqrt(u_c*u_c/(1. - (3*u_c*u_c)) );
+  FILE *bondiSolnRHO, *bondiSolnUU, *bondiSolnU1, *bondiSolnRCoords;
+  bondiSolnRHO = fopen("bondi_soln_rho.txt", "r");
+  bondiSolnUU = fopen("bondi_soln_u.txt", "r");
+  bondiSolnU1 = fopen("bondi_soln_ur.txt", "r");
+  bondiSolnRCoords = fopen("bondi_soln_rCoords.txt", "r");
 
-  REAL n = 1./(ADIABATIC_INDEX - 1.);
+  char *rhoLine = NULL, *uLine = NULL, *rLine = NULL, *urLine = NULL;
+  size_t rhoLen=0; ssize_t rhoRead;
+  size_t uLen=0; ssize_t uRead;
+  size_t urLen=0; ssize_t urRead;
+  size_t rLen=0; ssize_t rRead;
 
-  REAL T_c = (n*V_c*V_c)/( (1. + n)*(1. - (n*V_c*V_c)) );
+  REAL rho[N1+2*NG], uu[N1+2*NG], ur[N1+2*NG], rCoords[N1+2*NG];
 
-  REAL C1 = pow(T_c, n) * u_c * r_c*r_c;
+  for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
+    rhoRead = getline(&rhoLine, &rhoLen, bondiSolnRHO);
+    uRead = getline(&uLine, &uLen, bondiSolnUU);
+    urRead = getline(&urLine, &urLen, bondiSolnU1);
+    rRead = getline(&rLine, &rLen, bondiSolnRCoords);
 
-  REAL C2 = pow(1 + (1 + n)*T_c, 2.)*(1. - 2./r_c + u_c*u_c);
+    rho[i+NG] = atof(rhoLine);
+    uu[i+NG] = atof(uLine);
+    ur[i+NG] = atof(urLine);
+    rCoords[i+NG] = atof(rLine);
+  }
 
-  FILE *bondiSoln;
-  bondiSoln = fopen("bondi_soln.txt", "w");
-
-  fprintf(bondiSoln, "#r  rho  u  u^r  b^r\n");
+  free(rhoLine); free(uLine); free(urLine);
+  fclose(bondiSolnRHO);
+  fclose(bondiSolnUU);
+  fclose(bondiSolnU1);
+  fclose(bondiSolnRCoords);
 
   for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
     for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
@@ -520,53 +479,60 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 
       BLCoords(&r, &theta, X1, X2);
 
-      gsl_function_fdf fdf;
-      struct rootFinderParams params = {C1, C2, r};
+      if (abs(r - rCoords[i+NG])>1e-15)
+      {
+        PetscPrintf(PETSC_COMM_SELF, "r = %f, rCoords = %f, DX1 = %f\n", r,
+        rCoords[i+NG], DX1);
+        PetscPrintf(PETSC_COMM_SELF, "Mismatch in rCoords! Check r coords in python script\n");
+        exit(1);
+      }
+  
+      prim[j][i][RHO] = rho[i+NG];
+      prim[j][i][UU] = uu[i+NG];
 
-      fdf.f = &inputFunctionForRootFinder;
-      fdf.df = &inputDerForRootFinder;
-      fdf.fdf = &inputFunctionAndDerForRootFinder;
-      fdf.params = &params;
 
-      const gsl_root_fdfsolver_type *solverType;
-      gsl_root_fdfsolver *solver;
-
-      solverType = gsl_root_fdfsolver_newton;
-      solver = gsl_root_fdfsolver_alloc(solverType);
-
-      gsl_root_fdfsolver_set(solver, &fdf, T_c);
-
-      int status = GSL_CONTINUE;
-      int maxIter = 10000, iter=0;
-
-      REAL T = T_c, T0;
-      do
-        {
-          printf("iter = %d, T = %f\n", iter, T);
-          iter++;
-          status = gsl_root_fdfsolver_iterate(solver);
-          T0 = T;
-          T = gsl_root_fdfsolver_root(solver);
-          status = gsl_root_test_delta (T, T0, 0, 1e-10);
-
-          if (status == GSL_SUCCESS)
-            printf ("Converged for r = %f\n", r);
-
-        }
-      while (status == GSL_CONTINUE && iter < maxIter);
-
-      gsl_root_fdfsolver_free(solver);
-      /* End of root finding. We now have T */
-
-      prim[j][i][RHO] = pow(T, n);
-      prim[j][i][UU] = T*prim[j][i][RHO]/(ADIABATIC_INDEX-1.);
-
-      REAL uConBL[NDIM], uConMKS[NDIM];
-      uConBL[1] = C1/(pow(T, n)*r*r);
+      REAL uConBL[NDIM];
+      uConBL[1] = ur[i+NG];
       uConBL[2] = 0.;
       uConBL[3] = 0.;
 
-//      transformBLtoMKS(uConBL, uConMKS, X1, X2, r, theta);
+
+      /* Initial conditions given by Ben */
+      REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
+      REAL gdet, alpha;
+      gCovCalc(gcov, X1, X2);
+      gDetCalc(&gdet, gcov);
+      gConCalc(gcon, gcov, gdet);
+      alphaCalc(&alpha, gcon);
+
+	    REAL a = gcov[1][1];
+	    REAL b = gcon[0][1];
+	    REAL c = gcon[0][0];
+	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
+                 a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
+
+      prim[j][i][U1] = v1;
+      prim[j][i][U2] = 0.;
+      prim[j][i][U3] = 0.;
+
+      /* Monopolar magnetic field */
+      /*REAL qB = 0.0;
+      prim[j][i][B1] = qB/(r*r);
+      prim[j][i][B2] = 0.;
+      prim[j][i][B3] = 0.;*/
+
+      AVector[j+NG][i+NG] = 0.00*0.5*r*sin(theta);
+
+      prim[j][i][FF] = 0.;
+
+    }
+  }
+
+  for (int j=X2Start; j<X2Start+X2Size; j++) {
+    for (int i=X1Start; i<X1Start+X1Size; i++) {
+
+      REAL X1 = i_TO_X1_CENTER(i);
+      REAL X2 = j_TO_X2_CENTER(j);
 
       REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
       REAL gdet, alpha;
@@ -575,47 +541,27 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       gConCalc(gcon, gcov, gdet);
       alphaCalc(&alpha, gcon);
 
-      /* Initial conditions given by Ben */
-	    REAL a = gcov[1][1];
-	    REAL b = gcon[0][1];
-	    REAL c = gcon[0][0];
-	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
-                 a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
+      prim[j][i][B1] = -(AVector[j+NG][i+NG] - AVector[j+NG+1][i+NG] +
+                         AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
+                        (2.*DX2*sqrt(-gdet));
 
-//      REAL a = gcon[0][0] - gcov[1][1]*pow(gcon[0][1], 2.);
-//      REAL b = -(2*sqrt(gcov[0][0])*uConBL[1]/r);
-//      REAL c = pow(uConBL[1]/r, 2.) - pow(gcon[0][1], 2.);
-//      REAL v1 = -b + sqrt(b*b - 4*a*c)/(2.*a);
-      
-//      prim[j][i][U1] = uConBL[1]/r + 
-//                       alpha*alpha*uConBL[0]*gcon[0][1];
-      prim[j][i][U1] = v1;
-      prim[j][i][U2] = 0.;
-      prim[j][i][U3] = 0.;
+      prim[j][i][B2] = (AVector[j+NG][i+NG] + AVector[j+1+NG][i+NG] -
+                            AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
+                            (2.*DX1*sqrt(-gdet));
 
-      /* Monopolar magnetic field */
-      REAL qB = 0.016;
-      prim[j][i][B1] = qB/(r*r);
-      prim[j][i][B2] = 0.;
       prim[j][i][B3] = 0.;
+    }
+  }
 
-      prim[j][i][FF] = 0.;
+  for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
+    for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
 
       for (int var=0; var<DOF; var++) {
         tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
       }
 
-      if (j==0 && i>=0 && i<=X1Start+X1Size)
-      {
-        fprintf(bondiSoln, "%f  %f  %f  %f  %f\n", r,
-                prim[j][i][RHO], prim[j][i][UU],
-                uConBL[1]/r, prim[j][i][B1]);
-
-      }
     }
   }
-
-  fclose(bondiSoln);
 
   DMLocalToGlobalBegin(dmda, localPrim, INSERT_VALUES, Prim);
   DMLocalToGlobalEnd(dmda, localPrim, INSERT_VALUES, Prim);
@@ -623,34 +569,6 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
   DMDAVecRestoreArrayDOF(dmda, localPrim, &prim);
   DMRestoreLocalVector(dmda, &localPrim);
 
-}
-
-struct integratorParams
-{
-  REAL T0;
-};
-
-int dP_dr(REAL r, const REAL y[], REAL f[], void *ptr)
-{
-  struct integratorParams *params = 
-    (struct integratorParams *)ptr;
-
-  REAL T0 = params->T0;
-
-  REAL P = y[0];
-
-  REAL dLnSqrtMinusgCov00_dr = M/(r*r* (1. - 2.*M/r) );
- 
-  REAL gCov00 = -(1. - 2.*M/r);
-
-  REAL T = T0/sqrt(-gCov00);
-  REAL rho = P/T;
-    
-  REAL dP_dr = -(rho + P)*dLnSqrtMinusgCov00_dr;
-
-  f[0] = dP_dr;
-
-  return GSL_SUCCESS;
 }
 
 void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
@@ -871,8 +789,6 @@ void InitialCondition(TS ts, Vec Prim)
     DMDAGetCorners(dmda, 
                    &X1Start, &X2Start, NULL,
                    &X1Size, &X2Size, NULL);
-
-    PetscScalar AVector[X2Size+2*NG][X1Size+2*NG];
 
     Vec localPrim;
     DMGetLocalVector(dmda, &localPrim);

@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 512
-#define N2 512
+#define N1 64
+#define N2 64
 #define NG 2
 
 #define REAL double
@@ -14,7 +14,7 @@
 #define R_MAX 12.
 #define H_SLOPE 0.3
 #define R0 0.
-#define R_IN 2.1*(1. + sqrt(1. - A_SPIN*A_SPIN))
+#define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
 #define R_OUT 40.
 #define X1_START log(R_IN - R0)
 #define X2_START 1e-3
@@ -25,7 +25,7 @@
 #define DT 0.03
 #define KAPPA 1e-3
 #define BETA 1e2
-#define ADIABATIC_INDEX (5./3.)
+#define ADIABATIC_INDEX (5/3.)
 #define RHO_MIN (1e-4)
 #define U_MIN (1e-5)
 #define RHO_MIN_LIMIT (1e-15)
