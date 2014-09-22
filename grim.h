@@ -15,6 +15,8 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
 #include <gsl/gsl_odeiv2.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
 #include "constants.h"
 
 static const char help[] = 
@@ -37,27 +39,28 @@ PetscErrorCode CheckCLErrors(cl_int clErr, std::string errMsg)
     }
     return(0.);
 }
-extern void InitialConditionTest(TS ts, Vec prim);
-extern void InitialCondition(TS ts, Vec prim);
-extern void Benchmark(TS ts, Vec prim);
-extern PetscErrorCode ComputeResidual(TS ts,
-                               PetscScalar t,
-                               Vec Prim, Vec dPrim_dt,
-                               Vec F, void *ptr);
-extern PetscErrorCode Monitor(TS ts, 
-                              PetscInt step,
-                              PetscReal time,
-                              Vec Prim,
-                              void *ptr);
+void InitialConditionTest(TS ts, Vec prim);
+void InitialCondition(TS ts, Vec prim);
+void Benchmark(TS ts, Vec prim);
+PetscErrorCode ComputeResidual(TS ts,
+                        PetscScalar t,
+                        Vec Prim, Vec dPrim_dt,
+                        Vec F, void *ptr);
+PetscErrorCode Monitor(TS ts, 
+                       PetscInt step,
+                       PetscReal time,
+                       Vec Prim,
+                       void *ptr);
 
-extern PetscErrorCode SNESMonitor(SNES snes,
-                                  PetscInt its,
-                                  PetscReal norm,
-                                  void *ptr);
+PetscErrorCode SNESMonitor(SNES snes,
+                           PetscInt its,
+                           PetscReal norm,
+                           void *ptr);
 
 void transformBLtoMKS(REAL uConBL[NDIM], REAL uConMKS[NDIM], 
                       REAL X1, REAL X2, REAL r, REAL theta);
 
 void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData);
 void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData);
+void InitialConditionLinearModes(TS ts, Vec Prim);
 #endif

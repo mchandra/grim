@@ -102,6 +102,9 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                   #elif (LEFT_BOUNDARY==DIRICHLET)
                     primTile[INDEX_LOCAL(iNg,jTile,var)] = 
                     primBoundaries[INDEX_GLOBAL_WITH_NG(i+iNg,j,var)];
+                  #elif (LEFT_BOUNDARY==PERIODIC) 
+                    primTile[INDEX_LOCAL(iNg,jTile,var)] =
+                        prim[INDEX_GLOBAL(N1+iNg,j,var)];
                   #endif
                 }
             }
@@ -121,6 +124,9 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                   #elif (RIGHT_BOUNDARY==DIRICHLET)
                     primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
                     primBoundaries[INDEX_GLOBAL_WITH_NG(i+iNg+1,j,var)];
+                  #elif (RIGHT_BOUNDARY==PERIODIC)
+                    primTile[INDEX_LOCAL(TILE_SIZE_X1+iNg,jTile,var)] =
+                    prim[INDEX_GLOBAL(iNg,j,var)];
                   #endif
                 }
             }
@@ -140,6 +146,9 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                   #elif (BOTTOM_BOUNDARY==DIRICHLET)
                     primTile[INDEX_LOCAL(iTile,jNg,var)] =
                     primBoundaries[INDEX_GLOBAL_WITH_NG(i,j+jNg,var)];
+                  #elif (BOTTOM_BOUNDARY==PERIODIC)
+                    primTile[INDEX_LOCAL(iTile,jNg,var)] = 
+                    prim[INDEX_GLOBAL(i,N2+jNg,var)];
                   #endif
                 }
             }
@@ -159,6 +168,9 @@ __kernel void ComputeResidual(__global const REAL* restrict prim,
                   #elif (TOP_BOUNDARY==DIRICHLET)
                     primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
                     primBoundaries[INDEX_GLOBAL_WITH_NG(i,j+jNg+1,var)];
+                  #elif (TOP_BOUNDARY==PERIODIC)
+                    primTile[INDEX_LOCAL(iTile,TILE_SIZE_X2+jNg,var)] =
+                        prim[INDEX_GLOBAL(i,jNg,var)];
                   #endif
                 }
             }

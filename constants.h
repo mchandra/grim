@@ -8,44 +8,57 @@
 #define TILE_SIZE_X1 8
 #define TILE_SIZE_X2 8
 
-#define A_SPIN 0.
-#define M 1.
-#define R_MIN 6.
-#define R_MAX 12.
-#define H_SLOPE 0.3
-#define R0 0.
-#define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
-#define R_OUT 40.
-#define X1_START log(R_IN - R0)
-#define X2_START 1e-3
-#define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
-#define DX2 ((1.-2.*X2_START)/(REAL)N2)
-//#define DX1 (1./(REAL)N1)
-//#define DX2 (1./(REAL)N2)
-#define DT 0.03
-#define KAPPA 1e-3
-#define BETA 1e2
-#define ADIABATIC_INDEX (5/3.)
-#define RHO_MIN (1e-4)
-#define U_MIN (1e-5)
-#define RHO_MIN_LIMIT (1e-15)
-#define U_MIN_LIMIT (1e-15)
-#define GAMMA_MAX (5.)
-#define TAU_R (1e-2)
-#define PHI (5.)
-#define CONDUCTION (1)
-#define RESTART (0)
+#define MKS         (0)
+#define MINKOWSKI   (1)
+#define GEOMETRY (MINKOWSKI)
+
+#if (GEOMETRY==MKS)
+  #define R0 0.
+  #define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
+  #define R_OUT 500.
+  #define X1_START log(R_IN - R0)
+  #define X2_START 1e-3
+  #define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
+  #define DX2 ((1.-2.*X2_START)/(REAL)N2)
+#elif (GEOMETRY==MINKOWSKI)
+  #define X1_START (0.)
+  #define X2_START (0.)
+  #define X1_END   (1.)
+  #define X2_END   (1.)
+  #define DX1 ((X1_END - X1_START)/(REAL)N1)
+  #define DX2 ((X2_END - X2_START)/(REAL)N2)
+#endif
 
 /* Boundary mnemonics */
 #define OUTFLOW   (0)
 #define MIRROR    (1)
 #define DIRICHLET (2)
+#define PERIODIC  (3)
 
-#define LEFT_BOUNDARY   (DIRICHLET)
-#define RIGHT_BOUNDARY  (DIRICHLET)
-#define BOTTOM_BOUNDARY (DIRICHLET)
-#define TOP_BOUNDARY    (DIRICHLET)
+#define LEFT_BOUNDARY   (PERIODIC)
+#define RIGHT_BOUNDARY  (PERIODIC)
+#define BOTTOM_BOUNDARY (PERIODIC)
+#define TOP_BOUNDARY    (PERIODIC)
 #define INFLOW_CHECK    (0)
+
+#define A_SPIN 0.
+#define M 1.
+#define R_MIN 6.
+#define R_MAX 12.
+#define H_SLOPE 1.
+#define DT .01
+#define KAPPA 1e-3
+#define BETA 1e2
+#define ADIABATIC_INDEX (4/3.)
+#define RHO_MIN (1e-4)
+#define U_MIN (1e-5)
+#define RHO_MIN_LIMIT (1e-15)
+#define U_MIN_LIMIT (1e-15)
+#define GAMMA_MAX (5.)
+#define TAU_R (1.)
+#define PHI (5.)
+#define CONDUCTION (1)
+#define RESTART (0)
 
 #define EPS (1e-5)
 
@@ -57,11 +70,12 @@
 #define B1 5
 #define B2 6
 #define B3 7
-#if(CONDUCTION)
-#define FF 8
-#define DOF 9
+
+#if (CONDUCTION)
+  #define FF 8
+  #define DOF 9
 #else
-#define DOF 8
+  #define DOF 8
 #endif
 
 
@@ -86,14 +100,19 @@
 void BLCoords(REAL* r, REAL* theta,
               const REAL X1, const REAL X2)
 {
+#if (GEOMETRY==MKS)
     *r = exp(X1) + R0;
     *theta = M_PI*(X2) + ((1 - H_SLOPE)/2.)*sin(2.*M_PI*(X2));
+#elif (GEOMETRY==MINKOWSKI)
+    *r = X1; *theta = X2;
+#endif
 }
 
 
 void gCovCalc(REAL gcov[NDIM][NDIM],
               const REAL X1, const REAL X2)
 {
+#if (GEOMETRY==MKS)
     REAL r, theta;
     BLCoords(&r, &theta, X1, X2);
 
@@ -125,25 +144,29 @@ void gCovCalc(REAL gcov[NDIM][NDIM],
                             A_SPIN*A_SPIN*sin(theta)*sin(theta)*\
                             (1. + 2.*r/rhoSqr) );
 
-//    gcov[0][0] = -1.;
-//    gcov[0][1] = 0.;
-//    gcov[0][2] = 0.;
-//    gcov[0][3] = 0.;
-//
-//    gcov[1][0] = 0.;
-//    gcov[1][1] = 1.;
-//    gcov[1][2] = 0.;
-//    gcov[1][3] = 0.;
-//
-//    gcov[2][0] = 0.;
-//    gcov[2][1] = 0.;
-//    gcov[2][2] = 1.;
-//    gcov[2][3] = 0.;
-//
-//    gcov[3][0] = 0.;
-//    gcov[3][1] = 0.;
-//    gcov[3][2] = 0.;
-//    gcov[3][3] = 1.;
+#elif (GEOMETRY==MINKOWSKI)
+
+    gcov[0][0] = -1.;
+    gcov[0][1] = 0.;
+    gcov[0][2] = 0.;
+    gcov[0][3] = 0.;
+
+    gcov[1][0] = 0.;
+    gcov[1][1] = 1.;
+    gcov[1][2] = 0.;
+    gcov[1][3] = 0.;
+
+    gcov[2][0] = 0.;
+    gcov[2][1] = 0.;
+    gcov[2][2] = 1.;
+    gcov[2][3] = 0.;
+
+    gcov[3][0] = 0.;
+    gcov[3][1] = 0.;
+    gcov[3][2] = 0.;
+    gcov[3][3] = 1.;
+
+#endif
 }
 
 void gConCalc(REAL gcon[NDIM][NDIM],
@@ -440,26 +463,6 @@ REAL SlopeLim(REAL y1, REAL y2, REAL y3)
 		else
 			return (Dqc);
 	}
-
-
-//	REAL Dqm = (y2 - y1);
-//	REAL Dqp = (y3 - y2);
-//	REAL s = Dqm * Dqp;
-//	if (s <= 0.)
-//	    return 0.;
-//	else if (fabs(Dqm) < fabs(Dqp))
-//		return Dqm;
-//	else
-//		return Dqp;
-        
-
-//	REAL Dqm = (y2 - y1);
-//	REAL Dqp = (y3 - y2);
-//	REAL s = Dqm * Dqp;
-//	if (s <= 0.)
-//	    return 0.;
-//	else
-//	    return (2. * s / (Dqm + Dqp));
 }
 
 #ifdef OPENCL
@@ -486,7 +489,8 @@ void mhdCalc(REAL mhd[NDIM][NDIM],
 #if(CONDUCTION)
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu] +
-                          (var[FF]*bcon[mu])*ucov[nu] + ucon[mu]*(var[FF]*bcov[nu]);
+                          (var[FF]*bcon[mu]/sqrt(bsqr))*ucov[nu] + 
+                           ucon[mu]*(var[FF]*bcov[nu]/sqrt(bsqr));
 #else
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu];
@@ -767,7 +771,8 @@ void addSources(REAL dU_dt[DOF],
     REAL r, theta;
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
-    kappa = 0.2*sqrt(r);
+//    kappa = 0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+    kappa = 0.01;
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
@@ -788,6 +793,11 @@ void addSources(REAL dU_dt[DOF],
     REAL bDotq = bcov[0]*qEckartCon[0] + bcov[1]*qEckartCon[1] +
                  bcov[2]*qEckartCon[2] + bcov[3]*qEckartCon[3];
 
+    REAL bsqr = bcov[0]*bcon[0] + bcov[1]*bcon[1] +
+                bcov[2]*bcon[2] + bcov[3]*bcon[3];
+
+    if (bsqr < 1e-10) bsqr = 1e-10;
+
     cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
               primTile[INDEX_LOCAL(iTile, jTile, UU)]/
               (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
@@ -797,9 +807,15 @@ void addSources(REAL dU_dt[DOF],
                      primTile[INDEX_LOCAL(iTile, jTile, UU)])*pow(cs,
                      3.);
     
-    F0 = qsat*tanh(bDotq/qsat);
+//    F0 = qsat/sqrt(bsqr)*tanh(bDotq/sqrt(bsqr)/qsat);
+    F0 = bDotq/sqrt(bsqr);
 
-    dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/TAU_R;
+    REAL tau_r = (kappa*T)/
+                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
+                 ) + TAU_R;
+
+    dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/tau_r;
 #endif /* Conduction */
 
 }

@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    InitialConditionMTITest(ts, soln, &tsData);
+    InitialConditionLinearModes(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -419,6 +419,65 @@ void InitialConditionTest(TS ts, Vec X)
     DMDAVecRestoreArrayDOF(dmda, X, &x);
 }
 
+void InitialConditionLinearModes(TS ts, Vec Prim)
+{
+    DM dmda;
+    TSGetDM(ts, &dmda);
+    PetscScalar ***prim;
+
+    DMDAVecGetArrayDOF(dmda, Prim, &prim);
+
+    for (PetscInt j=0; j<N2; j++) 
+    {
+      for (PetscInt i=0; i<N1; i++) 
+      {
+        REAL X1 = i_TO_X1_CENTER(i);
+        REAL X2 = j_TO_X2_CENTER(j);
+
+        REAL rho0 = 10.;
+        REAL u0 = 0.1;
+        REAL u10 = 0.;
+        REAL u20 = 0.;
+        REAL u30 = 0.;
+        REAL B10 = 1e-10;
+        REAL B20 = 0.;
+        REAL B30 = 0.;
+        REAL phi0 = 0.;
+
+        REAL k = 2*M_PI;
+        REAL amplitude = 0e-3;
+
+
+        /* delta ~ A exp(i k x) and A = a + i b. 
+           Therefore delta ~ a cos(k*X1) - b sin(k*X1) */
+        
+        REAL delta_rho = 0.681054447936*cos(k*X1) - 0.*sin(k*X1);
+        REAL delta_u = -0.510874509458*cos(k*X1) - 0.*sin(k*X1);
+        REAL delta_u1 = 0.*cos(k*X1) - 0.0681277650418*sin(k*X1);
+        REAL delta_u2 = 0.;
+        REAL delta_u3 = 0.;
+        REAL delta_B1 = 0.;
+        REAL delta_B2 = 0.;
+        REAL delta_B3 = 0.;
+        REAL delta_phi = 0.*cos(k*X1) + 0.520125640748*sin(k*X1);
+
+        prim[j][i][RHO] = rho0 + amplitude*delta_rho;
+        prim[j][i][UU] = u0 + amplitude*delta_u;
+        prim[j][i][U1] = u10 + amplitude*delta_u1;
+        prim[j][i][U2] = u20 + amplitude*delta_u2;
+        prim[j][i][U3] = u30 + amplitude*delta_u3;
+        prim[j][i][B1] = B10 + amplitude*delta_B1;
+        prim[j][i][B2] = B20 + amplitude*delta_B2;
+        prim[j][i][B3] = B30 + amplitude*delta_B3;
+        prim[j][i][FF] = phi0 + amplitude*delta_phi;
+
+      }
+    }
+
+
+    DMDAVecRestoreArrayDOF(dmda, Prim, &prim);
+}
+
 void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 {
   DM dmda;
@@ -427,6 +486,10 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
   int X1Size, X2Size;
 
   TSGetDM(ts, &dmda);
+
+  gsl_rng *gslRand;
+  gslRand = gsl_rng_alloc(gsl_rng_mt19937);     /* use Mersenne twister */
+  gsl_rng_set(gslRand, 1.);
 
   DMDAGetCorners(dmda, 
                  &X1Start, &X2Start, NULL,
@@ -488,7 +551,7 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       }
   
       prim[j][i][RHO] = rho[i+NG];
-      prim[j][i][UU] = uu[i+NG];
+      prim[j][i][UU] = uu[i+NG]*(1. + 4e-2 * (gsl_rng_uniform(gslRand)- 0.5));
 
 
       REAL uConBL[NDIM];
@@ -516,12 +579,12 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       prim[j][i][U3] = 0.;
 
       /* Monopolar magnetic field */
-      /*REAL qB = 0.0;
-      prim[j][i][B1] = qB/(r*r);
+      REAL qB = 0.001;
+      prim[j][i][B1] = qB/(r*r*r);
       prim[j][i][B2] = 0.;
-      prim[j][i][B3] = 0.;*/
+      prim[j][i][B3] = 0.;
 
-      AVector[j+NG][i+NG] = 0.00*0.5*r*sin(theta);
+      AVector[j+NG][i+NG] = 0.0001*0.5*r*sin(theta);
 
       prim[j][i][FF] = 0.;
 
@@ -657,11 +720,11 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
 
       /* Monopolar magnetic field */
       REAL qB = 0.0016;
-      prim[j][i][B1] = qB/(r*r);
+      prim[j][i][B1] = qB/(r*r*r);
       prim[j][i][B2] = 0.;
       prim[j][i][B3] = 0.;
 
-      prim[j][i][FF] = 0.;
+      //prim[j][i][FF] = 0.;
 
       for (int var=0; var<DOF; var++) {
         tsData->primBoundaries[INDEX_GLOBAL_WITH_NG(i,j,var)] = prim[j][i][var];
@@ -679,6 +742,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
 }
 
 
+#if (GEOMETRY==MKS)
 void transformBLtoMKS(REAL uconBL[NDIM], REAL uconMKS[NDIM], 
                       REAL X1, REAL X2, REAL r, REAL theta)
 {
@@ -762,6 +826,7 @@ void transformBLtoMKS(REAL uconBL[NDIM], REAL uconMKS[NDIM],
   uconMKS[3] = uconKS[3];
 
 }
+
 void InitialCondition(TS ts, Vec Prim)
 {
     DM dmda;
@@ -1113,6 +1178,7 @@ void InitialCondition(TS ts, Vec Prim)
 
     PetscRandomDestroy(&randNumGen);
 }
+#endif
 
 PetscErrorCode Monitor(TS ts, 
                        PetscInt step,
