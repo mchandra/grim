@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 64
-#define N2 64
+#define N1 16
+#define N2 16
 #define NG 2
 
 #define REAL double
@@ -46,7 +46,7 @@
 #define R_MIN 6.
 #define R_MAX 12.
 #define H_SLOPE 1.
-#define DT .01
+#define DT .001
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (4/3.)
@@ -79,15 +79,12 @@
 #endif
 
 
-// iTile, jTile have ranges [-NG, TILE_SIZE+NG)
+/* iTile, jTile have ranges [-NG, TILE_SIZE+NG) */
 #define INDEX_LOCAL(iTile,jTile,var) (iTile+NG + \
                                       (TILE_SIZE_X1+2*NG)*(jTile+NG + \
                                       (TILE_SIZE_X2+2*NG)*(var)))
-//#define INDEX_LOCAL(iTile,jTile,var) ((var) + \
-//                                      DOF*((iTile)+NG + \
-//                                      (TILE_SIZE_X1+2*NG)*((jTile)+NG)))
 
-// i, j have ranges [0, N1), [0, N2)
+/* i, j have ranges [0, N1), [0, N2) */
 #define INDEX_GLOBAL(i,j,var) (var + DOF*((i)+(N1)*(j)))
 
 #define INDEX_GLOBAL_WITH_NG(i,j,var) (var + DOF*((i+NG)+(N1+2*NG)*(j+NG)))
@@ -444,6 +441,8 @@ void bSqrCalc(REAL* bsqr,
 {
     *bsqr = bcon[0]*bcov[0] + bcon[1]*bcov[1] +
             bcon[2]*bcov[2] + bcon[3]*bcov[3];
+
+    if (*bsqr < 1e-20) *bsqr = 1e-20;
 }
 
 REAL SlopeLim(REAL y1, REAL y2, REAL y3)
@@ -478,9 +477,6 @@ void mhdCalc(REAL mhd[NDIM][NDIM],
     REAL P = (ADIABATIC_INDEX - 1.)*var[UU];
     REAL bsqr;
     bSqrCalc(&bsqr, bcon, bcov);
-    
-    int iTile = get_local_id(0);
-    int jTile = get_local_id(1);
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
 
@@ -491,6 +487,7 @@ void mhdCalc(REAL mhd[NDIM][NDIM],
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu] +
                           (var[FF]*bcon[mu]/sqrt(bsqr))*ucov[nu] + 
                            ucon[mu]*(var[FF]*bcov[nu]/sqrt(bsqr));
+
 #else
             mhd[mu][nu] = (var[RHO] + var[UU] + P + bsqr)*ucon[mu]*ucov[nu] +
                           (P + 0.5*bsqr)*DELTA(mu, nu) - bcon[mu]*bcov[nu];
@@ -575,7 +572,7 @@ void addSources(REAL dU_dt[DOF],
     uconCenter[3] = ucon[3];
 
     /* Compute -F*(g*u^\mu),\mu - (1)
-               = -F*( d(g*u^0)/dt + d(g*u^1)/dX1 + d(g*u^2)/dX2
+               = -F*( d(g*u^0)/dt + d(g*u^1)/dX1 + d(g*u^2)/dX2)
      */
 
     center = g*uconCenter[1];
@@ -772,7 +769,7 @@ void addSources(REAL dU_dt[DOF],
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
 //    kappa = 0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
-    kappa = 0.01;
+    kappa = 2.;
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
@@ -796,8 +793,6 @@ void addSources(REAL dU_dt[DOF],
     REAL bsqr = bcov[0]*bcon[0] + bcov[1]*bcon[1] +
                 bcov[2]*bcon[2] + bcov[3]*bcon[3];
 
-    if (bsqr < 1e-10) bsqr = 1e-10;
-
     cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
               primTile[INDEX_LOCAL(iTile, jTile, UU)]/
               (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
@@ -810,12 +805,20 @@ void addSources(REAL dU_dt[DOF],
 //    F0 = qsat/sqrt(bsqr)*tanh(bDotq/sqrt(bsqr)/qsat);
     F0 = bDotq/sqrt(bsqr);
 
-    REAL tau_r = (kappa*T)/
-                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
-                 ) + TAU_R;
+//    REAL tau_r = (kappa*T)/
+//                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+//                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
+//                 )/primTile[INDEX_LOCAL(iTile, jTile, RHO)] + TAU_R;
+
+    REAL rho0 = 1.;
+    REAL u0 = 100.;
+    REAL T0 = (ADIABATIC_INDEX-1.)*u0/rho0;
+
+    REAL tau_r = kappa*T0/(rho0 + ADIABATIC_INDEX*u0)/rho0 + 0.1;
+
 
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/tau_r;
+
 #endif /* Conduction */
 
 }
@@ -889,6 +892,30 @@ void ComputedU_dt(REAL dU_dt[DOF],
                bcon[2]*dbcov_dt[2] + dbcon_dt[2]*bcov[2] +
                bcon[3]*dbcov_dt[3] + dbcon_dt[3]*bcov[3];
 
+    REAL qcon[NDIM], qcov[NDIM];
+    REAL dqcon_dt[NDIM], dqcov_dt[NDIM];
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+      qcon[mu] = var[FF]*bcon[mu]/sqrt(bsqr);
+
+      dqcon_dt[mu] =    dvar_dt[FF]*bcon[mu]/sqrt(bsqr);
+                      + var[FF]/sqrt(bsqr)*dbcon_dt[mu]
+                      - 0.5*var[FF]*bcon[mu]/pow(bsqr, 3./2)*dbsqr_dt;
+    }
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+      qcov[mu] = 0.;
+      dqcov_dt[mu] = 0.;
+      for (int nu=0; nu<NDIM; nu++)
+      {
+        qcov[mu] += gcov[mu][nu]*qcon[nu];
+
+        dqcov_dt[mu] += gcov[mu][nu]*dqcon_dt[nu];
+      }
+    }
+
     P = (ADIABATIC_INDEX-1.)*var[UU];
     dP_dt = (ADIABATIC_INDEX-1.)*dvar_dt[UU];
 
@@ -902,19 +929,28 @@ void ComputedU_dt(REAL dU_dt[DOF],
 
     dU_dt[UU] = g*(dtmp1_dt*ucon[0]*ucov[0] +
                    tmp1*(ducon_dt[0]*ucov[0] + ucon[0]*ducov_dt[0]) +
-                   dtmp2_dt - dbcon_dt[0]*bcov[0] - bcon[0]*dbcov_dt[0]);
+                   dtmp2_dt - dbcon_dt[0]*bcov[0] - bcon[0]*dbcov_dt[0]
+                   + dqcon_dt[0]*ucov[0] + qcon[0]*ducov_dt[0]
+                   + ducon_dt[0]*qcov[0] + ucon[0]*dqcov_dt[0]);
 
     dU_dt[U1] = g*(dtmp1_dt*ucon[0]*ucov[1] +
                    tmp1*(ducon_dt[0]*ucov[1] + ucon[0]*ducov_dt[1]) -
-                   dbcon_dt[0]*bcov[1] - bcon[0]*dbcov_dt[1]);
+                   dbcon_dt[0]*bcov[1] - bcon[0]*dbcov_dt[1]
+                   + dqcon_dt[0]*ucov[1] + qcon[0]*ducov_dt[1]
+                   + ducon_dt[0]*qcov[1] + ucon[0]*dqcov_dt[1]);
 
     dU_dt[U2] = g*(dtmp1_dt*ucon[0]*ucov[2] +
                    tmp1*(ducon_dt[0]*ucov[2] + ucon[0]*ducov_dt[2]) -
-                   dbcon_dt[0]*bcov[2] - bcon[0]*dbcov_dt[2]);
+                   dbcon_dt[0]*bcov[2] - bcon[0]*dbcov_dt[2]
+                   + dqcon_dt[0]*ucov[2] + qcon[0]*ducov_dt[2]
+                   + ducon_dt[0]*qcov[2] + ucon[0]*dqcov_dt[2]);
 
     dU_dt[U3] = g*(dtmp1_dt*ucon[0]*ucov[3] +
                    tmp1*(ducon_dt[0]*ucov[3] + ucon[0]*ducov_dt[3]) -
-                   dbcon_dt[0]*bcov[3] - bcon[0]*dbcov_dt[3]);
+                   dbcon_dt[0]*bcov[3] - bcon[0]*dbcov_dt[3] 
+                   + dqcon_dt[0]*ucov[3] + qcon[0]*ducov_dt[3]
+                   + ducon_dt[0]*qcov[3] + ucon[0]*dqcov_dt[3]);
+                   
 
     dU_dt[B1] = g*dvar_dt[B1];
     dU_dt[B2] = g*dvar_dt[B2];

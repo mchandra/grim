@@ -434,32 +434,44 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         REAL X1 = i_TO_X1_CENTER(i);
         REAL X2 = j_TO_X2_CENTER(j);
 
-        REAL rho0 = 10.;
-        REAL u0 = 0.1;
+        REAL rho0 = 1.;
+        REAL u0 = 100.;
         REAL u10 = 0.;
         REAL u20 = 0.;
         REAL u30 = 0.;
-        REAL B10 = 1e-10;
+        REAL B10 = 1e-5;
         REAL B20 = 0.;
         REAL B30 = 0.;
         REAL phi0 = 0.;
 
         REAL k = 2*M_PI;
-        REAL amplitude = 0e-3;
+        REAL amplitude = 1e-3;
 
 
         /* delta ~ A exp(i k x) and A = a + i b. 
            Therefore delta ~ a cos(k*X1) - b sin(k*X1) */
         
-        REAL delta_rho = 0.681054447936*cos(k*X1) - 0.*sin(k*X1);
-        REAL delta_u = -0.510874509458*cos(k*X1) - 0.*sin(k*X1);
-        REAL delta_u1 = 0.*cos(k*X1) - 0.0681277650418*sin(k*X1);
+        /* Eigenvalue = 19.9123 */
+//        REAL delta_rho = -0.00234936399163*sin(k*X1);
+//        REAL delta_u =  0.002273900078*sin(k*X1);
+//        REAL delta_u1 = -0.00744570296682*cos(k*X1);
+//        REAL delta_u2 = 0.;
+//        REAL delta_u3 = 0.;
+//        REAL delta_B1 = 0.;
+//        REAL delta_B2 = 0.;
+//        REAL delta_B3 = 0.;
+//        REAL delta_phi = 0.999966935141*cos(k*X1);
+
+        /* Eigenvalue = -4.99 - 13.12i */
+        REAL delta_rho = -0.00311030349*cos(k*X1) + 0.00118312960098*sin(k*X1);
+        REAL delta_u =  0.00320815217935*cos(k*X1) - 0.0013948219362*sin(k*X1);
+        REAL delta_u1 = -0.00744109969005*cos(k*X1) - 2.71345707727e-06*sin(k*X1);
         REAL delta_u2 = 0.;
         REAL delta_u3 = 0.;
         REAL delta_B1 = 0.;
         REAL delta_B2 = 0.;
         REAL delta_B3 = 0.;
-        REAL delta_phi = 0.*cos(k*X1) + 0.520125640748*sin(k*X1);
+        REAL delta_phi = 0.999960658464*cos(k*X1);
 
         prim[j][i][RHO] = rho0 + amplitude*delta_rho;
         prim[j][i][UU] = u0 + amplitude*delta_u;
@@ -470,6 +482,21 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         prim[j][i][B2] = B20 + amplitude*delta_B2;
         prim[j][i][B3] = B30 + amplitude*delta_B3;
         prim[j][i][FF] = phi0 + amplitude*delta_phi;
+
+//        REAL X1Center = (X1_START + X1_END)/2.;
+//        REAL X2Center = (X2_START + X2_END)/2.;
+//
+//        REAL r = sqrt(pow(X1-X1Center, 2.)+ pow(X2-X2Center, 2.));
+//
+//        prim[j][i][RHO] = 1. + 0.*exp(-r*r/0.1);
+//
+//        prim[j][i][UU] = 1./(ADIABATIC_INDEX-1);
+//        prim[j][i][U1] = 0.*4.95;
+//        prim[j][i][U2] = 0.*4.95;
+//        prim[j][i][U3] = 0.;
+//        prim[j][i][B1] = 0.;
+//        prim[j][i][B2] = 0.;
+//        prim[j][i][B3] = 0.;
 
       }
     }
@@ -586,7 +613,9 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 
       AVector[j+NG][i+NG] = 0.0001*0.5*r*sin(theta);
 
+#if (CONDUCTION)
       prim[j][i][FF] = 0.;
+#endif
 
     }
   }
@@ -1221,7 +1250,7 @@ PetscErrorCode Monitor(TS ts,
     
     static PetscInt counter = 0;
     static PetscScalar tDump = 0.;
-    dtDump = 1.;
+    dtDump = .001;
 
     SNES snes;
     TSGetSNES(ts, &snes);
