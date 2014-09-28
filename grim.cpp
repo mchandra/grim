@@ -427,6 +427,15 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
 
     DMDAVecGetArrayDOF(dmda, Prim, &prim);
 
+    FILE *X1Coords;
+    X1Coords = fopen("X1Coords.txt", "w");
+      
+    for (PetscInt i=0; i<N1; i++) 
+    {
+      fprintf(X1Coords, "%d   %.18f\n", i, i_TO_X1_CENTER(i) );
+    } 
+    fclose(X1Coords);
+
     for (PetscInt j=0; j<N2; j++) 
     {
       for (PetscInt i=0; i<N1; i++) 
@@ -439,7 +448,7 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         REAL u10 = 0.;
         REAL u20 = 0.;
         REAL u30 = 0.;
-        REAL B10 = 1e-5;
+        REAL B10 = 0e-5;
         REAL B20 = 0.;
         REAL B30 = 0.;
         REAL phi0 = 0.;
@@ -463,15 +472,25 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
 //        REAL delta_phi = 0.999966935141*cos(k*X1);
 
         /* Eigenvalue = -4.99 - 13.12i */
-        REAL delta_rho = -0.00311030349*cos(k*X1) + 0.00118312960098*sin(k*X1);
-        REAL delta_u =  0.00320815217935*cos(k*X1) - 0.0013948219362*sin(k*X1);
-        REAL delta_u1 = -0.00744109969005*cos(k*X1) - 2.71345707727e-06*sin(k*X1);
+//        REAL delta_rho = -0.00311030349*cos(k*X1) + 0.00118312960098*sin(k*X1);
+//        REAL delta_u =  0.00320815217935*cos(k*X1) - 0.0013948219362*sin(k*X1);
+//        REAL delta_u1 = -0.00744109969005*cos(k*X1) - 2.71345707727e-06*sin(k*X1);
+//        REAL delta_u2 = 0.;
+//        REAL delta_u3 = 0.;
+//        REAL delta_B1 = 0.;
+//        REAL delta_B2 = 0.;
+//        REAL delta_B3 = 0.;
+//        REAL delta_phi = 0.999960658464*cos(k*X1);
+
+        REAL delta_rho = 0.00749971928918*cos(k*X1);
+        REAL delta_u =  0.99996257189*cos(k*X1);
+        REAL delta_u1 = -0.00431381834996*cos(k*X1);
         REAL delta_u2 = 0.;
         REAL delta_u3 = 0.;
         REAL delta_B1 = 0.;
         REAL delta_B2 = 0.;
         REAL delta_B3 = 0.;
-        REAL delta_phi = 0.999960658464*cos(k*X1);
+        REAL delta_phi = 0.*cos(k*X1);
 
         prim[j][i][RHO] = rho0 + amplitude*delta_rho;
         prim[j][i][UU] = u0 + amplitude*delta_u;
@@ -481,7 +500,7 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         prim[j][i][B1] = B10 + amplitude*delta_B1;
         prim[j][i][B2] = B20 + amplitude*delta_B2;
         prim[j][i][B3] = B30 + amplitude*delta_B3;
-        prim[j][i][FF] = phi0 + amplitude*delta_phi;
+//        prim[j][i][FF] = phi0 + amplitude*delta_phi;
 
 //        REAL X1Center = (X1_START + X1_END)/2.;
 //        REAL X2Center = (X2_START + X2_END)/2.;

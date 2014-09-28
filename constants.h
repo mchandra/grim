@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 16
-#define N2 16
+#define N1 192
+#define N2 192
 #define NG 2
 
 #define REAL double
@@ -57,7 +57,7 @@
 #define GAMMA_MAX (5.)
 #define TAU_R (1.)
 #define PHI (5.)
-#define CONDUCTION (1)
+#define CONDUCTION (0)
 #define RESTART (0)
 
 #define EPS (1e-5)
@@ -769,7 +769,7 @@ void addSources(REAL dU_dt[DOF],
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
 //    kappa = 0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
-    kappa = 2.;
+    kappa = 0.;
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
@@ -897,11 +897,16 @@ void ComputedU_dt(REAL dU_dt[DOF],
 
     for (int mu=0; mu<NDIM; mu++)
     {
+#if (CONDUCTION)
       qcon[mu] = var[FF]*bcon[mu]/sqrt(bsqr);
 
       dqcon_dt[mu] =    dvar_dt[FF]*bcon[mu]/sqrt(bsqr);
                       + var[FF]/sqrt(bsqr)*dbcon_dt[mu]
                       - 0.5*var[FF]*bcon[mu]/pow(bsqr, 3./2)*dbsqr_dt;
+#else
+      qcon[mu] = 0.;
+      dqcon_dt[mu] = 0.;
+#endif
     }
 
     for (int mu=0; mu<NDIM; mu++)
