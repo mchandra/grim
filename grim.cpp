@@ -117,26 +117,24 @@ int main(int argc, char **argv)
     program = cl::Program(context, source, &clErr);
     CheckCLErrors(clErr, "cl::Program::Program");
 
-    std::string BuildOptions("\
-                              -D X1_SIZE=" +
-                             std::to_string(X1Size) +
-                             " -D X2_SIZE=" + 
-                             std::to_string(X2Size) +
-                             " -D TOTAL_X1_SIZE=" + 
-                             std::to_string(X1Size+2*NG) + 
-                             " -D TOTAL_X2_SIZE=" +
-                             std::to_string(X2Size+2*NG) +
-                             " -DOPENCL" + 
-                             " -DLEFT_BOUNDARY=" + 
-                             std::to_string(LEFT_BOUNDARY) +
-                             " -DRIGHT_BOUNDARY=" + 
-                             std::to_string(RIGHT_BOUNDARY) +
-                             " -DBOTTOM_BOUNDARY=" + 
-                             std::to_string(BOTTOM_BOUNDARY) +
-                             " -DTOP_BOUNDARY=" + 
-                             std::to_string(TOP_BOUNDARY) +
-                             " -DINFLOW_CHECK=" + 
-                             std::to_string(INFLOW_CHECK));
+    char buildOptions[2000];
+
+    sprintf(buildOptions,"\
+                          -D X1_SIZE=%d \
+                          -D X2_SIZE=%d \
+                          -D TOTAL_X1_SIZE=%d \
+                          -D TOTAL_X2_SIZE=%d \
+                          -DOPENCL \
+                          -DLEFT_BOUNDARY=%d \
+                          -DRIGHT_BOUNDARY=%d \
+                          -DBOTTOM_BOUNDARY=%d \
+                          -DTOP_BOUNDARY=%d \
+                          -DINFLOW_CHECK=%d",
+                          X1Size, X2Size, X1Size+2*NG, X2Size+2*NG, 
+                          LEFT_BOUNDARY, RIGHT_BOUNDARY,
+                          BOTTOM_BOUNDARY, TOP_BOUNDARY, INFLOW_CHECK);
+
+    std::string BuildOptions(buildOptions);
 
     PetscScalar start = std::clock();
     clErr = program.build(devices, BuildOptions.c_str(), NULL, NULL);
@@ -161,6 +159,7 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
+//    InitialConditionMTITest(ts, soln, &tsData);
     InitialConditionLinearModes(ts, soln);
 
     PetscViewer viewer;
@@ -443,22 +442,23 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         REAL X1 = i_TO_X1_CENTER(i);
         REAL X2 = j_TO_X2_CENTER(j);
 
-        REAL rho0 = 1.;
-        REAL u0 = 100.;
-        REAL u10 = 0.;
-        REAL u20 = 0.;
-        REAL u30 = 0.;
-        REAL B10 = 0e-5;
-        REAL B20 = 0.;
-        REAL B30 = 0.;
-        REAL phi0 = 0.;
-
-        REAL k = 2*M_PI;
-        REAL amplitude = 1e-3;
-
 
         /* delta ~ A exp(i k x) and A = a + i b. 
            Therefore delta ~ a cos(k*X1) - b sin(k*X1) */
+
+        /* 1D tests */
+//        REAL rho0 = 1.;
+//        REAL u0 = 100.;
+//        REAL u10 = 0.;
+//        REAL u20 = 0.;
+//        REAL u30 = 0.;
+//        REAL B10 = 1e-5;
+//        REAL B20 = 0.;
+//        REAL B30 = 0.;
+//        REAL phi0 = 0.;
+//
+//        REAL k = 2*M_PI;
+//        REAL amplitude = 1e-3;
         
         /* Eigenvalue = 19.9123 */
 //        REAL delta_rho = -0.00234936399163*sin(k*X1);
@@ -481,41 +481,54 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
 //        REAL delta_B2 = 0.;
 //        REAL delta_B3 = 0.;
 //        REAL delta_phi = 0.999960658464*cos(k*X1);
-
-        REAL delta_rho = 0.00749971928918*cos(k*X1);
-        REAL delta_u =  0.99996257189*cos(k*X1);
-        REAL delta_u1 = -0.00431381834996*cos(k*X1);
-        REAL delta_u2 = 0.;
-        REAL delta_u3 = 0.;
-        REAL delta_B1 = 0.;
-        REAL delta_B2 = 0.;
-        REAL delta_B3 = 0.;
-        REAL delta_phi = 0.*cos(k*X1);
-
-        prim[j][i][RHO] = rho0 + amplitude*delta_rho;
-        prim[j][i][UU] = u0 + amplitude*delta_u;
-        prim[j][i][U1] = u10 + amplitude*delta_u1;
-        prim[j][i][U2] = u20 + amplitude*delta_u2;
-        prim[j][i][U3] = u30 + amplitude*delta_u3;
-        prim[j][i][B1] = B10 + amplitude*delta_B1;
-        prim[j][i][B2] = B20 + amplitude*delta_B2;
-        prim[j][i][B3] = B30 + amplitude*delta_B3;
+//
+//        prim[j][i][RHO] = rho0 + amplitude*delta_rho;
+//        prim[j][i][UU] = u0 + amplitude*delta_u;
+//        prim[j][i][U1] = u10 + amplitude*delta_u1;
+//        prim[j][i][U2] = u20 + amplitude*delta_u2;
+//        prim[j][i][U3] = u30 + amplitude*delta_u3;
+//        prim[j][i][B1] = B10 + amplitude*delta_B1;
+//        prim[j][i][B2] = B20 + amplitude*delta_B2;
+//        prim[j][i][B3] = B30 + amplitude*delta_B3;
 //        prim[j][i][FF] = phi0 + amplitude*delta_phi;
 
-//        REAL X1Center = (X1_START + X1_END)/2.;
-//        REAL X2Center = (X2_START + X2_END)/2.;
-//
-//        REAL r = sqrt(pow(X1-X1Center, 2.)+ pow(X2-X2Center, 2.));
-//
-//        prim[j][i][RHO] = 1. + 0.*exp(-r*r/0.1);
-//
-//        prim[j][i][UU] = 1./(ADIABATIC_INDEX-1);
-//        prim[j][i][U1] = 0.*4.95;
-//        prim[j][i][U2] = 0.*4.95;
-//        prim[j][i][U3] = 0.;
-//        prim[j][i][B1] = 0.;
-//        prim[j][i][B2] = 0.;
-//        prim[j][i][B3] = 0.;
+
+        /* 2D tests */
+        REAL rho0 = 1.;
+        REAL u0 = 100.;
+        REAL u10 = 0.;
+        REAL u20 = 0.;
+        REAL u30 = 0.;
+        REAL B10 = 0.01;
+        REAL B20 = 0.02;
+        REAL B30 = 0.;
+        REAL phi0 = 0.;
+
+        REAL k1 = 2*M_PI;
+        REAL k2 = 2*M_PI;
+        REAL amplitude = 1e-3;
+
+        REAL complex delta_rho = 0.00320842119877 - 0.000881561535595*I;
+        REAL complex delta_u = -0.00338288038189 + 0.00107837165346*I;
+        REAL complex delta_u1 = -0.00332654066543 - 1.60219221159e-06*I;
+        REAL complex delta_u2 = -0.00665554256072 - 1.60219221159e-06*I;
+        REAL complex delta_u3 = 0.;
+        REAL complex delta_B1 = 6.49351798214e-09 - 7.32543863021e-09*I;
+        REAL complex delta_B2 = -6.49351798214e-09 + 7.32543863021e-09*I;
+        REAL complex delta_B3 = 0.;
+        REAL complex delta_phi = 0.999960479215;
+
+        REAL complex mode = cexp(I*(k1*X1 + k2*X2) );
+
+        prim[j][i][RHO] = rho0 + amplitude*creal(delta_rho*mode);
+        prim[j][i][UU] = u0 + amplitude*creal(delta_u*mode);
+        prim[j][i][U1] = u10 + amplitude*creal(delta_u1*mode);
+        prim[j][i][U2] = u20 + amplitude*creal(delta_u2*mode);
+        prim[j][i][U3] = u30 + amplitude*creal(delta_u3*mode);
+        prim[j][i][B1] = B10 + amplitude*creal(delta_B1*mode);
+        prim[j][i][B2] = B20 + amplitude*creal(delta_B2*mode);
+        prim[j][i][B3] = B30 + amplitude*creal(delta_B3*mode);
+        prim[j][i][FF] = phi0 + amplitude*creal(delta_phi*mode);
 
       }
     }
@@ -625,12 +638,13 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       prim[j][i][U3] = 0.;
 
       /* Monopolar magnetic field */
-      REAL qB = 0.001;
-      prim[j][i][B1] = qB/(r*r*r);
-      prim[j][i][B2] = 0.;
-      prim[j][i][B3] = 0.;
+//      REAL qB = 0.001;
+//      prim[j][i][B1] = qB/(r*r*r);
+//      prim[j][i][B2] = 0.;
+//      prim[j][i][B3] = 0.;
 
-      AVector[j+NG][i+NG] = 0.0001*0.5*r*sin(theta);
+      /* Vertical magnetic field */
+      AVector[j+NG][i+NG] = 0.000000000001*0.5*r*sin(theta);
 
 #if (CONDUCTION)
       prim[j][i][FF] = 0.;
@@ -1269,7 +1283,7 @@ PetscErrorCode Monitor(TS ts,
     
     static PetscInt counter = 0;
     static PetscScalar tDump = 0.;
-    dtDump = .001;
+    dtDump = DT_DUMP;
 
     SNES snes;
     TSGetSNES(ts, &snes);
@@ -1302,10 +1316,7 @@ PetscErrorCode Monitor(TS ts,
 
     REAL time;
     TSGetTime(ts, &time);
-//    if (time < 1.)
-//        TSSetTimeStep(ts, 0.001);
-//    else
-        TSSetTimeStep(ts, DT);
+    TSSetTimeStep(ts, DT);
 
     return(0.);
 }

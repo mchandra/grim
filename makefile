@@ -3,11 +3,11 @@ ALL: grim
 PETSC_DIR=/home/manic/petsc_optimized
 #PETSC_DIR=/home/mc/Downloads/petsc_debug
 
-CFLAGS = -std=c++0x -lOpenCL -O3 -lgsl -lgslcblas
+CFLAGS = -std=c99 -lOpenCL -O3 -lgsl -lgslcblas
 
 FFLAGS =
 
-CPPFLAGS = -std=c++0x -lOpenCL -O3 -lgsl -lgslcblas
+CPPFLAGS = -std=c99 -lOpenCL -O3 -lgsl -lgslcblas
 
 FPPFLAGS =
 

@@ -10,6 +10,7 @@
 #include <CL/cl.hpp>
 #include <fstream>
 #include <ctime>
+#include <complex.h>
 #include <petscviewerhdf5.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
