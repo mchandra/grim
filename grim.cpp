@@ -159,8 +159,8 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-//    InitialConditionMTITest(ts, soln, &tsData);
-    InitialConditionLinearModes(ts, soln);
+    InitialConditionMTITest(ts, soln, &tsData);
+//    InitialConditionLinearModes(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
