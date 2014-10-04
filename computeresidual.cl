@@ -1,6 +1,5 @@
 #include "constants.h"
 #include "reconstruct.cl"
-#include "phys.cl"
 #include "riemannsolver.cl"
 
 __kernel void ComputeResidual(__global const REAL* restrict prim, 

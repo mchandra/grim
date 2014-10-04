@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 64
-#define N2 64
+#define N1 256
+#define N2 256
 #define NG 2
 
 #define REAL double
@@ -10,11 +10,11 @@
 
 #define MKS         (0)
 #define MINKOWSKI   (1)
-#define GEOMETRY (MINKOWSKI)
+#define GEOMETRY    (MKS)
 
 #if (GEOMETRY==MKS)
   #define R0 0.
-  #define R_IN .5*(1. + sqrt(1. - A_SPIN*A_SPIN))
+  #define R_IN 2.1*(1. + sqrt(1. - A_SPIN*A_SPIN))
   #define R_OUT 100.
   #define X1_START log(R_IN - R0)
   #define X2_START 1e-3
@@ -35,10 +35,10 @@
 #define DIRICHLET (2)
 #define PERIODIC  (3)
 
-#define LEFT_BOUNDARY   (PERIODIC)
-#define RIGHT_BOUNDARY  (PERIODIC)
-#define BOTTOM_BOUNDARY (PERIODIC)
-#define TOP_BOUNDARY    (PERIODIC)
+#define LEFT_BOUNDARY   (DIRICHLET)
+#define RIGHT_BOUNDARY  (DIRICHLET)
+#define BOTTOM_BOUNDARY (MIRROR)
+#define TOP_BOUNDARY    (MIRROR)
 #define INFLOW_CHECK    (0)
 
 #define A_SPIN 0.
@@ -46,8 +46,8 @@
 #define R_MIN 6.
 #define R_MAX 12.
 #define H_SLOPE 1.
-#define DT 0.001
-#define DT_DUMP .001
+#define DT 0.125
+#define DT_DUMP 10.
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (4/3.)
@@ -769,9 +769,8 @@ void addSources(REAL dU_dt[DOF],
     REAL r, theta;
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
-//    kappa = 100*0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
-
-    kappa = 2.;
+//    kappa = 0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+    kappa = 0.45;
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
@@ -807,13 +806,11 @@ void addSources(REAL dU_dt[DOF],
 //    F0 = qsat/sqrt(bsqr)*tanh(bDotq/sqrt(bsqr)/qsat);
     F0 = bDotq/sqrt(bsqr);
 
-//    REAL tau_r = TAU_R_SAFETY_FACTOR*(kappa*T)/
-//                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-//                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
-//                 );
+    REAL tau_r = TAU_R_SAFETY_FACTOR*(kappa*T)/
+                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
+                 ) + DT;
     
-    REAL tau_r = 0.596277915632754;
-
 
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/tau_r;
 
