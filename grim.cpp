@@ -529,7 +529,7 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         prim[j][i][B1] = B10 + amplitude*creal(delta_B1*mode);
         prim[j][i][B2] = B20 + amplitude*creal(delta_B2*mode);
         prim[j][i][B3] = B30 + amplitude*creal(delta_B3*mode);
-        prim[j][i][FF] = phi0 + amplitude*creal(delta_phi*mode);
+//        prim[j][i][FF] = phi0 + amplitude*creal(delta_phi*mode);
 
       }
     }
@@ -747,9 +747,10 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
     rCoords[i+NG] = atof(rLine);
   }
 
-  free(rhoLine); free(uLine);
+  free(rhoLine); free(uLine); free(rLine); free(phiLine);
   fclose(atmosphereSolnRHO);
   fclose(atmosphereSolnUU);
+  fclose(atmosphereSolnPHI);
   fclose(atmosphereSolnRCoords);
 
   for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
@@ -775,7 +776,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       alphaCalc(&alpha, gcon);
     
       prim[j][i][RHO] = rho[i+NG];
-      prim[j][i][UU] = uu[i+NG]*(1. + 4e-2 * (gsl_rng_uniform(gslRand)- 0.5));
+      prim[j][i][UU] = uu[i+NG]*(1. + 1e-4 * (gsl_rng_uniform(gslRand)- 0.5));
 
       REAL uConBL[NDIM];
       uConBL[0] = 1./sqrt(-gcov[0][0]); uConBL[1] = 0.;
@@ -792,7 +793,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       prim[j][i][U3] = 0.;
 
       /* Monopolar magnetic field */
-//      REAL qB = 0.00001;
+//      REAL qB = 0.00000000;
 //      prim[j][i][B1] = qB/(r*r*r);
 //      prim[j][i][B2] = 0.;
 //      prim[j][i][B3] = 0.;
@@ -800,7 +801,8 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       REAL R_in = 50., R_out = 60., eps = .75e1;
       REAL f_R = (1 + tanh((r-R_in)/eps))/2 + (1 - tanh((r-R_out)/eps))/2;
 
-      AVector[j+NG][i+NG] = 0.000000000000001*r*sin(theta);
+      //AVector[j+NG][i+NG] = 0.000000000000001*r*sin(theta);
+      AVector[j+NG][i+NG] = 0.0001*r*sin(theta);
         
 
 #if (CONDUCTION)
