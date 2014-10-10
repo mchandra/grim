@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 64
-#define N2 64
+#define N1 128
+#define N2 128
 #define NG 2
 
 #define REAL double
@@ -10,12 +10,12 @@
 
 #define MKS         (0)
 #define MINKOWSKI   (1)
-#define GEOMETRY    (MKS)
+#define GEOMETRY    (MINKOWSKI)
 
 #if (GEOMETRY==MKS)
   #define R0 0.
-  #define R_IN 0.5*(1. + sqrt(1. - A_SPIN*A_SPIN))
-  #define R_OUT 500.
+  #define R_IN 0.8*(1. + sqrt(1. - A_SPIN*A_SPIN))
+  #define R_OUT 40.
   #define X1_START log(R_IN - R0)
   #define X2_START 1e-3
   #define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
@@ -35,31 +35,31 @@
 #define DIRICHLET (2)
 #define PERIODIC  (3)
 
-#define LEFT_BOUNDARY   (DIRICHLET)
-#define RIGHT_BOUNDARY  (DIRICHLET)
-#define BOTTOM_BOUNDARY (MIRROR)
-#define TOP_BOUNDARY    (MIRROR)
-#define INFLOW_CHECK    (0)
+#define LEFT_BOUNDARY   (PERIODIC)
+#define RIGHT_BOUNDARY  (PERIODIC)
+#define BOTTOM_BOUNDARY (PERIODIC)
+#define TOP_BOUNDARY    (PERIODIC)
+#define INFLOW_CHECK    (1)
 
-#define A_SPIN 0.
+#define A_SPIN 0.9375
 #define M 1.
 #define R_MIN 6.
 #define R_MAX 12.
 #define H_SLOPE 1.
-#define DT 0.25
-#define DT_DUMP 10.
+#define DT 0.005
+#define DT_DUMP 5.
 #define KAPPA 1e-3
 #define BETA 1e2
-#define ADIABATIC_INDEX (5/3.)
-#define RHO_MIN (1e-5)
-#define U_MIN (1e-6)
+#define ADIABATIC_INDEX (4/3.)
+#define RHO_MIN (1e-4)
+#define U_MIN (1e-5)
 #define RHO_MIN_LIMIT (1e-15)
 #define U_MIN_LIMIT (1e-15)
 #define GAMMA_MAX (5.)
-#define TAU_R_SAFETY_FACTOR (2.)
+#define TAU_R_SAFETY_FACTOR (1.2)
 #define PHI (5.)
-#define CONDUCTION (1)
-#define RESTART (0)
+#define CONDUCTION (0)
+#define RESTART (1)
 
 #define EPS (1e-5)
 
@@ -769,7 +769,7 @@ void addSources(REAL dU_dt[DOF],
     REAL r, theta;
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
-    kappa = 10.*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+    kappa = 1.*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 

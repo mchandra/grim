@@ -160,8 +160,9 @@ int main(int argc, char **argv)
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
 //    InitialConditionAtmosphereTest(ts, soln, &tsData);
-    InitialConditionMTITest(ts, soln, &tsData);
+//    InitialConditionMTITest(ts, soln, &tsData);
 //    InitialConditionLinearModes(ts, soln);
+    InitialCondition(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -417,6 +418,48 @@ void InitialConditionTest(TS ts, Vec X)
     }
 
     DMDAVecRestoreArrayDOF(dmda, X, &x);
+}
+
+void InitialConditionFancyHeatConductionTest(TS ts, Vec Prim)
+{
+    DM dmda;
+    TSGetDM(ts, &dmda);
+    PetscScalar ***prim;
+
+    DMDAVecGetArrayDOF(dmda, Prim, &prim);
+
+    for (PetscInt j=0; j<N2; j++) 
+    {
+      for (PetscInt i=0; i<N1; i++) 
+      {
+        REAL X1 = i_TO_X1_CENTER(i);
+        REAL X2 = j_TO_X2_CENTER(j);
+
+        REAL X1Center = (X1_END - X1_START)/2.;
+        REAL X2Xenter = (X2_END - X2_START)/2.;
+
+        REAL r = sqrt(pow(X1-X1Center, 2.) + pow(X2-X2Center, 2.));
+
+        prim[j][i][RHO] = 1.;
+        prim[j][i][UU] = 1./(ADIABATIC_INDEX - 1.);
+        prim[j][i][U1] = 0.;
+        prim[j][i][U2] = 0.;
+        prim[j][i][U3] = 0.;
+        prim[j][i][B1] = 0.1;
+        prim[j][i][B2] = 0.1*sin(2*M_PI*X1);
+        prim[j][i][B3] = 0.;
+        prim[j][i][FF] = 0.;
+
+        if (r < 0.25)
+        {
+          prim[j][i][UU] = 2./(ADIABATIC_INDEX - 1.);
+        }
+
+      }
+    }
+
+
+    DMDAVecRestoreArrayDOF(dmda, Prim, &prim);
 }
 
 void InitialConditionLinearModes(TS ts, Vec Prim)
