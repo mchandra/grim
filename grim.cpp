@@ -159,8 +159,8 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-    InitialConditionAtmosphereTest(ts, soln, &tsData);
-//    InitialConditionMTITest(ts, soln, &tsData);
+//    InitialConditionAtmosphereTest(ts, soln, &tsData);
+    InitialConditionMTITest(ts, soln, &tsData);
 //    InitialConditionLinearModes(ts, soln);
 
     PetscViewer viewer;
@@ -561,35 +561,42 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
   DMDAVecGetArrayDOF(dmda, localPrim, &prim);
 
   FILE *bondiSolnRHO, *bondiSolnUU, *bondiSolnU1, *bondiSolnRCoords;
+  FILE *bondiSolnPHI;
   bondiSolnRHO = fopen("bondi_soln_rho.txt", "r");
   bondiSolnUU = fopen("bondi_soln_u.txt", "r");
   bondiSolnU1 = fopen("bondi_soln_ur.txt", "r");
+  bondiSolnPHI = fopen("bondi_soln_phi_no_backreaction.txt", "r");
   bondiSolnRCoords = fopen("bondi_soln_rCoords.txt", "r");
 
   char *rhoLine = NULL, *uLine = NULL, *rLine = NULL, *urLine = NULL;
+  char *phiLine = NULL;
   size_t rhoLen=0; ssize_t rhoRead;
   size_t uLen=0; ssize_t uRead;
   size_t urLen=0; ssize_t urRead;
+  size_t phiLen=0; ssize_t phiRead;
   size_t rLen=0; ssize_t rRead;
 
-  REAL rho[N1+2*NG], uu[N1+2*NG], ur[N1+2*NG], rCoords[N1+2*NG];
+  REAL rho[N1+2*NG], uu[N1+2*NG], ur[N1+2*NG], rCoords[N1+2*NG], phi[N1+2*NG];
 
   for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
     rhoRead = getline(&rhoLine, &rhoLen, bondiSolnRHO);
     uRead = getline(&uLine, &uLen, bondiSolnUU);
     urRead = getline(&urLine, &urLen, bondiSolnU1);
+    phiRead = getline(&phiLine, &phiLen, bondiSolnPHI);
     rRead = getline(&rLine, &rLen, bondiSolnRCoords);
 
     rho[i+NG] = atof(rhoLine);
     uu[i+NG] = atof(uLine);
     ur[i+NG] = atof(urLine);
+    phi[i+NG] = atof(phiLine);
     rCoords[i+NG] = atof(rLine);
   }
 
-  free(rhoLine); free(uLine); free(urLine);
+  free(rhoLine); free(uLine); free(urLine); free(phiLine);
   fclose(bondiSolnRHO);
   fclose(bondiSolnUU);
   fclose(bondiSolnU1);
+  fclose(bondiSolnPHI);
   fclose(bondiSolnRCoords);
 
   for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
@@ -611,7 +618,7 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
       }
   
       prim[j][i][RHO] = rho[i+NG];
-      prim[j][i][UU] = uu[i+NG]*(1. + 4e-2 * (gsl_rng_uniform(gslRand)- 0.5));
+      prim[j][i][UU] = uu[i+NG]*(1. + 0e-2 * (gsl_rng_uniform(gslRand)- 0.5));
 
 
       REAL uConBL[NDIM];
@@ -634,51 +641,51 @@ void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
                  a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
 
-      prim[j][i][U1] = 0.*v1;
+      prim[j][i][U1] = v1;
       prim[j][i][U2] = 0.;
       prim[j][i][U3] = 0.;
 
       /* Monopolar magnetic field */
-//      REAL qB = 0.001;
-//      prim[j][i][B1] = qB/(r*r*r);
-//      prim[j][i][B2] = 0.;
-//      prim[j][i][B3] = 0.;
+      REAL qB = 0.00001;
+      prim[j][i][B1] = qB/(r*r*r);
+      prim[j][i][B2] = 0.;
+      prim[j][i][B3] = 0.;
 
       /* Vertical magnetic field */
       AVector[j+NG][i+NG] = 0.00000000000001*0.5*r*sin(theta);
       //AVector[j+NG][i+NG] = .5*r*sin(theta);
 
 #if (CONDUCTION)
-      prim[j][i][FF] = 0.;
+      prim[j][i][FF] = phi[i+NG];
 #endif
 
     }
   }
 
-  for (int j=X2Start; j<X2Start+X2Size; j++) {
-    for (int i=X1Start; i<X1Start+X1Size; i++) {
-
-      REAL X1 = i_TO_X1_CENTER(i);
-      REAL X2 = j_TO_X2_CENTER(j);
-
-      REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
-      REAL gdet, alpha;
-      gCovCalc(gcov, X1, X2);
-      gDetCalc(&gdet, gcov);
-      gConCalc(gcon, gcov, gdet);
-      alphaCalc(&alpha, gcon);
-
-      prim[j][i][B1] = -(AVector[j+NG][i+NG] - AVector[j+NG+1][i+NG] +
-                         AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
-                        (2.*DX2*sqrt(-gdet));
-
-      prim[j][i][B2] = (AVector[j+NG][i+NG] + AVector[j+1+NG][i+NG] -
-                            AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
-                            (2.*DX1*sqrt(-gdet));
-
-      prim[j][i][B3] = 0.;
-    }
-  }
+//  for (int j=X2Start; j<X2Start+X2Size; j++) {
+//    for (int i=X1Start; i<X1Start+X1Size; i++) {
+//
+//      REAL X1 = i_TO_X1_CENTER(i);
+//      REAL X2 = j_TO_X2_CENTER(j);
+//
+//      REAL gcov[NDIM][NDIM], gcon[NDIM][NDIM];
+//      REAL gdet, alpha;
+//      gCovCalc(gcov, X1, X2);
+//      gDetCalc(&gdet, gcov);
+//      gConCalc(gcon, gcov, gdet);
+//      alphaCalc(&alpha, gcon);
+//
+//      prim[j][i][B1] = -(AVector[j+NG][i+NG] - AVector[j+NG+1][i+NG] +
+//                         AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
+//                        (2.*DX2*sqrt(-gdet));
+//
+//      prim[j][i][B2] = (AVector[j+NG][i+NG] + AVector[j+1+NG][i+NG] -
+//                            AVector[j+NG][i+1+NG] - AVector[j+1+NG][i+1+NG])/\
+//                            (2.*DX1*sqrt(-gdet));
+//
+//      prim[j][i][B3] = 0.;
+//    }
+//  }
 
   for (int j=X2Start-NG; j<X2Start+X2Size+NG; j++) {
     for (int i=X1Start-NG; i<X1Start+X1Size+NG; i++) {
@@ -776,7 +783,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       alphaCalc(&alpha, gcon);
     
       prim[j][i][RHO] = rho[i+NG];
-      prim[j][i][UU] = uu[i+NG]*(1. + 1e-4 * (gsl_rng_uniform(gslRand)- 0.5));
+      prim[j][i][UU] = uu[i+NG]*(1. + 1e-5 * (gsl_rng_uniform(gslRand)- 0.5));
 
       REAL uConBL[NDIM];
       uConBL[0] = 1./sqrt(-gcov[0][0]); uConBL[1] = 0.;
@@ -802,7 +809,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       REAL f_R = (1 + tanh((r-R_in)/eps))/2 + (1 - tanh((r-R_out)/eps))/2;
 
       //AVector[j+NG][i+NG] = 0.000000000000001*r*sin(theta);
-      AVector[j+NG][i+NG] = 0.0001*r*sin(theta);
+      AVector[j+NG][i+NG] = 0.000001*r;
         
 
 #if (CONDUCTION)

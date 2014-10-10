@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 128
-#define N2 128
+#define N1 64
+#define N2 64
 #define NG 2
 
 #define REAL double
@@ -14,8 +14,8 @@
 
 #if (GEOMETRY==MKS)
   #define R0 0.
-  #define R_IN 100.*(1. + sqrt(1. - A_SPIN*A_SPIN))
-  #define R_OUT 300.
+  #define R_IN 0.5*(1. + sqrt(1. - A_SPIN*A_SPIN))
+  #define R_OUT 500.
   #define X1_START log(R_IN - R0)
   #define X2_START 1e-3
   #define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
@@ -46,8 +46,8 @@
 #define R_MIN 6.
 #define R_MAX 12.
 #define H_SLOPE 1.
-#define DT 0.05
-#define DT_DUMP 1.
+#define DT 0.25
+#define DT_DUMP 10.
 #define KAPPA 1e-3
 #define BETA 1e2
 #define ADIABATIC_INDEX (5/3.)
@@ -769,8 +769,7 @@ void addSources(REAL dU_dt[DOF],
     REAL r, theta;
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
-//    kappa = 0.2*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
-    kappa = 0.5;
+    kappa = 10.*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
