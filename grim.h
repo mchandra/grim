@@ -40,9 +40,6 @@ PetscErrorCode CheckCLErrors(cl_int clErr, std::string errMsg)
     }
     return(0.);
 }
-void InitialConditionTest(TS ts, Vec prim);
-void InitialCondition(TS ts, Vec prim);
-void Benchmark(TS ts, Vec prim);
 PetscErrorCode ComputeResidual(TS ts,
                         PetscScalar t,
                         Vec Prim, Vec dPrim_dt,
@@ -61,7 +58,11 @@ PetscErrorCode SNESMonitor(SNES snes,
 void transformBLtoMKS(REAL uConBL[NDIM], REAL uConMKS[NDIM], 
                       REAL X1, REAL X2, REAL r, REAL theta);
 
+void InitialConditionFancyHeatConductionTest(TS ts, Vec Prim);
 void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData);
 void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData);
 void InitialConditionLinearModes(TS ts, Vec Prim);
+void InitialConditionTest(TS ts, Vec prim);
+void InitialCondition(TS ts, Vec prim);
+void Benchmark(TS ts, Vec prim);
 #endif

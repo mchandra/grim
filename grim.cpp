@@ -159,10 +159,11 @@ int main(int argc, char **argv)
     printf("Local memory used = %llu\n", (unsigned long long)localMemSize);
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
-//    InitialConditionAtmosphereTest(ts, soln, &tsData);
+//    InitialConditionFancyHeatConductionTest(ts, soln);
+    InitialConditionAtmosphereTest(ts, soln, &tsData);
 //    InitialConditionMTITest(ts, soln, &tsData);
 //    InitialConditionLinearModes(ts, soln);
-    InitialCondition(ts, soln);
+//    InitialCondition(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
@@ -420,6 +421,7 @@ void InitialConditionTest(TS ts, Vec X)
     DMDAVecRestoreArrayDOF(dmda, X, &x);
 }
 
+#if (GEOMETRY==MINKOWSKI)
 void InitialConditionFancyHeatConductionTest(TS ts, Vec Prim)
 {
     DM dmda;
@@ -436,24 +438,22 @@ void InitialConditionFancyHeatConductionTest(TS ts, Vec Prim)
         REAL X2 = j_TO_X2_CENTER(j);
 
         REAL X1Center = (X1_END - X1_START)/2.;
-        REAL X2Xenter = (X2_END - X2_START)/2.;
+        REAL X2Center = (X2_END - X2_START)/2.;
 
         REAL r = sqrt(pow(X1-X1Center, 2.) + pow(X2-X2Center, 2.));
-
+        
         prim[j][i][RHO] = 1.;
-        prim[j][i][UU] = 1./(ADIABATIC_INDEX - 1.);
+        prim[j][i][UU] =  2./(ADIABATIC_INDEX-1.) 
+                        + 0.1/(ADIABATIC_INDEX-1.)*exp(-r*r/0.005);
+
         prim[j][i][U1] = 0.;
         prim[j][i][U2] = 0.;
         prim[j][i][U3] = 0.;
         prim[j][i][B1] = 0.1;
-        prim[j][i][B2] = 0.1*sin(2*M_PI*X1);
+        prim[j][i][B2] = 0.1*sin(2*M_PI*4*X1);
         prim[j][i][B3] = 0.;
         prim[j][i][FF] = 0.;
 
-        if (r < 0.25)
-        {
-          prim[j][i][UU] = 2./(ADIABATIC_INDEX - 1.);
-        }
 
       }
     }
@@ -580,6 +580,7 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
 
     DMDAVecRestoreArrayDOF(dmda, Prim, &prim);
 }
+#endif
 
 void InitialConditionMTITest(TS ts, Vec Prim, struct data *tsData)
 {
@@ -826,7 +827,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
       alphaCalc(&alpha, gcon);
     
       prim[j][i][RHO] = rho[i+NG];
-      prim[j][i][UU] = uu[i+NG]*(1. + 1e-5 * (gsl_rng_uniform(gslRand)- 0.5));
+      prim[j][i][UU] = uu[i+NG]*(1. + 4e-2 * (gsl_rng_uniform(gslRand)- 0.5));
 
       REAL uConBL[NDIM];
       uConBL[0] = 1./sqrt(-gcov[0][0]); uConBL[1] = 0.;
@@ -838,7 +839,7 @@ void InitialConditionAtmosphereTest(TS ts, Vec Prim, struct data *tsData)
 	    REAL v1 = (c*uConBL[1]/r - sqrt(-a*b*b*b*b -
                  a*b*b*c*uConBL[1]*uConBL[1]/(r*r) - b*b*c))/(a*b*b + c);
 
-      prim[j][i][U1] = v1;
+      prim[j][i][U1] = v1*(1. + 4e-2 * (gsl_rng_uniform(gslRand)- 0.5));
       prim[j][i][U2] = 0.;
       prim[j][i][U3] = 0.;
 
