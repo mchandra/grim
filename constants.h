@@ -10,7 +10,7 @@
 
 #define MKS         (0)
 #define MINKOWSKI   (1)
-#define GEOMETRY    (MKS)
+#define GEOMETRY    (MINKOWSKI)
 
 #if (GEOMETRY==MKS)
   #define R0 0.
@@ -35,10 +35,10 @@
 #define DIRICHLET (2)
 #define PERIODIC  (3)
 
-#define LEFT_BOUNDARY   (DIRICHLET)
-#define RIGHT_BOUNDARY  (DIRICHLET)
-#define BOTTOM_BOUNDARY (MIRROR)
-#define TOP_BOUNDARY    (MIRROR)
+#define LEFT_BOUNDARY   (PERIODIC)
+#define RIGHT_BOUNDARY  (PERIODIC)
+#define BOTTOM_BOUNDARY (PERIODIC)
+#define TOP_BOUNDARY    (PERIODIC)
 #define INFLOW_CHECK    (0)
 
 #define A_SPIN 0.
@@ -46,11 +46,11 @@
 #define R_MIN 6.
 #define R_MAX 12.
 #define H_SLOPE 1.
-#define DT 0.25
-#define DT_DUMP 10.
+#define DT 0.0001
+#define DT_DUMP 0.001
 #define KAPPA 1e-3
 #define BETA 1e2
-#define ADIABATIC_INDEX (5/3.)
+#define ADIABATIC_INDEX (4/3.)
 #define RHO_MIN (1e-4)
 #define U_MIN (1e-5)
 #define RHO_MIN_LIMIT (1e-15)
@@ -769,7 +769,8 @@ void addSources(REAL dU_dt[DOF],
     REAL r, theta;
     X1 = i_TO_X1_CENTER(i); X2 = j_TO_X2_CENTER(j);
     BLCoords(&r, &theta, X1, X2);
-    kappa = 1.*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+//    kappa = 1.*sqrt(r)*primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+    kappa = 1.;
 
     dT[0] = dT_dt; dT[1] = dT_dX1; dT[2] = dT_dX2; dT[3] = 0.;
 
