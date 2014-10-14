@@ -59,7 +59,7 @@
 #define TAU_R_SAFETY_FACTOR (1.2)
 #define PHI (5.)
 #define CONDUCTION (1)
-#define RESTART (1)
+#define RESTART (0)
 
 #define EPS (1e-5)
 

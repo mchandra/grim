@@ -442,10 +442,8 @@ void InitialConditionFancyHeatConductionTest(TS ts, Vec Prim)
 
         REAL r = sqrt(pow(X1-X1Center, 2.) + pow(X2-X2Center, 2.));
         
-        prim[j][i][RHO] = 1.;
-        prim[j][i][UU] =  2./(ADIABATIC_INDEX-1.) 
-                        + 0.1/(ADIABATIC_INDEX-1.)*exp(-r*r/0.005);
-
+        prim[j][i][RHO] = 1. - 0.2*exp(-r*r/0.005);
+        prim[j][i][UU] =  10.;
         prim[j][i][U1] = 0.;
         prim[j][i][U2] = 0.;
         prim[j][i][U3] = 0.;
@@ -552,26 +550,26 @@ void InitialConditionLinearModes(TS ts, Vec Prim)
         REAL k2 = 2*M_PI;
         REAL amplitude = 1e-3;
 
-        REAL complex delta_rho = 0.00320842119877 - 0.000881561535595*I;
-        REAL complex delta_u = -0.00338288038189 + 0.00107837165346*I;
-        REAL complex delta_u1 = -0.00332654066543 - 1.60219221159e-06*I;
-        REAL complex delta_u2 = -0.00665554256072 - 1.60219221159e-06*I;
-        REAL complex delta_u3 = 0.;
-        REAL complex delta_B1 = 6.49351798214e-09 - 7.32543863021e-09*I;
-        REAL complex delta_B2 = -6.49351798214e-09 + 7.32543863021e-09*I;
-        REAL complex delta_B3 = 0.;
-        REAL complex delta_phi = 0.999960479215;
-
-        REAL complex mode = cexp(I*(k1*X1 + k2*X2) );
-
-        prim[j][i][RHO] = rho0 + amplitude*creal(delta_rho*mode);
-        prim[j][i][UU] = u0 + amplitude*creal(delta_u*mode);
-        prim[j][i][U1] = u10 + amplitude*creal(delta_u1*mode);
-        prim[j][i][U2] = u20 + amplitude*creal(delta_u2*mode);
-        prim[j][i][U3] = u30 + amplitude*creal(delta_u3*mode);
-        prim[j][i][B1] = B10 + amplitude*creal(delta_B1*mode);
-        prim[j][i][B2] = B20 + amplitude*creal(delta_B2*mode);
-        prim[j][i][B3] = B30 + amplitude*creal(delta_B3*mode);
+//        REAL complex delta_rho = 0.00320842119877 - 0.000881561535595*I;
+//        REAL complex delta_u = -0.00338288038189 + 0.00107837165346*I;
+//        REAL complex delta_u1 = -0.00332654066543 - 1.60219221159e-06*I;
+//        REAL complex delta_u2 = -0.00665554256072 - 1.60219221159e-06*I;
+//        REAL complex delta_u3 = 0.;
+//        REAL complex delta_B1 = 6.49351798214e-09 - 7.32543863021e-09*I;
+//        REAL complex delta_B2 = -6.49351798214e-09 + 7.32543863021e-09*I;
+//        REAL complex delta_B3 = 0.;
+//        REAL complex delta_phi = 0.999960479215;
+//
+//        REAL complex mode = cexp(I*(k1*X1 + k2*X2) );
+//
+//        prim[j][i][RHO] = rho0 + amplitude*creal(delta_rho*mode);
+//        prim[j][i][UU] = u0 + amplitude*creal(delta_u*mode);
+//        prim[j][i][U1] = u10 + amplitude*creal(delta_u1*mode);
+//        prim[j][i][U2] = u20 + amplitude*creal(delta_u2*mode);
+//        prim[j][i][U3] = u30 + amplitude*creal(delta_u3*mode);
+//        prim[j][i][B1] = B10 + amplitude*creal(delta_B1*mode);
+//        prim[j][i][B2] = B20 + amplitude*creal(delta_B2*mode);
+//        prim[j][i][B3] = B30 + amplitude*creal(delta_B3*mode);
 //        prim[j][i][FF] = phi0 + amplitude*creal(delta_phi*mode);
 
       }
