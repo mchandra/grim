@@ -1,7 +1,7 @@
 #define COMPUTE_DIM 2
 #define NDIM 4
-#define N1 96
-#define N2 96
+#define N1 128
+#define N2 128
 #define NG 2
 
 #define REAL double
@@ -14,8 +14,8 @@
 
 #if (GEOMETRY==MKS)
   #define R0 0.
-  #define R_IN 100.*(1. + sqrt(1. - A_SPIN*A_SPIN))
-  #define R_OUT 300.
+  #define R_IN .8*(1. + sqrt(1. - A_SPIN*A_SPIN))
+  #define R_OUT 40.
   #define X1_START log(R_IN - R0)
   #define X2_START 1e-3
   #define DX1 (log((R_OUT - R0)/(R_IN - R0))/(REAL)N1)
@@ -35,22 +35,22 @@
 #define DIRICHLET (2)
 #define PERIODIC  (3)
 
-#define LEFT_BOUNDARY   (DIRICHLET)
-#define RIGHT_BOUNDARY  (DIRICHLET)
+#define LEFT_BOUNDARY   (OUTFLOW)
+#define RIGHT_BOUNDARY  (OUTFLOW)
 #define BOTTOM_BOUNDARY (MIRROR)
 #define TOP_BOUNDARY    (MIRROR)
-#define INFLOW_CHECK    (0)
+#define INFLOW_CHECK    (1)
 
-#define A_SPIN 0.
+#define A_SPIN 0.9375
 #define M 1.
 #define R_MIN 6.
 #define R_MAX 12.
-#define H_SLOPE 1.
-#define DT 0.25
-#define DT_DUMP 10.
+#define H_SLOPE 0.3
+#define DT 0.005
+#define DT_DUMP 1.
 #define KAPPA 1e-3
 #define BETA 1e2
-#define ADIABATIC_INDEX (5/3.)
+#define ADIABATIC_INDEX (4/3.)
 #define RHO_MIN (1e-4)
 #define U_MIN (1e-5)
 #define RHO_MIN_LIMIT (1e-15)
@@ -59,7 +59,7 @@
 #define TAU_R_SAFETY_FACTOR (1.2)
 #define PHI (5.)
 #define CONDUCTION (1)
-#define RESTART (0)
+#define RESTART (1)
 
 #define EPS (1e-5)
 
@@ -790,8 +790,8 @@ void addSources(REAL dU_dt[DOF],
     REAL bDotq = bcov[0]*qEckartCon[0] + bcov[1]*qEckartCon[1] +
                  bcov[2]*qEckartCon[2] + bcov[3]*qEckartCon[3];
 
-    REAL bsqr = bcov[0]*bcon[0] + bcov[1]*bcon[1] +
-                bcov[2]*bcon[2] + bcov[3]*bcon[3];
+    REAL bsqr;
+    bSqrCalc(&bsqr, bcon, bcov);
 
     cs = sqrt(ADIABATIC_INDEX*(ADIABATIC_INDEX - 1)*\
               primTile[INDEX_LOCAL(iTile, jTile, UU)]/
@@ -805,12 +805,20 @@ void addSources(REAL dU_dt[DOF],
 //    F0 = qsat/sqrt(bsqr)*tanh(bDotq/sqrt(bsqr)/qsat);
     F0 = bDotq/sqrt(bsqr);
 
-    REAL tau_r = TAU_R_SAFETY_FACTOR*(kappa*T)/
-                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
-                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
-                 ) + DT;
-    
+//    REAL tau_r = TAU_R_SAFETY_FACTOR*(kappa*T)/
+//                 (primTile[INDEX_LOCAL(iTile, jTile, RHO)] +
+//                  ADIABATIC_INDEX*primTile[INDEX_LOCAL(iTile, jTile, UU)]
+//                 ) + DT;
 
+    REAL density = primTile[INDEX_LOCAL(iTile, jTile, RHO)];
+    REAL pressure = 
+    (ADIABATIC_INDEX-1.)*primTile[INDEX_LOCAL(iTile, jTile, UU)];
+    REAL temperature = pressure/density;
+    REAL thermal_velocity = sqrt(temperature);
+    REAL tau_r = TAU_R_SAFETY_FACTOR*kappa/density/pow(thermal_velocity, 2.);
+
+    if (tau_r < DT) tau_r = DT;
+    
     dU_dt[FF] += g*(primTile[INDEX_LOCAL(iTile, jTile, FF)] - F0)/tau_r;
 
 #endif /* Conduction */

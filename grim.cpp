@@ -160,10 +160,10 @@ int main(int argc, char **argv)
     printf("Private memory used = %llu\n", (unsigned long long)privateMemSize);
 
 //    InitialConditionFancyHeatConductionTest(ts, soln);
-    InitialConditionAtmosphereTest(ts, soln, &tsData);
+//    InitialConditionAtmosphereTest(ts, soln, &tsData);
 //    InitialConditionMTITest(ts, soln, &tsData);
 //    InitialConditionLinearModes(ts, soln);
-//    InitialCondition(ts, soln);
+    InitialCondition(ts, soln);
 
     PetscViewer viewer;
 #if(RESTART)
