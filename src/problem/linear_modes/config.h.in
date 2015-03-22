@@ -37,6 +37,8 @@
 
 #cmakedefine    ADIABATIC_INDEX  (${ADIABATIC_INDEX})
 #cmakedefine01  CONDUCTION
+#cmakedefine01  REAPER
+#cmakedefine    REAPER_MOMENTS   (${REAPER_MOMENTS})
 
 /* Initial condition parameters */
 #cmakedefine    AMPLITUDE           (${AMPLITUDE})

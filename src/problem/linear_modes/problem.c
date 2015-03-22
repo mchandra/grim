@@ -37,35 +37,76 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
         REAL primVars0[DOF];
         REAL complex deltaPrimVars[DOF];
 
-        primVars0[RHO] = 1.;
-        primVars0[UU]  = 2.;
-        primVars0[U1]  = 0.;
-        primVars0[U2]  = 0.;
-        primVars0[U3]  = 0.;
-        primVars0[B1]  = 0.;
-        primVars0[B2]  = 0.;
-        primVars0[B3]  = 0.;
+        #if (REAPER && REAPER_MOMENTS==5)
+          primVars0[U1]  = 0.;
+          primVars0[U2]  = 0.;
+          primVars0[U3]  = 0.;
+          primVars0[B1]  = 0.;
+          primVars0[B2]  = 0.;
+          primVars0[B3]  = 0.;
+  
+          deltaPrimVars[U1]  = -0.170354208129;
+          deltaPrimVars[U2]  = 0.;
+          deltaPrimVars[U3]  = 0.;
+          deltaPrimVars[B1]  = 0.;
+          deltaPrimVars[B2]  = 0.;
+          deltaPrimVars[B3]  = 0.;
+          
+          REAL rho0 = 1.;
+          REAL uu0  = 2.;
+          REAL deltaRho = 0.345991032308;
+          REAL deltaUU  = 0.922642752822;
+          
+          REAL k1 = 2*M_PI;
+          REAL k2 = 0.;
 
-        deltaPrimVars[RHO] = 0.345991032308;
-        deltaPrimVars[UU]  = 0.922642752822;
-        deltaPrimVars[U1]  = -0.170354208129;
-        deltaPrimVars[U2]  = 0.;
-        deltaPrimVars[U3]  = 0.;
-        deltaPrimVars[B1]  = 0.;
-        deltaPrimVars[B2]  = 0.;
-        deltaPrimVars[B3]  = 0.;
+          REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
+          
+          REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
+          REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
+          
+          REAL gammaForRelativisticallyHotGas = 4./3;
+          REAL temperature = (gammaForRelativisticallyHotGas - 1.)*uu/rho;
+          
+          INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
+          INDEX_PETSC(primOldGlobal, &zone, A0)    = getA0(temperature);
+          
+          for (int var=U1; var<DOF; var++)
+          {
+            INDEX_PETSC(primOldGlobal, &zone, var) =  
+              primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
+          }
+        #else
+        
+          primVars0[RHO] = 1.;
+          primVars0[UU]  = 2.;
+          primVars0[U1]  = 0.;
+          primVars0[U2]  = 0.;
+          primVars0[U3]  = 0.;
+          primVars0[B1]  = 0.;
+          primVars0[B2]  = 0.;
+          primVars0[B3]  = 0.;
+  
+          deltaPrimVars[RHO] = 0.345991032308;
+          deltaPrimVars[UU]  = 0.922642752822;
+          deltaPrimVars[U1]  = -0.170354208129;
+          deltaPrimVars[U2]  = 0.;
+          deltaPrimVars[U3]  = 0.;
+          deltaPrimVars[B1]  = 0.;
+          deltaPrimVars[B2]  = 0.;
+          deltaPrimVars[B3]  = 0.;
 
-        REAL k1 = 2*M_PI;
-        REAL k2 = 0.;
+          REAL k1 = 2*M_PI;
+          REAL k2 = 0.;
 
-        REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
+          REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
 
-        for (int var=0; var<DOF; var++)
-        {
-          INDEX_PETSC(primOldGlobal, &zone, var) =  
-            primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
-        }
-
+          for (int var=0; var<DOF; var++)
+          {
+            INDEX_PETSC(primOldGlobal, &zone, var) =  
+              primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
+          }
+        #endif
       #elif (MODE==ENTROPY_WAVE_1D) /* Eigenvalue = 0 */
         REAL primVars0[DOF];
         REAL complex deltaPrimVars[DOF];
@@ -203,15 +244,19 @@ void applyFloor(const int iTile, const int jTile,
                 X1Size, X2Size,
                 &zone);
 
-    if (primTile[INDEX_TILE(&zone, RHO)] < RHO_FLOOR)
-    {
-        primTile[INDEX_TILE(&zone, RHO)] = RHO_FLOOR;
-    }
+    #if (REAPER)
+    
+    #else
+      if (primTile[INDEX_TILE(&zone, RHO)] < RHO_FLOOR)
+      {
+          primTile[INDEX_TILE(&zone, RHO)] = RHO_FLOOR;
+      }
 
-    if (primTile[INDEX_TILE(&zone, UU)] < UU_FLOOR)
-    {
-        primTile[INDEX_TILE(&zone, UU)] = UU_FLOOR;
-    }
+      if (primTile[INDEX_TILE(&zone, UU)] < UU_FLOOR)
+      {
+          primTile[INDEX_TILE(&zone, UU)] = UU_FLOOR;
+      }
+    #endif
   }
 }
 

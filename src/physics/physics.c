@@ -1,5 +1,23 @@
 #include "physics.h"
 
+#if (REAPER)
+  /* Public functions needed by the REAPER scheme in order to set initial 
+   * conditions */
+  REAL getAlpha(REAL rho, REAL temperature)
+  {
+    REAL besselK2;
+    gsl_sf_result result;
+    gsl_sf_bessel_Kn_e(2, 1./theta, &result);
+    besselK2 = result.val;
+    return (rho/(4.*M_PI*temperature*K2));
+  }
+  
+  REAL getA0(REAL temperature)
+  {
+    return (1./temperature);
+  }
+#endif
+
 void setGamma(const struct geometry geom[ARRAY_ARGS 1],
               struct fluidElement elem[ARRAY_ARGS 1])
 {

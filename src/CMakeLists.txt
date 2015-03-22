@@ -41,7 +41,7 @@ set(ARRAY_ARGS "const restrict static")
 # 11) torus
 # 12) buoyancy_instabilities
 
-set(PROBLEM "torus")
+set(PROBLEM "linear_modes")
 # Now choose problem specific options in the respective problem folder in
 # src/problem/
 # ------------------------------END OF USER OPTIONS---------------------------#
@@ -60,8 +60,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 find_library(MATH_LIBRARIES m REQUIRED)
 
 # External packages
-find_package(PETSc REQUIRED)
+find_package(PETSc  REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(GSL    REQUIRED)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")

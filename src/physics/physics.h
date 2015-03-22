@@ -4,40 +4,43 @@
 #include "../inputs.h"
 
 /* Primitive variable mnemonics */
-#if (REAPER && REAPER_MOMENTS==5)
+#if (REAPER)
+  #if (REAPER_MOMENTS==5)
 
-  #define ALPHA           (0)
-  #define A0              (1) /* A0 = -1/temperature */
-  #define U1              (2)
-  #define U2              (3)
-  #define U3              (4)
-  #define B1              (5)
-  #define B2              (6)
-  #define B3              (7)
-  #define DOF             (8)
+    #define ALPHA           (0)
+    #define A0              (1) /* A0 = -1/temperature */
+    #define U1              (2)
+    #define U2              (3)
+    #define U3              (4)
+    #define B1              (5)
+    #define B2              (6)
+    #define B3              (7)
+    #define DOF             (8)
 
-#elif (REAPER && REAPER_MOMENTS==15)
+  #elif (REAPER_MOMENTS==15)
 
-  #define ALPHA           (0)
-  #define A0              (1)
-  #define U1              (2)
-  #define U2              (3)
-  #define U3              (4)
-  #define B00             (5)
-  #define B01             (6)
-  #define B02             (7)
-  #define B03             (8)
-  #define B11             (9)
-  #define B12             (10)
-  #define B13             (11)
-  #define B22             (12)
-  #define B23             (13)
-  #define B33             (14)
-  #define B1              (15)
-  #define B2              (16)
-  #define B3              (17)
-  #define DOF             (18)
-
+    #define ALPHA           (0)
+    #define A0              (1)
+    #define U1              (2)
+    #define U2              (3)
+    #define U3              (4)
+    #define B00             (5)
+    #define B01             (6)
+    #define B02             (7)
+    #define B03             (8)
+    #define B11             (9)
+    #define B12             (10)
+    #define B13             (11)
+    #define B22             (12)
+    #define B23             (13)
+    #define B33             (14)
+    #define B1              (15)
+    #define B2              (16)
+    #define B3              (17)
+    #define DOF             (18)
+  
+  #endif
+  
 #else
   /* Not using REAPER scheme */
   #define RHO             (0)
@@ -192,6 +195,14 @@ void computeConductionSpatialGradientTerms
   REAL graduConHigherOrderTerm1[COMPUTE_DIM],
   REAL graduConHigherOrderTerm2[COMPUTE_DIM]
 );
+#endif
+
+#if (REAPER)
+  /* Public functions needed by the REAPER scheme in order to set initial 
+   * conditions */
+  REAL getAlpha(REAL rho, REAL temperature);
+  
+  REAL getA0(REAL temperature);
 #endif
 
 /* Internal functions */
