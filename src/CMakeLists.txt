@@ -86,8 +86,7 @@ add_executable(grim grim.c grim.h)
 
 target_link_libraries(grim geometry physics reconstruct boundary gridzone
                       timestepper
-                      ${MATH_LIBRARIES}
-                      ${PETSC_LIBRARIES})
+                      ${MATH_LIBRARIES} ${PETSC_LIBRARIES} ${GSL_LIBRARIES})
 
 message("")
 message("#################")

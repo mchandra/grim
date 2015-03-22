@@ -7,15 +7,30 @@
   {
     REAL besselK2;
     gsl_sf_result result;
-    gsl_sf_bessel_Kn_e(2, 1./theta, &result);
+    gsl_sf_bessel_Kn_e(2, 1./temperature, &result);
     besselK2 = result.val;
-    return (rho/(4.*M_PI*temperature*K2));
+    return (rho/(4.*M_PI*temperature*besselK2));
   }
   
   REAL getA0(REAL temperature)
   {
-    return (1./temperature);
+    return (-1./temperature);
   }
+
+  REAL getTemperature(const struct fluidElement elem[ARRAY_ARGS 1])
+  {
+    return (-1./elem->primVars[A0]);
+  }
+
+  REAL getDensity(const struct fluidElement elem[ARRAY_ARGS 1])
+  {
+    double temperature = getTemperature(elem);
+    REAL besselK2;
+    gsl_sf_result result;
+    gsl_sf_bessel_Kn_e(2, 1./temperature, &result);
+    besselK2 = result.val;
+    return (elem->primVars[ALPHA]*4.*M_PI*temperature*besselK2);
+  } 
 #endif
 
 void setGamma(const struct geometry geom[ARRAY_ARGS 1],
@@ -38,11 +53,12 @@ void setUCon(const struct geometry geom[ARRAY_ARGS 1],
 {
   elem->uCon[0] = elem->gamma/geom->alpha;
 
-  for (int i=1; i<NDIM; i++)
-  {
-    elem->uCon[i] =  elem->primVars[UU+i] 
-                   - elem->gamma*geom->gCon[0][i]*geom->alpha;
-  }
+  elem->uCon[1] =   elem->primVars[U1] 
+                  - elem->gamma*geom->gCon[0][1]*geom->alpha;
+  elem->uCon[2] =   elem->primVars[U2] 
+                  - elem->gamma*geom->gCon[0][2]*geom->alpha;
+  elem->uCon[3] =   elem->primVars[U3] 
+                  - elem->gamma*geom->gCon[0][3]*geom->alpha;
 }
 
 void setBCon(const struct geometry geom[ARRAY_ARGS 1],
@@ -88,8 +104,8 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                     struct fluidElement elem[ARRAY_ARGS 1])
 {
 #if (REAPER && REAPER_MOMENTS==5)
-  REAL theta = elem->primVars[PRESSURE]/elem->primVars[RHO];
-  if (theta<1e-5) theta = 1e-5;
+  REAL temperature = getTemperature(elem);
+  if (temperature<1e-5) temperature = 1e-5;
 
   /* When the temperature is very high, the particle velocity v approaches c
    * and the distribution function (as a function of the new scaled variables
@@ -99,23 +115,33 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
    * > 1 (highly relativistic) 
    */
   REAL scaleFactor;
-  if (theta < 1)
+  if (temperature < 1)
   {
     scaleFactor = 1.;
   }
   else
   {
-    scaleFactor = theta;
+    scaleFactor = temperature;
   }
 
-  /* Accurately calculate Bessel K2 (expensive) OUTSIDE of the integration! */
-  REAL besselK2;
-  gsl_sf_result result;
-  gsl_sf_bessel_Kn_e(2, 1./theta, &result);
-  besselK2 = result.val;
+  REAL moments[NUM_ALL_COMPONENTS]; /* contains moments[T_UP_UP] */
+  fixedQuadIntegration5Moments(elem, geom, scaleFactor, moments);
 
-  fixedQuadIntegration5Moments(elem, geom, theta, besselK2, scaleFactor,
-                               moments);
+  /* Now lower T_UP_UP to T_UP_DOWN */
+
+  for (int mu=0; mu<NDIM; mu++)
+  {
+    for (int nu=0; nu<NDIM; nu++)
+    {
+      elem->moments[T_UP_DOWN(mu, nu)] = 0.;
+      
+      for (int alpha=0; alpha<NDIM; alpha++)
+      {
+        elem->moments[T_UP_DOWN(mu, nu)] +=
+	  moments[T_UP_UP(mu, alpha)]*geom->gCov[alpha][nu];
+      }
+    }
+  }
 
 #else
   REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
@@ -158,20 +184,33 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                    REAL fluxes[ARRAY_ARGS DOF])
 {
   REAL g = sqrt(-geom->gDet);
+  #if (REAPER)
+    fluxes[ALPHA] = g*elem->moments[N_UP(dir)];
 
-  fluxes[RHO] = g*elem->moments[N_UP(dir)];
+    fluxes[A0] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[ALPHA];
+    fluxes[U1] = g*elem->moments[T_UP_DOWN(dir, 1)];
+    fluxes[U2] = g*elem->moments[T_UP_DOWN(dir, 2)];
+    fluxes[U3] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
-  fluxes[UU] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[RHO];
-  fluxes[U1] = g*elem->moments[T_UP_DOWN(dir, 1)];
-  fluxes[U2] = g*elem->moments[T_UP_DOWN(dir, 2)];
-  fluxes[U3] = g*elem->moments[T_UP_DOWN(dir, 3)];
+    fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);
+    fluxes[B2] = g*(elem->bCon[2]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[2]);
+    fluxes[B3] = g*(elem->bCon[3]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[3]);
+    
+  #else
+    fluxes[RHO] = g*elem->moments[N_UP(dir)];
 
-  fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);
-  fluxes[B2] = g*(elem->bCon[2]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[2]);
-  fluxes[B3] = g*(elem->bCon[3]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[3]);
+    fluxes[UU] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[RHO];
+    fluxes[U1] = g*elem->moments[T_UP_DOWN(dir, 1)];
+    fluxes[U2] = g*elem->moments[T_UP_DOWN(dir, 2)];
+    fluxes[U3] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
-  #if (CONDUCTION)
-    fluxes[PHI] = g*(elem->uCon[dir]*elem->primVars[PHI]);
+    fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);
+    fluxes[B2] = g*(elem->bCon[2]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[2]);
+    fluxes[B3] = g*(elem->bCon[3]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[3]);
+
+    #if (CONDUCTION)
+      fluxes[PHI] = g*(elem->uCon[dir]*elem->primVars[PHI]);
+    #endif
   #endif
 }
 

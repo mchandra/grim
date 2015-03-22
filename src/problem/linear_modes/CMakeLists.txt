@@ -15,7 +15,7 @@ set(COURANT ".9")
 set(MAX_DT_INCREMENT "1.3")
 
 # Domain size. If the problem is 1D then N2 is ignored.
-set(N1 "128")
+set(N1 "32")
 set(N2 "128")
 
 # The entire global domain is divided into tiles that are small enough to fit
@@ -33,7 +33,7 @@ set(N2 "128")
 set(TILE_SIZE_X1 "8")
 set(TILE_SIZE_X2 "8")
 
-set(USE_OPENMP   "YES")
+set(USE_OPENMP   "NO")
 
 # Geometry
 set(METRIC "MINKOWSKI")

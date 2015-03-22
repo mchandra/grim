@@ -63,11 +63,14 @@
  * primVars. The rest are auxiliary variables stored for convenience.
  */
 
+#define NUM_ALL_COMPONENTS  (20) /* For default grim and reaper 5 moment */
+
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
 
 /* Indices for elem.moments[] */
 #define N_UP(mu) (mu)
 #define T_UP_DOWN(mu, nu) (nu + NDIM*(mu) + NDIM)
+#define T_UP_UP(mu, nu)   (nu + NDIM*(mu) + NDIM)
 
 /* Indices for the Christoffel symbols */
 #define GAMMA_UP_DOWN_DOWN(eta,mu,nu) (eta+NDIM*(mu+NDIM*(nu) ) )
@@ -115,7 +118,7 @@ struct fluidElement
   REAL primVars[DOF];
   REAL uCon[NDIM];
   REAL bCon[NDIM];
-  REAL moments[20]; 
+  REAL moments[NUM_ALL_COMPONENTS]; 
   /* TODO: We have 4 independent components of N^\mu and 10
   independent components of T^\mu^\nu, so do something later to exploit the
   symmetry of T^\mu^\nu */
@@ -145,6 +148,7 @@ struct fluidElement
 #include "../reconstruct/reconstruct.h"
 #include "../timestepper/timestepper.h"
 #include "../problem/problem.h"
+#include <gsl/gsl_sf_bessel.h>
 
 /* Public functions: */
 void setFluidElement(const REAL primVars[ARRAY_ARGS DOF],
@@ -203,6 +207,10 @@ void computeConductionSpatialGradientTerms
   REAL getAlpha(REAL rho, REAL temperature);
   
   REAL getA0(REAL temperature);
+
+  REAL getTemperature(const struct fluidElement elem[ARRAY_ARGS 1]);
+
+  REAL getDensity(const struct fluidElement elem[ARRAY_ARGS 1]);
 #endif
 
 /* Internal functions */
@@ -222,7 +230,7 @@ REAL getbSqr(const struct fluidElement elem[ARRAY_ARGS 1],
 /* Internal functions used by the reaper scheme */
 void fixedQuadIntegration5Moments(const struct fluidElement *elem,
                                   const struct geometry *geom,
-                                  REAL theta, REAL besselK2, REAL scaleFactor,
+                                  REAL scaleFactor,
                                   REAL *moments);
 
 void computefAndPUpHatUsingOrthTetradPDownHatSpatial
@@ -230,8 +238,6 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   REAL pDownHat[NDIM],
   const struct geometry* geom,
   const struct fluidElement* elem,
-  const REAL theta,
-  const REAL besselK2,
   REAL pUpHat[NDIM],
   REAL *f
 );

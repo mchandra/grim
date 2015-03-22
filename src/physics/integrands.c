@@ -2,7 +2,7 @@
 
 void fixedQuadIntegration5Moments(const struct fluidElement *elem,
                                   const struct geometry *geom,
-                                  REAL theta, REAL besselK2, REAL scaleFactor,
+                                  REAL scaleFactor,
                                   REAL *moments)
 {
   REAL quadPts[NUM_QUAD] = \
@@ -72,7 +72,7 @@ void fixedQuadIntegration5Moments(const struct fluidElement *elem,
         computefAndPUpHatUsingOrthTetradPDownHatSpatial
                                   (
                                     pDownHat, geom, elem,
-                                    theta, besselK2, pUpHat, &f
+                                    pUpHat, &f
                                   );
 
         REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
@@ -135,8 +135,6 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   REAL pDownHat[NDIM],
   const struct geometry* geom,
   const struct fluidElement* elem,
-  const REAL theta,
-  const REAL besselK2,
   REAL pUpHat[NDIM],
   REAL *f
 )
@@ -152,8 +150,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   pUpHat[2] =  pDownHat[2];
   pUpHat[3] =  pDownHat[3];
   
-  *f = elem->primVars[RHO]/(4.*PETSC_PI*theta*besselK2)
-       *exp(-pUpHat[0]/theta);
+  *f = elem->primVars[ALPHA] * exp(pUpHat[0] * elem->primVars[A0]);
     
   return;
 }
