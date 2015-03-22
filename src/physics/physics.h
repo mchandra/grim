@@ -4,19 +4,56 @@
 #include "../inputs.h"
 
 /* Primitive variable mnemonics */
-#define RHO             (0)
-#define UU              (1)
-#define U1              (2)
-#define U2              (3)
-#define U3              (4)
-#define B1              (5)
-#define B2              (6)
-#define B3              (7)
-#if (CONDUCTION)
-  #define PHI           (8)
-  #define DOF           (9)
+#if (REAPER && REAPER_MOMENTS==5)
+
+  #define ALPHA           (0)
+  #define A0              (1) /* A0 = -1/temperature */
+  #define U1              (2)
+  #define U2              (3)
+  #define U3              (4)
+  #define B1              (5)
+  #define B2              (6)
+  #define B3              (7)
+  #define DOF             (8)
+
+#elif (REAPER && REAPER_MOMENTS==15)
+
+  #define ALPHA           (0)
+  #define A0              (1)
+  #define U1              (2)
+  #define U2              (3)
+  #define U3              (4)
+  #define B00             (5)
+  #define B01             (6)
+  #define B02             (7)
+  #define B03             (8)
+  #define B11             (9)
+  #define B12             (10)
+  #define B13             (11)
+  #define B22             (12)
+  #define B23             (13)
+  #define B33             (14)
+  #define B1              (15)
+  #define B2              (16)
+  #define B3              (17)
+  #define DOF             (18)
+
 #else
-  #define DOF           (8)
+  /* Not using REAPER scheme */
+  #define RHO             (0)
+  #define UU              (1)
+  #define U1              (2)
+  #define U2              (3)
+  #define U3              (4)
+  #define B1              (5)
+  #define B2              (6)
+  #define B3              (7)
+  #if (CONDUCTION)
+    #define PHI           (8)
+    #define DOF           (9)
+  #else
+    #define DOF           (8)
+  #endif
 #endif
 
 /* Contains all the variables needed for physics. Independent variables are only
@@ -32,6 +69,43 @@
 /* Indices for the Christoffel symbols */
 #define GAMMA_UP_DOWN_DOWN(eta,mu,nu) (eta+NDIM*(mu+NDIM*(nu) ) )
 
+/* Macros for the REAPER scheme */
+/* Quad integration constants and mnemonics*/
+#define MINUS_INFINITY    (-1)
+#define ZERO              (0)
+#define PLUS_INFINITY     (1)
+
+/* Integration is over pDown0, pDown1, pDown2 */
+#define NDIM_INTEGRATION  (3)
+#define NUM_QUAD          (51)
+
+/* Macros used in integrands.c 
+ * FULL functions are used when integrating from -inf to inf 
+ * HALF functions are used when integrating from -inf to 0 or 0 to inf
+ * We only use FULL functions */
+#define JACOBIAN_FULL(t) (  (1. + ( (t)*(t) ))/\
+                            (\
+                              (1. - ( (t)*(t) ) )\
+                             *(1. - ( (t)*(t) ) ) \
+                            )\
+                         )
+
+#define JACOBIAN_PLUS_HALF(t) (1./(\
+                                    (1. - (t) )*(1. - (t) )\
+                                  )\
+                              )
+
+#define JACOBIAN_MINUS_HALF(t) (1./(\
+                                     (1. + (t) )*(1. + (t) )\
+                                   )\
+                               )
+
+#define P_DOWN_FROM_T_FULL(t) ( (t)/(1. - (t)*(t) ) )
+
+#define P_DOWN_FROM_T_PLUS_HALF(t) ( (t)/(1. - (t) ) )
+
+#define P_DOWN_FROM_T_MINUS_HALF(t) ( (t)/(1. + (t) ) )
+
 struct fluidElement
 {
   REAL gamma;
@@ -45,6 +119,22 @@ struct fluidElement
 
   #if (CONDUCTION)
     REAL kappa, tau;
+  #endif
+
+  #if (REAPER)
+    /* Orthonormal tetrad in the coordinate basis 
+     *
+     * $\overheadarrow{e}_\hat{\mu}$ =   eDownHatUpNoHat[mu][nu]
+     *                                 * $\overheadarrow{e}_{\nu}$
+     */
+    REAL eDownHatUpNoHat[NDIM][NDIM];
+    
+    /* Coordinate basis in the orthonormal tetrad
+     *
+     * $\overheadarrow{e}_{\mu}$ =   eDownNoHatUpHat[mu][nu]
+     *                             * $\overheadarrow{e}_\hat{nu}$
+     */
+    REAL eDownNoHatUpHat[NDIM][NDIM]; 
   #endif
 };
 
@@ -116,4 +206,41 @@ void setBCon(const struct geometry geom[ARRAY_ARGS 1],
 
 REAL getbSqr(const struct fluidElement elem[ARRAY_ARGS 1],
              const struct geometry geom[ARRAY_ARGS 1]);
+
+#if (REAPER)
+/* Internal functions used by the reaper scheme */
+void fixedQuadIntegration5Moments(const struct fluidElement *elem,
+                                  const struct geometry *geom,
+                                  REAL theta, REAL besselK2, REAL scaleFactor,
+                                  REAL *moments);
+
+void computefAndPUpHatUsingOrthTetradPDownHatSpatial
+(
+  REAL pDownHat[NDIM],
+  const struct geometry* geom,
+  const struct fluidElement* elem,
+  const REAL theta,
+  const REAL besselK2,
+  REAL pUpHat[NDIM],
+  REAL *f
+);
+
+/* Internal functions used in tetrad construction, also needed for the repaer
+ * scheme */
+void setTetrad(const struct geometry *geom,
+               struct fluidElement *elem);
+
+void makeTetrad(const REAL eDown0Hat[NDIM],
+                const struct geometry *geom,
+                REAL eDownMuHatUpNu[NDIM][NDIM],
+                REAL eDownMuUpNuHat[NDIM][NDIM]);
+
+void normalize(const struct geometry *geom, 
+               REAL vecCon[NDIM]);
+
+void orthogonalize(const REAL inputVecCon[NDIM],
+                   const struct geometry *geom,
+                   REAL trialVecCon[NDIM]);
+#endif
+
 #endif /* GRIM_PHYSICS_H_ */

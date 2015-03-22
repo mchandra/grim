@@ -69,6 +69,37 @@ void setFluidElement(const REAL primVars[ARRAY_ARGS DOF],
 void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                     struct fluidElement elem[ARRAY_ARGS 1])
 {
+#if (REAPER && REAPER_MOMENTS==5)
+  REAL theta = elem->primVars[PRESSURE]/elem->primVars[RHO];
+  if (theta<1e-5) theta = 1e-5;
+
+  /* When the temperature is very high, the particle velocity v approaches c
+   * and the distribution function (as a function of the new scaled variables
+   * t) is strongly peaked at 1. This can make the quadrature inaccurate.
+   * Therefore we introduce a scale factor and change the transformation
+   * depending on whether the dimensionless temp is < 1 (non-relativistic) or
+   * > 1 (highly relativistic) 
+   */
+  REAL scaleFactor;
+  if (theta < 1)
+  {
+    scaleFactor = 1.;
+  }
+  else
+  {
+    scaleFactor = theta;
+  }
+
+  /* Accurately calculate Bessel K2 (expensive) OUTSIDE of the integration! */
+  REAL besselK2;
+  gsl_sf_result result;
+  gsl_sf_bessel_Kn_e(2, 1./theta, &result);
+  besselK2 = result.val;
+
+  fixedQuadIntegration5Moments(elem, geom, theta, besselK2, scaleFactor,
+                               moments);
+
+#else
   REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
   REAL bCov[NDIM], bSqr, uCov[NDIM];
   
@@ -99,6 +130,7 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 
     }
   }
+#endif
 
 }
 
