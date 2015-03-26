@@ -4,31 +4,32 @@ int main(int argc, char **argv)
 { 
   PetscInitialize(&argc, &argv, NULL, help);
   
-//  struct timeStepper ts;
-//  timeStepperInit(&ts);
-//
-//  while (ts.t + ts.dt < FINAL_TIME)
-//  {
-//    timeStep(&ts);
-//  }
-//  
-//  /* One final step */
-//  if (ts.t < FINAL_TIME)
-//  {
-//    ts.dt = FINAL_TIME - ts.t;
-//    timeStep(&ts);
-//  }
-//
-//  timeStepperDestroy(&ts);
+  struct timeStepper ts;
+  timeStepperInit(&ts);
 
-  REAL rho = 1.;
+  while (ts.t + ts.dt < FINAL_TIME)
+  {
+    timeStep(&ts);
+  }
+  
+  /* One final step */
+  if (ts.t < FINAL_TIME)
+  {
+    ts.dt = FINAL_TIME - ts.t;
+    timeStep(&ts);
+  }
+
+  timeStepperDestroy(&ts);
+
+// Testing framework
+/*  REAL rho = 1.;
   REAL temperature = 8.642124e-01;
   REAL primVars[DOF];
   primVars[ALPHA] = getAlpha(rho, temperature);
   primVars[A0]    = getA0(temperature);
-  primVars[U1]    = 1.;
-  primVars[U2]    = 2.;
-  primVars[U3]    = 3.;
+  primVars[U1]    = 10.;
+  primVars[U2]    = 20.;
+  primVars[U3]    = 30.;
   primVars[B1]    = 0.;
   primVars[B2]    = 0.;
   primVars[B3]    = 0.;
@@ -127,7 +128,7 @@ int main(int argc, char **argv)
   PetscPrintf(PETSC_COMM_WORLD, "T^3_1 = %f\n", TUpDownIdeal[T_UP_DOWN(3, 1)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^3_2 = %f\n", TUpDownIdeal[T_UP_DOWN(3, 2)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^3_3 = %f\n", TUpDownIdeal[T_UP_DOWN(3, 3)]);
-
+*/
   PetscFinalize();  
   return(0);
 }
