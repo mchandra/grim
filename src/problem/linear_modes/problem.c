@@ -168,7 +168,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           
           INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
           INDEX_PETSC(primOldGlobal, &zone, A0)    = getA0(temperature);
-          
+ 
           for (int var=U1; var<DOF; var++)
           {
             INDEX_PETSC(primOldGlobal, &zone, var) =  

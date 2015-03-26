@@ -216,6 +216,8 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
       fluxes[B22] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 2)]; 
       fluxes[B23] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 3)]; 
       fluxes[B33] = g*elem->moments[M_UP_UP_DOWN(dir, 3, 3)]; 
+      //for (int mu=B00; mu <= B33; mu++)
+      //  fprintf(stderr, "fluxes[%i] = %e\n", mu, fluxes[mu]);
     #endif
 
     fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);

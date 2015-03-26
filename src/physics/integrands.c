@@ -157,8 +157,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
             }
           }
         }
-        if (fabs(moments[M_UP_UP_UP(mu,nu,lambda)]) > 0.1)
-        fprintf(stdout, "M[%i][%i][%i] = %e\n", mu, nu, lambda, moments[M_UP_UP_UP(mu, nu, lambda)]);
       }
       #endif
     }
@@ -228,6 +226,8 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     bScalar += 2.*elem->primVars[B23]*pUpHat[2]*pUpHat[3];
 
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
+    // Now with bscalar as a perturbation
+    //*f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0])*(1. + 0.*bScalar);
 
   #endif    
 
