@@ -106,7 +106,7 @@ void setFluidElement(const REAL primVars[ARRAY_ARGS DOF],
 void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                     struct fluidElement elem[ARRAY_ARGS 1])
 {
-#if (REAPER && REAPER_MOMENTS==5)
+#if (REAPER)
   REAL temperature = getTemperature(elem);
 
   /* When the temperature is very high, the particle velocity v approaches c
@@ -126,20 +126,10 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
     scaleFactor = temperature;
   }
 
-  REAL moments[NUM_ALL_COMPONENTS]; /* contains moments[T_UP_UP] */
-  fixedQuadIntegration5Moments(elem, geom, scaleFactor, moments);
+  REAL moments[NUM_ALL_COMPONENTS];
+  fixedQuadIntegration(elem, geom, scaleFactor, moments);
 
-  /* Now lower T_UP_UP to T_UP_DOWN */
-  REAL rho = getDensity(elem);
-  REAL pressure = rho * temperature;
-  REAL uu = pressure/(ADIABATIC_INDEX - 1.);
-  REAL bCov[NDIM], bSqr, uCov[NDIM];
-
-  bSqr = getbSqr(elem, geom);
-
-  conToCov(elem->uCon, geom, uCov);
-  conToCov(elem->bCon, geom, bCov);
-
+  /* Now lower .._UP to .._DOWN (except for the number flux vector)*/
   for (int mu=0; mu<NDIM; mu++)
   {
     elem->moments[N_UP(mu)] = moments[N_UP(mu)];
@@ -151,11 +141,22 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
       for (int alpha=0; alpha<NDIM; alpha++)
       {
         elem->moments[T_UP_DOWN(mu, nu)] +=
-	        moments[T_UP_UP(mu, alpha)]*geom->gCov[alpha][nu];
+	      moments[T_UP_UP(mu, alpha)]*geom->gCov[alpha][nu];
       }
+      #if (REAPER_MOMENTS==15)
+      	for (int lambda=0; lambda<NDIM; lambda++)
+      	{
+          elem->moments[M_UP_UP_DOWN(mu, nu, lambda)] = 0.;
+      
+          for (int alpha=0; alpha<NDIM; alpha++)
+          {
+            elem->moments[M_UP_UP_DOWN(mu, nu, lambda)] +=
+                  moments[M_UP_UP_UP(mu, nu, alpha)]*geom->gCov[alpha][lambda];
+          }
+        }
+      #endif
     }
   }
-
 #else
 
   REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
@@ -184,11 +185,8 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
         + elem->primVars[PHI]/sqrt(bSqr)
         * (elem->uCon[mu]*bCov[nu] + elem->bCon[mu]*uCov[nu])
       #endif                  
-                        ;
-
     }
   }
-
 #endif
 
 }
@@ -207,11 +205,25 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
     fluxes[U2] = g*elem->moments[T_UP_DOWN(dir, 2)];
     fluxes[U3] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
+    #if (REAPER_MOMENTS == 15)
+      fluxes[B00] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 0)];
+      fluxes[B01] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 1)]; 
+      fluxes[B02] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 2)]; 
+      fluxes[B03] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 3)]; 
+      fluxes[B11] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 1)]; 
+      fluxes[B12] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 2)]; 
+      fluxes[B13] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 3)]; 
+      fluxes[B22] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 2)]; 
+      fluxes[B23] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 3)]; 
+      fluxes[B33] = g*elem->moments[M_UP_UP_DOWN(dir, 3, 3)]; 
+    #endif
+
     fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);
     fluxes[B2] = g*(elem->bCon[2]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[2]);
     fluxes[B3] = g*(elem->bCon[3]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[3]);
     
   #else
+
     fluxes[RHO] = g*elem->moments[N_UP(dir)];
 
     fluxes[UU] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[RHO];
@@ -226,6 +238,7 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
     #if (CONDUCTION)
       fluxes[PHI] = g*(elem->uCon[dir]*elem->primVars[PHI]);
     #endif
+
   #endif
 }
 
@@ -239,6 +252,8 @@ void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
                         const REAL christoffel[ARRAY_ARGS 64],
                         REAL sourceTerms[ARRAY_ARGS DOF])
 {
+  /* Source terms not coded in for the REAPER scheme yet */
+
   for (int var=0; var<DOF; var++)
   {
     sourceTerms[var] = 0.;

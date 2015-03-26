@@ -111,34 +111,99 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
         REAL primVars0[DOF];
         REAL complex deltaPrimVars[DOF];
 
-        primVars0[RHO] = 1.;
-        primVars0[UU]  = 2.;
-        primVars0[U1]  = 0.;
-        primVars0[U2]  = 0.;
-        primVars0[U3]  = 0.;
-        primVars0[B1]  = 0.;
-        primVars0[B2]  = 0.;
-        primVars0[B3]  = 0.;
+        #if (REAPER)
+          primVars0[U1]  = 0.;
+          primVars0[U2]  = 0.;
+          primVars0[U3]  = 0.;
+          primVars0[B1]  = 0.;
+          primVars0[B2]  = 0.;
+          primVars0[B3]  = 0.;
+  
+          deltaPrimVars[U1]  = 0.;
+          deltaPrimVars[U2]  = 0.;
+          deltaPrimVars[U3]  = 0.;
+          deltaPrimVars[B1]  = 0.;
+          deltaPrimVars[B2]  = 0.;
+          deltaPrimVars[B3]  = 0.;
+ 
+          #if (REAPER_MOMENTS==15)
+            primVars0[B00] = 0.;
+            primVars0[B01] = 0.;
+            primVars0[B02] = 0.;
+            primVars0[B03] = 0.;
+            primVars0[B11] = 0.;
+            primVars0[B12] = 0.;
+            primVars0[B13] = 0.;
+            primVars0[B22] = 0.;
+            primVars0[B23] = 0.;
+            primVars0[B33] = 0.;
 
-        deltaPrimVars[RHO] = 1.;
-        deltaPrimVars[UU]  = 0.;
-        deltaPrimVars[U1]  = 0.;
-        deltaPrimVars[U2]  = 0.;
-        deltaPrimVars[U3]  = 0.;
-        deltaPrimVars[B1]  = 0.;
-        deltaPrimVars[B2]  = 0.;
-        deltaPrimVars[B3]  = 0.;
+            deltaPrimVars[B00] = 0.;
+            deltaPrimVars[B01] = 0.;
+            deltaPrimVars[B02] = 0.;
+            deltaPrimVars[B03] = 0.;
+            deltaPrimVars[B11] = 0.;
+            deltaPrimVars[B12] = 0.;
+            deltaPrimVars[B13] = 0.;
+            deltaPrimVars[B22] = 0.;
+            deltaPrimVars[B23] = 0.;
+            deltaPrimVars[B33] = 0.;
+          #endif 
+          
+          REAL rho0 = 1.;
+          REAL uu0  = 2.;
+          REAL deltaRho = 1.;
+          REAL deltaUU  = 0.;
+          
+          REAL k1 = 2*M_PI;
+          REAL k2 = 0.;
 
-        REAL k1 = 2*M_PI;
-        REAL k2 = 0.;
+          REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
+          
+          REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
+          REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
+          
+          REAL gammaApprox = 1.43210621832;
+          REAL temperature = (gammaApprox - 1.)*uu/rho;
+          
+          INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
+          INDEX_PETSC(primOldGlobal, &zone, A0)    = getA0(temperature);
+          
+          for (int var=U1; var<DOF; var++)
+          {
+            INDEX_PETSC(primOldGlobal, &zone, var) =  
+              primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
+          }
+        #else
+          primVars0[RHO] = 1.;
+          primVars0[UU]  = 2.;
+          primVars0[U1]  = 0.;
+          primVars0[U2]  = 0.;
+          primVars0[U3]  = 0.;
+          primVars0[B1]  = 0.;
+          primVars0[B2]  = 0.;
+          primVars0[B3]  = 0.;
 
-        REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
+          deltaPrimVars[RHO] = 1.;
+          deltaPrimVars[UU]  = 0.;
+          deltaPrimVars[U1]  = 0.;
+          deltaPrimVars[U2]  = 0.;
+          deltaPrimVars[U3]  = 0.;
+          deltaPrimVars[B1]  = 0.;
+          deltaPrimVars[B2]  = 0.;
+          deltaPrimVars[B3]  = 0.;
 
-        for (int var=0; var<DOF; var++)
-        {
-          INDEX_PETSC(primOldGlobal, &zone, var) =  
-            primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
-        }
+          REAL k1 = 2*M_PI;
+          REAL k2 = 0.;
+
+          REAL complex mode = cexp(I*(k1*XCoords[1] + k2*XCoords[2]) );
+
+          for (int var=0; var<DOF; var++)
+          {
+            INDEX_PETSC(primOldGlobal, &zone, var) =  
+              primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
+          }
+        #endif 
 
       #elif (MODE==CONDUCTION_STABLE_1D) 
         /* Eigenvalue = -0.498597173331 - 0.857832357798*I

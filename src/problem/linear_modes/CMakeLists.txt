@@ -62,15 +62,15 @@ set(RECONSTRUCTION "MONOTONIZED_CENTRAL")
 # 3) CONDUCTION_STABLE_1D
 # 4) CONDUCTION_STABLE_2D
 set(AMPLITUDE "1e-4")
-set(MODE      "HYDRO_SOUND_MODE_1D")
+set(MODE      "ENTROPY_WAVE_1D")
 
 set(REAPER         "ON")
-set(REAPER_MOMENTS "5")
+set(REAPER_MOMENTS "15")
 
 # Physics options set automatically by the choice of the mode being tested
 if (${MODE} STREQUAL "ENTROPY_WAVE_1D")
   set(COMPUTE_DIM "1")
-  set(ADIABATIC_INDEX "4./3")
+  set(ADIABATIC_INDEX "1.43210621832")
   set(CONDUCTION "OFF")
 endif(${MODE} STREQUAL "ENTROPY_WAVE_1D")
 

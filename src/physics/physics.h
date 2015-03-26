@@ -62,8 +62,17 @@
 /* Contains all the variables needed for physics. Independent variables are only
  * primVars. The rest are auxiliary variables stored for convenience.
  */
-
-#define NUM_ALL_COMPONENTS  (20) /* For default grim and reaper 5 moment */
+#if (REAPER_MOMENTS==5 || (REAPER==OFF) )
+  /*   4  components of the number flux vector
+   * + 16 components of the stress tensor.
+   * Both grim and reaper 5 moment scheme have the same number of components */
+  #define NUM_ALL_COMPONENTS  (20)
+#elif (REAPER_MOMENTS==15)
+  /*   4  components of the number flux vector
+   * + 16 components of the stress tensor
+   * + 64 components of the rank 3 moment of f */
+  #define NUM_ALL_COMPONENTS  (84) 
+#endif
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
 
@@ -71,6 +80,8 @@
 #define N_UP(mu) (mu)
 #define T_UP_DOWN(mu, nu) (nu + NDIM*(mu) + NDIM)
 #define T_UP_UP(mu, nu)   (nu + NDIM*(mu) + NDIM)
+#define M_UP_UP_DOWN(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
+#define M_UP_UP_UP(mu, nu, lambda)   (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
 
 /* Indices for the Christoffel symbols */
 #define GAMMA_UP_DOWN_DOWN(eta,mu,nu) (eta+NDIM*(mu+NDIM*(nu) ) )
@@ -228,10 +239,10 @@ REAL getbSqr(const struct fluidElement elem[ARRAY_ARGS 1],
 
 #if (REAPER)
 /* Internal functions used by the reaper scheme */
-void fixedQuadIntegration5Moments(const struct fluidElement *elem,
-                                  const struct geometry *geom,
-                                  REAL scaleFactor,
-                                  REAL *moments);
+void fixedQuadIntegration(const struct fluidElement *elem,
+                          const struct geometry *geom,
+                          REAL scaleFactor,
+                          REAL *moments);
 
 void computefAndPUpHatUsingOrthTetradPDownHatSpatial
 (

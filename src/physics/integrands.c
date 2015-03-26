@@ -1,9 +1,9 @@
 #include "physics.h"
 
-void fixedQuadIntegration5Moments(const struct fluidElement *elem,
-                                  const struct geometry *geom,
-                                  REAL scaleFactor,
-                                  REAL *moments)
+void fixedQuadIntegration(const struct fluidElement *elem,
+                          const struct geometry *geom,
+                          REAL scaleFactor,
+                          REAL *moments)
 {
   REAL quadPts[NUM_QUAD] = \
       {-9.98909991e-01,  -9.94261260e-01,  -9.85915992e-01,
@@ -46,9 +46,16 @@ void fixedQuadIntegration5Moments(const struct fluidElement *elem,
     for (int nu=0; nu<NDIM; nu++)
     {
       momentsInOrthTetrad[T_UP_UP(mu, nu)] = 0.;
+    
+      #if (REAPER_MOMENTS==15)
+        for (int lambda=0; lambda<NDIM; lambda++)
+        {
+          momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+        }
+      #endif
     }
   }
-
+//#pragma omp parallel for 
   for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
   {
     for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
@@ -90,27 +97,32 @@ void fixedQuadIntegration5Moments(const struct fluidElement *elem,
           {
             momentsInOrthTetrad[T_UP_UP(mu, nu)] += 
               weight * pUpHat[mu] * pUpHat[nu];
-          }
+
+            #if (REAPER_MOMENTS == 15)
+              for (int lambda=0; lambda<NDIM; lambda++)
+              {
+                momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
+                  weight * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+              }
+            #endif 
+
+	  }
         }
         
       }
     }
   }
 
-
   for (int mu=0; mu<NDIM; mu++)
   {
     moments[N_UP(mu)] = 0;
 
-    for (int nu=0; nu<NDIM; nu++)
+    for (int alpha=0; alpha<NDIM; alpha++)
     {
-      moments[N_UP(mu)] +=  momentsInOrthTetrad[N_UP(nu)]
-                          * elem->eDownHatUpNoHat[nu][mu];
+      moments[N_UP(mu)] +=  momentsInOrthTetrad[N_UP(alpha)]
+                          * elem->eDownHatUpNoHat[alpha][mu];
     }
-  }
 
-  for (int mu=0; mu<NDIM; mu++)
-  {
     for (int nu=0; nu<NDIM; nu++)
     {
       moments[T_UP_UP(mu, nu)] = 0.;
@@ -125,6 +137,30 @@ void fixedQuadIntegration5Moments(const struct fluidElement *elem,
                             * momentsInOrthTetrad[T_UP_UP(alpha, beta)];
         }
       }
+
+      #if (REAPER_MOMENTS == 15)
+      for (int lambda=0; lambda<NDIM; lambda++)
+      {
+        moments[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+        
+        for (int alpha=0; alpha<NDIM; alpha++)
+        {
+          for (int beta=0; beta<NDIM; beta++)
+          {
+            for (int gamma=0; gamma<NDIM; gamma++)
+            {
+              moments[M_UP_UP_UP(mu, nu, lambda)] +=
+                             elem->eDownHatUpNoHat[alpha][mu]
+                           * elem->eDownHatUpNoHat[beta][nu]
+                           * elem->eDownHatUpNoHat[gamma][lambda]
+                           * momentsInOrthTetrad[M_UP_UP_UP(alpha, beta, gamma)];
+            }
+          }
+        }
+        if (fabs(moments[M_UP_UP_UP(mu,nu,lambda)]) > 0.1)
+        fprintf(stdout, "M[%i][%i][%i] = %e\n", mu, nu, lambda, moments[M_UP_UP_UP(mu, nu, lambda)]);
+      }
+      #endif
     }
   }
 
@@ -149,8 +185,51 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   pUpHat[1] =  pDownHat[1];
   pUpHat[2] =  pDownHat[2];
   pUpHat[3] =  pDownHat[3];
-  
-  *f = elem->primVars[ALPHA] * exp(pUpHat[0] * elem->primVars[A0]);
+ 
+  #if (REAPER_MOMENTS==5) 
+    /* Maxwell-Juettner in the tetrad frame:
+     *
+     * f = \alpha exp(a_\hat{0} p^\hat{0}) 
+     *
+     * where \alpha = \rho/(4 \pi \theta K_2(1/\theta)) 
+     *          a_0 = -1 / \theta*/
+
+    *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0]);
+
+  #elif (REAPER_MOMENTS==15)
+    /* 15 moment Israel-Stewart ansatz in a tetrad frame:
+     *
+     * f = \alpha exp(a_\hat{\mu} p^\hat{\mu} + b_{\hat{\mu} \hat{\nu}} p^{\hat{\mu} \hat{\nu}} )
+     * 
+     * We now make a choice that a_{\hat{i}} = 0 in the co-moving tetrad frame. 
+     * This corresponds to the Eckart frame. On the other hand if we choose b_{\hat{i}} = 0, 
+     * this is the Landau frame. The Eckart frame identifies the 4-velocity with the
+     * number flux vector. In this frame, there is a finite heat flux because of non-zero
+     * b_{\hat{i}}. On the other hand, the Landau frame identifies the 4-velocity with the heat 
+     * flow. 
+     *
+     * We define bScalar = b_{\hat{\mu} \hat{\nu}} p^{\hat{\mu} \hat{\nu}} */
+
+
+    REAL bScalar = 0.;
     
+    /* Diagonal components */
+    bScalar +=    elem->primVars[B00]*pUpHat[0]*pUpHat[0];
+    bScalar +=    elem->primVars[B11]*pUpHat[1]*pUpHat[1];
+    bScalar +=    elem->primVars[B22]*pUpHat[2]*pUpHat[2];
+    bScalar +=    elem->primVars[B33]*pUpHat[3]*pUpHat[3];
+
+    /* Off-diagonal components */
+    bScalar += 2.*elem->primVars[B01]*pUpHat[0]*pUpHat[1];
+    bScalar += 2.*elem->primVars[B02]*pUpHat[0]*pUpHat[2];
+    bScalar += 2.*elem->primVars[B03]*pUpHat[0]*pUpHat[3];
+    bScalar += 2.*elem->primVars[B12]*pUpHat[1]*pUpHat[2];
+    bScalar += 2.*elem->primVars[B13]*pUpHat[1]*pUpHat[3];
+    bScalar += 2.*elem->primVars[B23]*pUpHat[2]*pUpHat[3];
+
+    *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
+
+  #endif    
+
   return;
 }
