@@ -131,7 +131,6 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
   fixedQuadIntegration5Moments(elem, geom, scaleFactor, moments);
 
   /* Now lower T_UP_UP to T_UP_DOWN */
-
   REAL rho = getDensity(elem);
   REAL pressure = rho * temperature;
   REAL uu = pressure/(ADIABATIC_INDEX - 1.);
