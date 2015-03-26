@@ -45,7 +45,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           primVars0[B2]  = 0.;
           primVars0[B3]  = 0.;
   
-          deltaPrimVars[U1]  = -0.29121410287;
+          deltaPrimVars[U1]  = -0.183382445616;
           deltaPrimVars[U2]  = 0.;
           deltaPrimVars[U3]  = 0.;
           deltaPrimVars[B1]  = 0.;
@@ -53,9 +53,9 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           deltaPrimVars[B3]  = 0.;
           
           REAL rho0 = 1.;
-          REAL uu0  = 0.1;
-          REAL deltaRho = 0.943641544209;
-          REAL deltaUU  = 0.157273590702;
+          REAL uu0  = 2.;
+          REAL deltaRho = 0.324033853851;
+          REAL deltaUU  = 0.928101794093;
           
           REAL k1 = 2*M_PI;
           REAL k2 = 0.;
@@ -65,7 +65,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
           REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
           
-          REAL gammaApprox = 5./3;
+          REAL gammaApprox = 1.43210621832;
           REAL temperature = (gammaApprox - 1.)*uu/rho;
           
           INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
