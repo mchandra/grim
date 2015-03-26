@@ -6,16 +6,16 @@ set(DUMP_FILE_PREFIX "\"data\"")
 set(PROBLEM_DATA "\"${PROBLEM}/problemdata.h\"")
 
 # Time stepping options: EXPLICIT, IMEX or IMPLICIT
-set(TIME_STEPPING "EXPLICIT")
+set(TIME_STEPPING "IMPLICIT")
 set(DT "0.01")
 set(DT_DUMP ".1")
 set(START_TIME "0.")
-set(FINAL_TIME "2.")
-set(COURANT ".9")
-set(MAX_DT_INCREMENT "1.3")
+set(FINAL_TIME "0.1")
+set(COURANT ".5")
+set(MAX_DT_INCREMENT "1.")
 
 # Domain size. If the problem is 1D then N2 is ignored.
-set(N1 "32")
+set(N1 "35")
 set(N2 "128")
 
 # The entire global domain is divided into tiles that are small enough to fit
@@ -30,8 +30,8 @@ set(N2 "128")
 #             OpenCL specification is a different amount for different 
 #             machines.
 #             NEED TO PUT A CHECK FOR THIS.
-set(TILE_SIZE_X1 "8")
-set(TILE_SIZE_X2 "8")
+set(TILE_SIZE_X1 "35")
+set(TILE_SIZE_X2 "35")
 
 set(USE_OPENMP   "NO")
 

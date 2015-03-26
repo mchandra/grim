@@ -105,7 +105,7 @@ void fixedQuadIntegration5Moments(const struct fluidElement *elem,
     for (int nu=0; nu<NDIM; nu++)
     {
       moments[N_UP(mu)] +=  momentsInOrthTetrad[N_UP(nu)]
-                           *elem->eDownHatUpNoHat[nu][mu];
+                          * elem->eDownHatUpNoHat[nu][mu];
     }
   }
 

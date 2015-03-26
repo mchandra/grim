@@ -97,15 +97,18 @@ void setFluidElement(const REAL primVars[ARRAY_ARGS DOF],
   #if (CONDUCTION)
     setConductionParameters(geom, elem);
   #endif
+  #if (REAPER)
+    setTetrad(geom, elem);
+  #endif
   computeMoments(geom, elem);
 }
 
 void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                     struct fluidElement elem[ARRAY_ARGS 1])
 {
-#if (REAPER && REAPER_MOMENTS==5)
+//#if (REAPER && REAPER_MOMENTS==5)
   REAL temperature = getTemperature(elem);
-  if (temperature<1e-5) temperature = 1e-5;
+//  if (temperature<1e-5) temperature = 1e-5;
 
   /* When the temperature is very high, the particle velocity v approaches c
    * and the distribution function (as a function of the new scaled variables
@@ -129,24 +132,11 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 
   /* Now lower T_UP_UP to T_UP_DOWN */
 
-  for (int mu=0; mu<NDIM; mu++)
-  {
-    for (int nu=0; nu<NDIM; nu++)
-    {
-      elem->moments[T_UP_DOWN(mu, nu)] = 0.;
-      
-      for (int alpha=0; alpha<NDIM; alpha++)
-      {
-        elem->moments[T_UP_DOWN(mu, nu)] +=
-	  moments[T_UP_UP(mu, alpha)]*geom->gCov[alpha][nu];
-      }
-    }
-  }
-
-#else
-  REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
+  REAL rho = getDensity(elem);
+  REAL pressure = rho * temperature;
+  REAL uu = pressure/(ADIABATIC_INDEX - 1.);
   REAL bCov[NDIM], bSqr, uCov[NDIM];
-  
+
   bSqr = getbSqr(elem, geom);
 
   conToCov(elem->uCon, geom, uCov);
@@ -154,27 +144,94 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 
   for (int mu=0; mu<NDIM; mu++)
   {
-    elem->moments[N_UP(mu)] = elem->primVars[RHO]*elem->uCon[mu];
+    elem->moments[N_UP(mu)] = moments[N_UP(mu)];
 
     for (int nu=0; nu<NDIM; nu++)
     {
-      elem->moments[T_UP_DOWN(mu,nu)] =   
-                          (  elem->primVars[RHO] + elem->primVars[UU]
-                           + pressure + bSqr
-                          )*elem->uCon[mu]*uCov[nu]
-
-                        + (pressure + 0.5*bSqr)*DELTA(mu, nu)
-
-                        - elem->bCon[mu]*bCov[nu]
-      #if (CONDUCTION) 
-        + elem->primVars[PHI]/sqrt(bSqr)
-        * (elem->uCon[mu]*bCov[nu] + elem->bCon[mu]*uCov[nu])
-      #endif                  
-                        ;
-
+//      elem->moments[T_UP_DOWN(mu,nu)] =   
+//                          (  rho + uu + pressure + bSqr
+//                          )*elem->uCon[mu]*uCov[nu]
+//
+//                        + (pressure + 0.5*bSqr)*DELTA(mu, nu)
+//
+//                        - elem->bCon[mu]*bCov[nu];
+      
+      elem->moments[T_UP_DOWN(mu, nu)] = 0.;
+      for (int alpha=0; alpha<NDIM; alpha++)
+      {
+        elem->moments[T_UP_DOWN(mu, nu)] +=
+	        moments[T_UP_UP(mu, alpha)]*geom->gCov[alpha][nu];
+      }
     }
   }
-#endif
+
+//#else
+//  REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
+//  REAL bCov[NDIM], bSqr, uCov[NDIM];
+//  
+//  bSqr = getbSqr(elem, geom);
+//
+//  conToCov(elem->uCon, geom, uCov);
+//  conToCov(elem->bCon, geom, bCov);
+//
+//  for (int mu=0; mu<NDIM; mu++)
+//  {
+//    elem->moments[N_UP(mu)] = elem->primVars[RHO]*elem->uCon[mu];
+//
+//    for (int nu=0; nu<NDIM; nu++)
+//    {
+//      elem->moments[T_UP_DOWN(mu,nu)] =   
+//                          (  elem->primVars[RHO] + elem->primVars[UU]
+//                           + pressure + bSqr
+//                          )*elem->uCon[mu]*uCov[nu]
+//
+//                        + (pressure + 0.5*bSqr)*DELTA(mu, nu)
+//
+//                        - elem->bCon[mu]*bCov[nu]
+//      #if (CONDUCTION) 
+//        + elem->primVars[PHI]/sqrt(bSqr)
+//        * (elem->uCon[mu]*bCov[nu] + elem->bCon[mu]*uCov[nu])
+//      #endif                  
+//                        ;
+//
+//    }
+//  }
+
+
+//  REAL rho = getDensity(elem);
+//  REAL temperature = getTemperature(elem);
+//  REAL pressure = rho * temperature;
+//  REAL uu = pressure/(ADIABATIC_INDEX - 1.);
+//  REAL bCov[NDIM], bSqr, uCov[NDIM];
+//  
+//  bSqr = getbSqr(elem, geom);
+//
+//  conToCov(elem->uCon, geom, uCov);
+//  conToCov(elem->bCon, geom, bCov);
+//
+//  for (int mu=0; mu<NDIM; mu++)
+//  {
+//    elem->moments[N_UP(mu)] = rho*elem->uCon[mu];
+//
+//    for (int nu=0; nu<NDIM; nu++)
+//    {
+//      elem->moments[T_UP_DOWN(mu,nu)] =   
+//                          (  rho + uu + pressure + bSqr
+//                          )*elem->uCon[mu]*uCov[nu]
+//
+//                        + (pressure + 0.5*bSqr)*DELTA(mu, nu)
+//
+//                        - elem->bCon[mu]*bCov[nu]
+//      #if (CONDUCTION) 
+//        + elem->primVars[PHI]/sqrt(bSqr)
+//        * (elem->uCon[mu]*bCov[nu] + elem->bCon[mu]*uCov[nu])
+//      #endif                  
+//                        ;
+//
+//    }
+//  }
+
+//#endif
 
 }
 

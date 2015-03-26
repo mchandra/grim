@@ -18,7 +18,7 @@ project(grim)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall -O3")
 
 # Set custom install folders here
-set(PETSC_DIR "/home/manic/petsc_optimized")
+set(PETSC_DIR "/home/mc/data/mc/Downloads/petsc_optimized")
 
 # Double or float precision?
 set(REAL "double")
