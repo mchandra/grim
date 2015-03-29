@@ -259,6 +259,7 @@ void setTetrad(const struct geometry *geom,
                struct fluidElement *elem);
 
 void makeTetrad(const REAL eDown0Hat[NDIM],
+                const REAL eDown1Hat[NDIM],
                 const struct geometry *geom,
                 REAL eDownMuHatUpNu[NDIM][NDIM],
                 REAL eDownMuUpNuHat[NDIM][NDIM]);

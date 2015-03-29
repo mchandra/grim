@@ -66,6 +66,7 @@ set(MODE      "ENTROPY_WAVE_1D")
 
 set(REAPER         "ON")
 set(REAPER_MOMENTS "15")
+set(GYROAVERAGING  "ON")
 
 # Physics options set automatically by the choice of the mode being tested
 if (${MODE} STREQUAL "ENTROPY_WAVE_1D")

@@ -56,6 +56,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
     }
   }
 //#pragma omp parallel for 
+#if (GYROAVERAGING == OFF)
   for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
   {
     for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
@@ -112,6 +113,62 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
     }
   }
+#elif (GYROAVERAGING == ON)
+  for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
+  {
+    for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
+    {
+      REAL t[NDIM], pUpHat[NDIM], pDownHat[NDIM];
+
+      t[1] = quadPts[iQuad];
+      t[2] = quadPts[jQuad];
+
+      for (int i=1; i<NDIM; i++)
+      {
+        pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
+      }
+
+      REAL f;
+
+      computefAndPUpHatUsingOrthTetradPDownHatSpatial
+                                (
+                                  pDownHat, geom, elem,
+                                  pUpHat, &f
+                                );
+
+      REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
+                      * scaleFactor * JACOBIAN_FULL(t[2]);
+      
+      /* Instead of cartesian coordinates, now integrating in cylindrical coordinates */
+      REAL pMag = sqrt(pUpHat[1]*pDownHat[1] + pUpHat[2]*pDownHat[2]);
+      REAL weight =  weights[iQuad]*weights[jQuad]
+                   * jacobian/pUpHat[0] * pMag * 2.*M_PI * f; 
+
+      /* Enforce axisymmetry when evaluating moments */
+      pUpHat[3] = pUpHat[2]; 
+      
+      for (int mu=0; mu<NDIM; mu++)
+      {
+        momentsInOrthTetrad[N_UP(mu)] += weight * pUpHat[mu];
+
+        for (int nu=0; nu<NDIM; nu++)
+        {
+          momentsInOrthTetrad[T_UP_UP(mu, nu)] += 
+             weight * pUpHat[mu] * pUpHat[nu];
+
+          #if (REAPER_MOMENTS == 15) 
+            for (int lambda=0; lambda<NDIM; lambda++)
+            {
+              momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
+                weight * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+            }
+          #endif 
+
+        }
+      }
+    }
+  }
+#endif
 
   for (int mu=0; mu<NDIM; mu++)
   {
