@@ -377,6 +377,9 @@ PetscErrorCode computeResidual(SNES snes,
       REAL g = sqrt(-geom.gDet);
       REAL norm = g;
 
+      #if (GYROAVERAGING)
+
+      #else
       for (int var=0; var<DOF; var++)
       {
         #if (TIME_STEPPING==EXPLICIT)
@@ -426,6 +429,7 @@ PetscErrorCode computeResidual(SNES snes,
 
         #endif
       }
+      #endif /* No GYROAVERAGING */
 
     }
 

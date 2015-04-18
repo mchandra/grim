@@ -19,30 +19,57 @@
 
   #elif (REAPER_MOMENTS==15)
 
-    #define ALPHA           (0)
-    #define A0              (1)
-    #define U1              (2)
-    #define U2              (3)
-    #define U3              (4)
-    #define B00             (5)
-    #define B01             (6)
-    #define B02             (7)
-    #define B03             (8)
-    #define B11             (9)
-    #define B12             (10)
-    #define B13             (11)
-    #define B22             (12)
-    #define B23             (13)
-    #define B33             (14)
-    #define B1              (15)
-    #define B2              (16)
-    #define B3              (17)
-    #define DOF             (18)
+    #if (GYROAVERAGING)
+
+      /* 1 --> Parallel
+         2 --> Perpendicular
+      */
+      #define ALPHA           (0)
+      #define A0              (1)
+      #define U1              (2)
+      #define U2              (3)
+      #define U3              (4)
+      #define B00             (5)
+      #define B01             (6)
+      #define B02             (7)
+      #define B11             (8)
+      #define B12             (9)
+      #define B22             (10)
+      #define B1              (11)
+      #define B2              (12)
+      #define B3              (13)
+      #define DOF             (14)
+
+    #else
+
+      #define ALPHA           (0)
+      #define A0              (1)
+      #define U1              (2)
+      #define U2              (3)
+      #define U3              (4)
+      #define B00             (5)
+      #define B01             (6)
+      #define B02             (7)
+      #define B03             (8)
+      #define B11             (9)
+      #define B12             (10)
+      #define B13             (11)
+      #define B22             (12)
+      #define B23             (13)
+      #define B33             (14)
+      #define B1              (15)
+      #define B2              (16)
+      #define B3              (17)
+      #define DOF             (18)
+
+    #endif /* GYROAVERAGING */
   
-  #endif
+  #endif /* REAPER 15 moments */
   
 #else
+
   /* Not using REAPER scheme */
+
   #define RHO             (0)
   #define UU              (1)
   #define U1              (2)
@@ -57,6 +84,7 @@
   #else
     #define DOF           (8)
   #endif
+
 #endif
 
 /* Contains all the variables needed for physics. Independent variables are only
@@ -95,6 +123,7 @@
 /* Integration is over pDown0, pDown1, pDown2 */
 #define NDIM_INTEGRATION  (3)
 #define NUM_QUAD          (51)
+#define NUM_QUAD_PERP     (25) /* Only used when GYROAVERAGING==ON */
 
 /* Macros used in integrands.c 
  * FULL functions are used when integrating from -inf to inf 
