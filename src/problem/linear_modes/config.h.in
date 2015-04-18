@@ -39,7 +39,7 @@
 #cmakedefine01  CONDUCTION
 #cmakedefine01  REAPER
 #cmakedefine    REAPER_MOMENTS   (${REAPER_MOMENTS})
-#cmakedefine    GYROAVERAGING    (${GYROAVERAGING})
+#cmakedefine01  GYROAVERAGING
 
 /* Initial condition parameters */
 #cmakedefine    AMPLITUDE           (${AMPLITUDE})

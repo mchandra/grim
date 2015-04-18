@@ -74,7 +74,7 @@ void setBCon(const struct geometry geom[ARRAY_ARGS 1],
   
   for (int i=1; i<NDIM; i++)
   {
-    elem->bCon[i] = (  elem->primVars[U3+i] 
+    elem->bCon[i] = (  elem->primVars[B1+i-1] 
                      + elem->bCon[0]*elem->uCon[i]
                     )/elem->uCon[0];
   }

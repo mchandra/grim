@@ -115,7 +115,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           primVars0[U1]  = 0.;
           primVars0[U2]  = 0.;
           primVars0[U3]  = 0.;
-          primVars0[B1]  = 0.;
+          primVars0[B1]  = 1.;
           primVars0[B2]  = 0.;
           primVars0[B3]  = 0.;
   

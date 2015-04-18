@@ -54,9 +54,9 @@ void makeTetrad(const REAL eDown0Hat[NDIM],
      * coordinate basis */
     for (int nu=0; nu<NDIM; nu++)
     {
-        #if (GYROAVERAGING == OFF)
+        #if (!GYROAVERAGING)
         eDownMuHatUpNu[1][nu] = DELTA(nu, 1);
-        #else 
+        #else
         eDownMuHatUpNu[1][nu] = eDown1Hat[nu];
         #endif
     }

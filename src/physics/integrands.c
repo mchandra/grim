@@ -56,7 +56,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
     }
   }
 //#pragma omp parallel for 
-#if (GYROAVERAGING == OFF)
+#if (!GYROAVERAGING)
   for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
   {
     for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
@@ -113,7 +113,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
     }
   }
-#elif (GYROAVERAGING == ON)
+#else
   for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
   {
     for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
@@ -129,7 +129,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
 
       REAL f;
-
       computefAndPUpHatUsingOrthTetradPDownHatSpatial
                                 (
                                   pDownHat, geom, elem,
@@ -169,7 +168,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
     }
   }
 #endif
-
   for (int mu=0; mu<NDIM; mu++)
   {
     moments[N_UP(mu)] = 0;
@@ -218,7 +216,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       #endif
     }
   }
-
 }
 
 void computefAndPUpHatUsingOrthTetradPDownHatSpatial
@@ -283,10 +280,10 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     bScalar += 2.*elem->primVars[B23]*pUpHat[2]*pUpHat[3];
 
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
+
     // Now with bscalar as a perturbation
     //*f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0])*(1. + 0.*bScalar);
 
   #endif    
-
   return;
 }
