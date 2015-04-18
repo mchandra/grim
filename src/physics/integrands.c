@@ -1,11 +1,4 @@
 #include "physics.h"
-#include "gsl/gsl_sf.h"
-
-/* Private function declarations */
-REAL harmonicNLM(int n, int l, int m, REAL pUpHat[NDIM]);
-REAL factorial(int n);
-REAL laguerre(int a, int b, REAL x);
-REAL legendre(int l, int m, REAL x);
 
 void fixedQuadIntegration(const struct fluidElement *elem,
                           const struct geometry *geom,
@@ -293,79 +286,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     // Now with bscalar as a perturbation
     //*f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0])*(1. + 0.*bScalar);
 
-    /* As an alternative, try spherical harmonics instead of b_{\mu \nu} */
-    /* Format: harmonic_nlm, where n, l, m are the quantum numbers */
-    REAL f1Sum = 0.;
-    f1Sum += elem->primVars[B00]*harmonicNLM(1, 0, 0,  pUpHat);
-    f1Sum += elem->primVars[B01]*harmonicNLM(2, 0, 0,  pUpHat);
-    f1Sum += elem->primVars[B02]*harmonicNLM(2, 1, -1,  pUpHat);
-    f1Sum += elem->primVars[B03]*harmonicNLM(2, 1, 0,  pUpHat);
-    f1Sum += elem->primVars[B11]*harmonicNLM(2, 1, 1, pUpHat);
-    f1Sum += elem->primVars[B12]*harmonicNLM(3, 1, 0,  pUpHat);
-    f1Sum += elem->primVars[B13]*harmonicNLM(3, 1, -1,  pUpHat);
-    f1Sum += elem->primVars[B22]*harmonicNLM(3, 1, 0, pUpHat);
-    f1Sum += elem->primVars[B23]*harmonicNLM(3, 1, 1,  pUpHat);
-    f1Sum += elem->primVars[B33]*harmonicNLM(3, 2, 0,  pUpHat);
- 
-    *f = elem->primVars[ALPHA]*exp(elem->primVars[A0]*pUpHat[0])*(1. + f1Sum);
   #endif    
 
   return;
 }
-
-REAL harmonicNLM(int n, int l, int m, REAL pUpHat[NDIM])
-{
-  REAL r = sqrt(pUpHat[1]*pUpHat[1] + pUpHat[2]*pUpHat[2] + pUpHat[3]*pUpHat[3]);
-  REAL theta = acos(pUpHat[3]/r);
-  REAL phi = atan(pUpHat[2]/pUpHat[1]);
-  REAL Lab = laguerre(2*l+1, n-l-1, 1./n);
-  REAL Rnl = sqrt(1./(n*n*n)*(factorial(n-l-1)/(2.*n*factorial(n+l))))*exp(-1./n)*pow(r/n,l)*Lab;
-  REAL Plm = legendre(l, m, pUpHat[3]/r);
-  REAL Ylm = sqrt((2.*l + 1.)*factorial(l-m)/factorial(l+m))*Plm*sin(m*phi);
-  
-  return (Rnl*Ylm);
-}
-
-REAL factorial(int n)
-{
-  REAL result = 1.;
-
-  for (int i=1; i<=n; i++)
-  {
-    result += result*i;
-  }
-  
-  return result;
-}
-
-REAL laguerre(int a, int b, REAL x)
-{
-  /*if (b == 0)
-    return 1.;
-  else if (b == 1)
-    return (-x + a + 1.);
-  else if (b == 2)
-    return (x*x/2. - (a+2.)*x + (a+2.)*(a+1.)/2.);
-  else if (b == 3)
-    return (-x*x*x/6. + (a+2.)*x*x/2. - (a+2.)*(a+3.)*x/2. + (a+1.)*(a+2.)*(a+3.)/6.);
-  else
-  {
-    fprintf(stderr, "[integrands.c] ERROR requested order of Laguerre (%i) too high!\n", b);
-    exit(-1);
-  }*/
-
-  return gsl_sf_laguerre_n(b, a, x);
-}
-
-REAL legendre(int l, int m, REAL x)
-{
-  /*if (l == 0)
-    return 1.;
-  if (l == 1)
-  {
-    
-  }*/
-  m = abs(m);
-  return gsl_sf_legendre_Plm(l, m, x);
-}
-
