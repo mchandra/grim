@@ -194,7 +194,7 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                    const struct geometry geom[ARRAY_ARGS 1],
                    const int dir,
-                   REAL fluxes[ARRAY_ARGS DOF])
+                   REAL fluxes[ARRAY_ARGS NUM_EQNS])
 {
   REAL g = sqrt(-geom->gDet);
   #if (REAPER)
@@ -250,11 +250,11 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
 void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
                         const struct geometry geom[ARRAY_ARGS 1],
                         const REAL christoffel[ARRAY_ARGS 64],
-                        REAL sourceTerms[ARRAY_ARGS DOF])
+                        REAL sourceTerms[ARRAY_ARGS NUM_EQNS])
 {
   /* Source terms not coded in for the REAPER scheme yet */
 
-  for (int var=0; var<DOF; var++)
+  for (int var=0; var<NUM_EQNS; var++)
   {
     sourceTerms[var] = 0.;
   }

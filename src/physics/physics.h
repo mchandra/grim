@@ -16,6 +16,7 @@
     #define B2              (6)
     #define B3              (7)
     #define DOF             (8)
+    #define NUM_EQNS        (DOF) /* NUM_EQNS same as DOF when not using GYROAVERAGING */
 
   #elif (REAPER_MOMENTS==15)
 
@@ -39,9 +40,10 @@
       #define B2              (12)
       #define B3              (13)
       #define DOF             (14)
+      #define NUM_EQNS        (18)
 
     #else
-
+      /* Not GYROAVERAGING */
       #define ALPHA           (0)
       #define A0              (1)
       #define U1              (2)
@@ -61,8 +63,9 @@
       #define B2              (16)
       #define B3              (17)
       #define DOF             (18)
+      #define NUM_EQNS        (DOF)
 
-    #endif /* GYROAVERAGING */
+    #endif /* GYROAVERAGING? */
   
   #endif /* REAPER 15 moments */
   
@@ -84,6 +87,7 @@
   #else
     #define DOF           (8)
   #endif
+  #define NUM_EQNS        (DOF)
 
 #endif
 
@@ -201,12 +205,12 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                    const struct geometry geom[ARRAY_ARGS 1],
                    const int dir,
-                   REAL fluxes[ARRAY_ARGS DOF]);
+                   REAL fluxes[ARRAY_ARGS NUM_EQNS]);
 
 void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
                         const struct geometry geom[ARRAY_ARGS 1],
                         const REAL christoffel[ARRAY_ARGS 64],
-                        REAL sourceTerms[ARRAY_ARGS DOF]);
+                        REAL sourceTerms[ARRAY_ARGS NUM_EQNS]);
 
 #if (CONDUCTION)
 void addConductionSourceTermsToResidual

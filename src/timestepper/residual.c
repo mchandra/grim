@@ -186,7 +186,7 @@ PetscErrorCode computeResidual(SNES snes,
                     X1Size, X2Size, 
                     &zone);
 
-        REAL XCoords[NDIM], sourceTerms[DOF], conservedVars[DOF];
+        REAL XCoords[NDIM], sourceTerms[NUM_EQNS], conservedVars[NUM_EQNS];
 
         getXCoords(&zone, CENTER, XCoords);
         struct geometry geom; setGeometry(XCoords, &geom);
@@ -197,7 +197,7 @@ PetscErrorCode computeResidual(SNES snes,
         setFluidElement(&INDEX_PETSC(primOldLocal, &zone, 0), &geom, &elem);
         computeFluxes(&elem, &geom, 0, conservedVars);
 
-        for (int var=0; var<DOF; var++)
+        for (int var=0; var<NUM_EQNS; var++)
         {
           INDEX_PETSC(conservedVarsOldGlobal, &zone, var) = 
             conservedVars[var];
@@ -221,7 +221,7 @@ PetscErrorCode computeResidual(SNES snes,
                              &INDEX_PETSC(connectionGlobal, &zone, 0),
                              sourceTerms);
 
-          for (int var=0; var<DOF; var++)
+          for (int var=0; var<NUM_EQNS; var++)
           {
             INDEX_PETSC(sourceTermsOldGlobal, &zone, var) = 
               sourceTerms[var];
@@ -236,7 +236,7 @@ PetscErrorCode computeResidual(SNES snes,
                              &INDEX_PETSC(connectionGlobal, &zone, 0),
                              sourceTerms);
 
-          for (int var=0; var<DOF; var++)
+          for (int var=0; var<NUM_EQNS; var++)
           {
             INDEX_PETSC(sourceTermsOldGlobal, &zone, var) = 
               sourceTerms[var];
@@ -364,11 +364,11 @@ PetscErrorCode computeResidual(SNES snes,
       struct fluidElement elem;
       setFluidElement(&INDEX_PETSC(primGlobal, &zone, 0), &geom, &elem);
 
-      REAL conservedVars[DOF];
+      REAL conservedVars[NUM_EQNS];
       computeFluxes(&elem, &geom, 0, conservedVars);
 
       #if (TIME_STEPPING==IMEX || TIME_STEPPING==IMPLICIT)
-        REAL sourceTerms[DOF];
+        REAL sourceTerms[NUM_EQNS];
         computeSourceTerms(&elem, &geom,
                            &INDEX_PETSC(connectionGlobal, &zone, 0),
                            sourceTerms);
@@ -380,7 +380,7 @@ PetscErrorCode computeResidual(SNES snes,
       #if (GYROAVERAGING)
 
       #else
-      for (int var=0; var<DOF; var++)
+      for (int var=0; var<NUM_EQNS; var++)
       {
         #if (TIME_STEPPING==EXPLICIT)
 
