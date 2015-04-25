@@ -3,8 +3,10 @@
 void setTetrad(const struct geometry *geom,
                struct fluidElement *elem)
 {
-    /* Make a tetrad with elem.uCon as $\overheadarrow{e}_\hat{0}$ */
-    makeTetrad(elem->uCon, elem->bCon, geom, elem->eDownHatUpNoHat, elem->eDownNoHatUpHat);
+    /* Make a tetrad with elem.uCon as $\overheadarrow{e}_\hat{0}$.
+     * If GYROAVERAGING, then elem.bCon used as $\overheadarrow{e}_\hat{1}$.*/
+    makeTetrad(elem->uCon, elem->bCon, geom, 
+               elem->eDownHatUpNoHat, elem->eDownNoHatUpHat);
 }
 
 void makeTetrad(const REAL eDown0Hat[NDIM],
@@ -54,11 +56,11 @@ void makeTetrad(const REAL eDown0Hat[NDIM],
      * coordinate basis */
     for (int nu=0; nu<NDIM; nu++)
     {
-        #if (!GYROAVERAGING)
-        eDownMuHatUpNu[1][nu] = DELTA(nu, 1);
-        #else
+      #if (GYROAVERAGING)
         eDownMuHatUpNu[1][nu] = eDown1Hat[nu];
-        #endif
+      #else
+        eDownMuHatUpNu[1][nu] = DELTA(nu, 1);
+      #endif
     }
     normalize(geom, eDownMuHatUpNu[1]);
     /* Now make this trial vector orthogonal to (\overhead{e}_\hat{0}) by

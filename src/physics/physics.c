@@ -185,6 +185,7 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
         + elem->primVars[PHI]/sqrt(bSqr)
         * (elem->uCon[mu]*bCov[nu] + elem->bCon[mu]*uCov[nu])
       #endif                  
+                        ;
     }
   }
 #endif
