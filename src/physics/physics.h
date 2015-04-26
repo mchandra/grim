@@ -85,7 +85,6 @@
       #define B2              (16)
       #define B3              (17)
       #define DOF             (18)
-      #define NUM_FLUXES      (DOF)
 
     #endif /* GYROAVERAGING? */
   
