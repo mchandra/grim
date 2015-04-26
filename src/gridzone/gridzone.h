@@ -28,82 +28,84 @@
  */
 #if (COMPUTE_DIM==1)
 
-#define TILE_SIZE ((TILE_SIZE_X1+2*NG)*DOF)
-#define INDEX_TILE(zone,var) (var + DOF*((zone)->iInTile + NG) )
+/* When GYROAVERAGING==ON, NUM_FLUXES > DOF, so we just use NUM_FLUXES to allocate
+ * static storage */
+#define TILE_SIZE ((TILE_SIZE_X1+2*NG)*NUM_FLUXES)
+#define INDEX_TILE(zone,var) (var + NUM_FLUXES*((zone)->iInTile + NG) )
 
-#define INDEX_TILE_PLUS_ONE_X1(zone,var) (var + DOF*((zone)->iInTile + 1 + NG) )
+#define INDEX_TILE_PLUS_ONE_X1(zone,var) (var + NUM_FLUXES*((zone)->iInTile + 1 + NG) )
 
-#define INDEX_TILE_PLUS_TWO_X1(zone,var) (var + DOF*((zone)->iInTile + 2 + NG ) )
+#define INDEX_TILE_PLUS_TWO_X1(zone,var) (var + NUM_FLUXES*((zone)->iInTile + 2 + NG ) )
 
-#define INDEX_TILE_MINUS_ONE_X1(zone,var) (var + DOF*((zone)->iInTile - 1 + NG) )
+#define INDEX_TILE_MINUS_ONE_X1(zone,var) (var + NUM_FLUXES*((zone)->iInTile - 1 + NG) )
 
-#define INDEX_TILE_MINUS_TWO_X1(zone,var) (var + DOF*((zone)->iInTile - 2 + NG) )
+#define INDEX_TILE_MINUS_TWO_X1(zone,var) (var + NUM_FLUXES*((zone)->iInTile - 2 + NG) )
 
-#define INDEX_TILE_MANUAL(iInTile,jInTile,var) (var + DOF*(iInTile + NG) )
+#define INDEX_TILE_MANUAL(iInTile,jInTile,var) (var + NUM_FLUXES*(iInTile + NG) )
 
 #define INDEX_PETSC(ptr,zone,var) (ptr[(zone)->i][var])
 #define INDEX_PETSC_MANUAL(ptr,i,zone,var) (ptr[i][var])
 
 #elif (COMPUTE_DIM==2)
 
-#define TILE_SIZE ((TILE_SIZE_X1+2*NG)*(TILE_SIZE_X2+2*NG)*DOF)
-#define INDEX_TILE(zone,var) (var + DOF*(\
+#define TILE_SIZE ((TILE_SIZE_X1+2*NG)*(TILE_SIZE_X2+2*NG)*NUM_FLUXES)
+#define INDEX_TILE(zone,var) (var + NUM_FLUXES*(\
                                           (zone)->iInTile + NG \
                                          +(TILE_SIZE_X1+2*NG)\
                                          *((zone)->jInTile + NG)\
                                         )\
                              )
 
-#define INDEX_TILE_PLUS_ONE_X1(zone,var) (var + DOF*(\
+#define INDEX_TILE_PLUS_ONE_X1(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + 1 + NG \
                                                      +(TILE_SIZE_X1+2*NG)\
                                                      *((zone)->jInTile + NG)\
                                                     )\
                                          )
 
-#define INDEX_TILE_PLUS_TWO_X1(zone,var) (var + DOF*(\
+#define INDEX_TILE_PLUS_TWO_X1(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + 2 + NG \
                                                      +(TILE_SIZE_X1+2*NG)\
                                                      *((zone)->jInTile + NG)\
                                                     )\
                                          )
 
-#define INDEX_TILE_MINUS_ONE_X1(zone,var) (var + DOF*(\
+#define INDEX_TILE_MINUS_ONE_X1(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile - 1 + NG \
                                                       +(TILE_SIZE_X1+2*NG)\
                                                       *((zone)->jInTile + NG)\
                                                      )\
                                           )
 
-#define INDEX_TILE_MINUS_TWO_X1(zone,var) (var + DOF*(\
+#define INDEX_TILE_MINUS_TWO_X1(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile - 2 + NG \
                                                       +(TILE_SIZE_X1 + 2*NG)\
                                                       *((zone)->jInTile + NG)\
                                                      )\
                                           )
 
-#define INDEX_TILE_PLUS_ONE_X2(zone,var) (var + DOF*(\
+#define INDEX_TILE_PLUS_ONE_X2(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + NG \
                                                      +(TILE_SIZE_X1 + 2*NG)\
                                                      *((zone)->jInTile + 1 + NG)\
                                                     )\
                                          )
 
-#define INDEX_TILE_PLUS_TWO_X2(zone,var) (var + DOF*(\
+#define INDEX_TILE_PLUS_TWO_X2(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + NG \
                                                      +(TILE_SIZE_X1 + 2*NG)\
                                                      *((zone)->jInTile + 2 + NG)\
                                                     )\
                                          )
 
-#define INDEX_TILE_MINUS_ONE_X2(zone,var) (var + DOF*(\
+#define INDEX_TILE_MINUS_ONE_X2(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + NG \
                                                       +(TILE_SIZE_X1 + 2*NG)\
                                                       *((zone)->jInTile - 1 + NG)\
                                                      )\
                                           )
 
-#define INDEX_TILE_MINUS_TWO_X2(zone,var) (var + DOF*(\
+#define INDEX_TILE_MINUS_TWO_X2(zone,var) (var + NUM_FLUXES*(\
                                                       (zone)->iInTile + NG \
                                                       +(TILE_SIZE_X1 + 2*NG)\
                                                       *((zone)->jInTile - 2 + NG)\
@@ -111,7 +113,7 @@
                                           )
 
 #define INDEX_TILE_MANUAL(iInTile,jInTile,var) \
-                                          (var + DOF*(\
+                                          (var + NUM_FLUXES*(\
                                                       iInTile + NG \
                                                       +(TILE_SIZE_X1 + 2*NG)\
                                                       *(jInTile + NG)\

@@ -7,35 +7,51 @@ void timeStepperInit(struct timeStepper ts[ARRAY_ARGS 1])
   /* Periodic boundary conditions handled by Petsc since it is a global boundary
    * condition. Here we check for the boundary at the left edge. Obviously the
    * boundary at the right edge also must be PERIODIC if left edge is PERIODIC */
-  #if (PHYSICAL_BOUNDARY_LEFT_EDGE==PERIODIC)
-    
-    #if (COMPUTE_DIM==1)
+  #if (COMPUTE_DIM==1)
+
+    #if (PHYSICAL_BOUNDARY_LEFT_EDGE==PERIODIC)
       DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_PERIODIC, N1, DOF, NG, NULL,
                    &ts->dmdaWithGhostZones);
-    #elif (COMPUTE_DIM==2)
-      DMDACreate2d(PETSC_COMM_WORLD, 
-                   DM_BOUNDARY_PERIODIC, DM_BOUNDARY_PERIODIC,
-                   DMDA_STENCIL_BOX,
-                   N1, N2,
-                   PETSC_DECIDE, PETSC_DECIDE,
-                   DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
-    #endif /* Choose dimension */
-
-  #else /* Not a periodic boundary */
-    
-    #if (COMPUTE_DIM==1)
+    #else
       DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_GHOSTED, N1, DOF, NG, NULL,
                    &ts->dmdaWithGhostZones);
-    #elif (COMPUTE_DIM==2)
-      DMDACreate2d(PETSC_COMM_WORLD, 
-                   DM_BOUNDARY_GHOSTED, DM_BOUNDARY_GHOSTED,
-                   DMDA_STENCIL_BOX,
-                   N1, N2,
-                   PETSC_DECIDE, PETSC_DECIDE,
-                   DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
-    #endif /* Choose dimension */
+    #endif
+  
+  #elif (COMPUTE_DIM==2)
 
-  #endif /* Create dmdaWithGhostZones */
+      #if (PHYSICAL_BOUNDARY_TOP_EDGE==PERIODIC && PHYSICAL_BOUNDARY_LEFT_EDGE==PERIODIC)
+        DMDACreate2d(PETSC_COMM_WORLD, 
+                     DM_BOUNDARY_PERIODIC, DM_BOUNDARY_PERIODIC,
+                     DMDA_STENCIL_BOX,
+                     N1, N2,
+                     PETSC_DECIDE, PETSC_DECIDE,
+                     DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
+
+      #elif (PHYSICAL_BOUNDARY_LEFT_EDGE==PERIODIC)
+        DMDACreate2d(PETSC_COMM_WORLD, 
+                     DM_BOUNDARY_PERIODIC, DM_BOUNDARY_GHOSTED,
+                     DMDA_STENCIL_BOX,
+                     N1, N2,
+                     PETSC_DECIDE, PETSC_DECIDE,
+                     DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
+
+      #elif (PHYSICAL_BOUNDARY_TOP_EDGE==PERIODIC)
+        DMDACreate2d(PETSC_COMM_WORLD, 
+                     DM_BOUNDARY_GHOSTED, DM_BOUNDARY_PERIODIC,
+                     DMDA_STENCIL_BOX,
+                     N1, N2,
+                     PETSC_DECIDE, PETSC_DECIDE,
+                     DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
+      #else
+        DMDACreate2d(PETSC_COMM_WORLD, 
+                     DM_BOUNDARY_GHOSTED, DM_BOUNDARY_GHOSTED,
+                     DMDA_STENCIL_BOX,
+                     N1, N2,
+                     PETSC_DECIDE, PETSC_DECIDE,
+                     DOF, NG, PETSC_NULL, PETSC_NULL, &ts->dmdaWithGhostZones);
+      #endif
+
+  #endif /* Choose dim and create dmdaWithGhostZones */
 
   /* Now create dmdaWithoutGhostZones for the vectors that don't need
    * communication */
@@ -68,16 +84,36 @@ void timeStepperInit(struct timeStepper ts[ARRAY_ARGS 1])
   
   DMCreateGlobalVector(ts->dmdaWithGhostZones, &ts->primPetscVecOld);
   DMCreateGlobalVector(ts->dmdaWithGhostZones, &ts->primPetscVecHalfStep);
-  DMCreateGlobalVector(ts->dmdaWithoutGhostZones, &ts->divFluxPetscVecOld);
-  DMCreateGlobalVector(ts->dmdaWithoutGhostZones, &ts->conservedVarsPetscVecOld);
-  DMCreateGlobalVector(ts->dmdaWithoutGhostZones, &ts->sourceTermsPetscVecOld);
   DMCreateGlobalVector(ts->dmdaWithoutGhostZones, &ts->residualPetscVec);
-
   #if (TIME_STEPPING==EXPLICIT || TIME_STEPPING==IMEX)
     DMCreateGlobalVector(ts->dmdaWithoutGhostZones, &ts->primPetscVec);
   #elif (TIME_STEPPING==IMPLICIT)
     DMCreateGlobalVector(ts->dmdaWithGhostZones, &ts->primPetscVec);
   #endif
+
+  SNESSetFunction(ts->snes, ts->residualPetscVec,
+                  computeResidual, ts);
+
+  SNESSetFromOptions(ts->snes);
+
+  /* Done with setting up SNES and the primVecs */
+
+  /* Now initialize auxiliary data structures */
+  #if (COMPUTE_DIM==1)
+    DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, NUM_FLUXES, 0, NULL,
+                 &ts->dmdaFluxes);
+  #elif (COMPUTE_DIM==2)
+    DMDACreate2d(PETSC_COMM_WORLD, 
+                 DM_BOUNDARY_NONE, DM_BOUNDARY_NONE,
+                 DMDA_STENCIL_BOX,
+                 N1, N2,
+                 PETSC_DECIDE, PETSC_DECIDE,
+                 NUM_FLUXES, 0, PETSC_NULL, PETSC_NULL, &ts->dmdaFluxes);
+  #endif /* Choose dimension */
+
+  DMCreateGlobalVector(ts->dmdaFluxes, &ts->divFluxPetscVecOld);
+  DMCreateGlobalVector(ts->dmdaFluxes, &ts->conservedVarsPetscVecOld);
+  DMCreateGlobalVector(ts->dmdaFluxes, &ts->sourceTermsPetscVecOld);
 
   VecSet(ts->primPetscVecOld, 0.);
   VecSet(ts->primPetscVecHalfStep, 0.);
@@ -86,11 +122,6 @@ void timeStepperInit(struct timeStepper ts[ARRAY_ARGS 1])
   VecSet(ts->sourceTermsPetscVecOld, 0.);
   VecSet(ts->residualPetscVec, 0.);
   VecSet(ts->primPetscVec, 0.);
-
-  SNESSetFunction(ts->snes, ts->residualPetscVec,
-                  computeResidual, ts);
-
-  SNESSetFromOptions(ts->snes);
 
   ts->dt = DT;
   ts->t = START_TIME;
@@ -251,7 +282,7 @@ void initConductionDataStructures(struct timeStepper ts[ARRAY_ARGS 1])
     DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, COMPUTE_DIM, 0, NULL,
                  &ts->gradTDM);
 
-    DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, COMPUTE_DIM, 0, NULL,
+    DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, COMPUTE_DIM*NDIM, 0, NULL,
                  &ts->graduConDM);
 
     DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, COMPUTE_DIM, 0, NULL,

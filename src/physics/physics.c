@@ -129,7 +129,8 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
   REAL moments[NUM_ALL_COMPONENTS];
   fixedQuadIntegration(elem, geom, scaleFactor, moments);
 
-  /* Now lower .._UP to .._DOWN (except for the number flux vector)*/
+  /* Now lower .._UP to .._DOWN for the stress-tensor to exactly conserve
+   * angular momentum and energy in the Kerr metric. */
   for (int mu=0; mu<NDIM; mu++)
   {
     elem->moments[N_UP(mu)] = moments[N_UP(mu)];
@@ -146,18 +147,14 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
       #if (REAPER_MOMENTS==15)
       	for (int lambda=0; lambda<NDIM; lambda++)
       	{
-          elem->moments[M_UP_UP_DOWN(mu, nu, lambda)] = 0.;
-      
-          for (int alpha=0; alpha<NDIM; alpha++)
-          {
-            elem->moments[M_UP_UP_DOWN(mu, nu, lambda)] +=
-                  moments[M_UP_UP_UP(mu, nu, alpha)]*geom->gCov[alpha][lambda];
-          }
+          elem->moments[M_UP_UP_UP(mu, nu, lambda)] = 
+                moments[M_UP_UP_UP(mu, nu, lambda)];
         }
       #endif
     }
   }
 #else
+  /* Using canonical GRIM scheme */
 
   REAL pressure = (ADIABATIC_INDEX - 1.)*elem->primVars[UU];
   REAL bCov[NDIM], bSqr, uCov[NDIM];
@@ -188,41 +185,46 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                         ;
     }
   }
-#endif
+#endif /* GRIM or REAPER? */
 
 }
 
 void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                    const struct geometry geom[ARRAY_ARGS 1],
                    const int dir,
-                   REAL fluxes[ARRAY_ARGS NUM_EQNS])
+                   REAL fluxes[ARRAY_ARGS NUM_FLUXES])
 {
   REAL g = sqrt(-geom->gDet);
   #if (REAPER)
-    fluxes[ALPHA] = g*elem->moments[N_UP(dir)];
+    fluxes[ALPHA_FLUX] = g*elem->moments[N_UP(dir)];
 
-    fluxes[A0] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[ALPHA];
-    fluxes[U1] = g*elem->moments[T_UP_DOWN(dir, 1)];
-    fluxes[U2] = g*elem->moments[T_UP_DOWN(dir, 2)];
-    fluxes[U3] = g*elem->moments[T_UP_DOWN(dir, 3)];
+    fluxes[A0_FLUX] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[ALPHA_FLUX];
+    fluxes[U1_FLUX] = g*elem->moments[T_UP_DOWN(dir, 1)];
+    fluxes[U2_FLUX] = g*elem->moments[T_UP_DOWN(dir, 2)];
+    fluxes[U3_FLUX] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
     #if (REAPER_MOMENTS == 15)
-      fluxes[B00] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 0)];
-      fluxes[B01] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 1)]; 
-      fluxes[B02] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 2)]; 
-      fluxes[B03] = g*elem->moments[M_UP_UP_DOWN(dir, 0, 3)]; 
-      fluxes[B11] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 1)]; 
-      fluxes[B12] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 2)]; 
-      fluxes[B13] = g*elem->moments[M_UP_UP_DOWN(dir, 1, 3)]; 
-      fluxes[B22] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 2)]; 
-      fluxes[B23] = g*elem->moments[M_UP_UP_DOWN(dir, 2, 3)]; 
-      fluxes[B33] = g*elem->moments[M_UP_UP_DOWN(dir, 3, 3)]; 
+      fluxes[B00_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 0)];
+      fluxes[B01_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 1)]; 
+      fluxes[B02_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 2)]; 
+      fluxes[B03_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 3)]; 
+      fluxes[B11_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 1)]; 
+      fluxes[B12_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 2)]; 
+      fluxes[B13_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 3)]; 
+      fluxes[B22_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 2)]; 
+      fluxes[B23_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 3)]; 
+      fluxes[B33_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 3, 3)]; 
     #endif
 
-    fluxes[B1] = g*(elem->bCon[1]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[1]);
-    fluxes[B2] = g*(elem->bCon[2]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[2]);
-    fluxes[B3] = g*(elem->bCon[3]*elem->uCon[dir] - elem->bCon[dir]*elem->uCon[3]);
-    
+    fluxes[B1_FLUX] = g*(  elem->bCon[1]*elem->uCon[dir] 
+                         - elem->bCon[dir]*elem->uCon[1]
+                        );
+    fluxes[B2_FLUX] = g*(  elem->bCon[2]*elem->uCon[dir] 
+                         - elem->bCon[dir]*elem->uCon[2]
+                        );
+    fluxes[B3_FLUX] = g*(  elem->bCon[3]*elem->uCon[dir] 
+                         - elem->bCon[dir]*elem->uCon[3]
+                        );
   #else
 
     fluxes[RHO] = g*elem->moments[N_UP(dir)];
@@ -251,11 +253,11 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
 void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
                         const struct geometry geom[ARRAY_ARGS 1],
                         const REAL christoffel[ARRAY_ARGS 64],
-                        REAL sourceTerms[ARRAY_ARGS NUM_EQNS])
+                        REAL sourceTerms[ARRAY_ARGS NUM_FLUXES])
 {
   /* Source terms not coded in for the REAPER scheme yet */
 
-  for (int var=0; var<NUM_EQNS; var++)
+  for (int var=0; var<NUM_FLUXES; var++)
   {
     sourceTerms[var] = 0.;
   }

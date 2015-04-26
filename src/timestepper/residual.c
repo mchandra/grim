@@ -30,19 +30,20 @@ PetscErrorCode computeResidual(SNES snes,
                      &primOldGlobal); 
   DMDAVecGetArrayDOF(ts->dmdaWithGhostZones, ts->primPetscVecHalfStep,
                      &primHalfStepGlobal); 
+  DMDAVecGetArrayDOF(ts->dmdaWithoutGhostZones, residualPetscVec,
+                     &residualGlobal);
 
-  DMDAVecGetArrayDOF(ts->dmdaWithoutGhostZones, ts->divFluxPetscVecOld,
+  DMDAVecGetArrayDOF(ts->dmdaFluxes, ts->divFluxPetscVecOld,
                      &divFluxOldGlobal);
-  DMDAVecGetArrayDOF(ts->dmdaWithoutGhostZones, ts->sourceTermsPetscVecOld,
+  DMDAVecGetArrayDOF(ts->dmdaFluxes, ts->sourceTermsPetscVecOld,
                      &sourceTermsOldGlobal);           
-  DMDAVecGetArrayDOF(ts->dmdaWithoutGhostZones, ts->conservedVarsPetscVecOld,
+  DMDAVecGetArrayDOF(ts->dmdaFluxes, ts->conservedVarsPetscVecOld,
                      &conservedVarsOldGlobal); 
+
   DMDAVecGetArrayDOF(ts->connectionDMDA, ts->connectionPetscVec,
                      &connectionGlobal);
 
   DMDAVecGetArrayDOF(ts->dmdaDt, ts->dtPetscVec, &dtGlobal);
-  DMDAVecGetArrayDOF(ts->dmdaWithoutGhostZones, residualPetscVec,
-                     &residualGlobal);
 
   #if (CONDUCTION)
     ARRAY(gradTGlobal);
@@ -186,7 +187,7 @@ PetscErrorCode computeResidual(SNES snes,
                     X1Size, X2Size, 
                     &zone);
 
-        REAL XCoords[NDIM], sourceTerms[NUM_EQNS], conservedVars[NUM_EQNS];
+        REAL XCoords[NDIM], sourceTerms[NUM_FLUXES], conservedVars[NUM_FLUXES];
 
         getXCoords(&zone, CENTER, XCoords);
         struct geometry geom; setGeometry(XCoords, &geom);
@@ -197,7 +198,7 @@ PetscErrorCode computeResidual(SNES snes,
         setFluidElement(&INDEX_PETSC(primOldLocal, &zone, 0), &geom, &elem);
         computeFluxes(&elem, &geom, 0, conservedVars);
 
-        for (int var=0; var<NUM_EQNS; var++)
+        for (int var=0; var<NUM_FLUXES; var++)
         {
           INDEX_PETSC(conservedVarsOldGlobal, &zone, var) = 
             conservedVars[var];
@@ -221,7 +222,7 @@ PetscErrorCode computeResidual(SNES snes,
                              &INDEX_PETSC(connectionGlobal, &zone, 0),
                              sourceTerms);
 
-          for (int var=0; var<NUM_EQNS; var++)
+          for (int var=0; var<NUM_FLUXES; var++)
           {
             INDEX_PETSC(sourceTermsOldGlobal, &zone, var) = 
               sourceTerms[var];
@@ -236,7 +237,7 @@ PetscErrorCode computeResidual(SNES snes,
                              &INDEX_PETSC(connectionGlobal, &zone, 0),
                              sourceTerms);
 
-          for (int var=0; var<NUM_EQNS; var++)
+          for (int var=0; var<NUM_FLUXES; var++)
           {
             INDEX_PETSC(sourceTermsOldGlobal, &zone, var) = 
               sourceTerms[var];
@@ -364,11 +365,11 @@ PetscErrorCode computeResidual(SNES snes,
       struct fluidElement elem;
       setFluidElement(&INDEX_PETSC(primGlobal, &zone, 0), &geom, &elem);
 
-      REAL conservedVars[NUM_EQNS];
+      REAL conservedVars[NUM_FLUXES];
       computeFluxes(&elem, &geom, 0, conservedVars);
 
       #if (TIME_STEPPING==IMEX || TIME_STEPPING==IMPLICIT)
-        REAL sourceTerms[NUM_EQNS];
+        REAL sourceTerms[NUM_FLUXES];
         computeSourceTerms(&elem, &geom,
                            &INDEX_PETSC(connectionGlobal, &zone, 0),
                            sourceTerms);
@@ -377,14 +378,12 @@ PetscErrorCode computeResidual(SNES snes,
       REAL g = sqrt(-geom.gDet);
       REAL norm = g;
 
-      #if (GYROAVERAGING)
-
-      #else
-      for (int var=0; var<NUM_EQNS; var++)
+      REAL residual[NUM_FLUXES]; 
+      for (int var=0; var<NUM_FLUXES; var++)
       {
         #if (TIME_STEPPING==EXPLICIT)
 
-          INDEX_PETSC(residualGlobal, &zone, var) = 
+          residual[var] =
           ( (  conservedVars[var]
              - INDEX_PETSC(conservedVarsOldGlobal, &zone, var)
             )/ts->dt
@@ -394,7 +393,7 @@ PetscErrorCode computeResidual(SNES snes,
 
         #elif (TIME_STEPPING==IMEX)
 
-          INDEX_PETSC(residualGlobal, &zone, var) = 
+          residual[var] =
           ( (  conservedVars[var]
              - INDEX_PETSC(conservedVarsOldGlobal, &zone, var)
             )/ts->dt
@@ -406,7 +405,7 @@ PetscErrorCode computeResidual(SNES snes,
 
         #elif (TIME_STEPPING==IMPLICIT)
 
-          INDEX_PETSC(residualGlobal, &zone, var) = 
+          residual[var] =
           ( (  conservedVars[var]
              - INDEX_PETSC(conservedVarsOldGlobal, &zone, var)
             )/ts->dt
@@ -429,6 +428,108 @@ PetscErrorCode computeResidual(SNES snes,
 
         #endif
       }
+      #if (REAPER_MOMENTS==15 && GYROAVERAGING)
+        /* NUM_FLUXES > DOF. Need to contract so that final number of residuals
+         * == DOF */
+        REAL divMUpUp[NDIM][NDIM];
+        for (int mu=0; mu<NDIM; mu++)
+        {
+          for (int nu=0; nu<NDIM; nu++)
+          {
+            divMUpUp[mu][nu] = residual[B00_FLUX + nu + mu*NDIM];
+          }
+        }
+
+        residual[B00_FLUX] = 0.;
+        residual[B01_FLUX] = 0.;
+        residual[B02_FLUX] = 0.;
+        residual[B11_FLUX] = 0.;
+        residual[B12_FLUX] = 0.;
+        residual[B22_FLUX] = 0.;
+        for (int mu=0; mu<NDIM; mu++)
+        {
+          for (int nu=0; nu<NDIM; nu++)
+          {
+            residual[B00_FLUX] +=
+              elem.eDownNoHatUpHat[mu][0]
+            * elem.eDownNoHatUpHat[nu][0]
+            * divMUpUp[mu][nu];
+
+            residual[B01_FLUX] +=
+              elem.eDownNoHatUpHat[mu][0]
+            * elem.eDownNoHatUpHat[nu][1]
+            * divMUpUp[mu][nu];
+
+            residual[B02_FLUX] +=
+              elem.eDownNoHatUpHat[mu][0]
+            * elem.eDownNoHatUpHat[nu][2]
+            * divMUpUp[mu][nu];
+
+            residual[B11_FLUX] +=
+              elem.eDownNoHatUpHat[mu][1]
+            * elem.eDownNoHatUpHat[nu][1]
+            * divMUpUp[mu][nu];
+
+            residual[B12_FLUX] +=
+              elem.eDownNoHatUpHat[mu][1]
+            * elem.eDownNoHatUpHat[nu][2]
+            * divMUpUp[mu][nu];
+
+            residual[B22_FLUX] +=
+              elem.eDownNoHatUpHat[mu][2]
+            * elem.eDownNoHatUpHat[nu][2]
+            * divMUpUp[mu][nu];
+          }
+        }
+
+        INDEX_PETSC(residualGlobal, &zone, ALPHA) =
+          residual[ALPHA_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, A0) = 
+          residual[A0_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, U1) = 
+          residual[U1_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, U2) = 
+          residual[U2_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, U3) = 
+          residual[U3_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B00) = 
+          residual[B00_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B01) = 
+          residual[B01_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B02) = 
+          residual[B02_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B11) = 
+          residual[B11_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B12) = 
+          residual[B12_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B22) = 
+          residual[B22_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B1) = 
+          residual[B1_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B2) = 
+          residual[B2_FLUX];
+
+        INDEX_PETSC(residualGlobal, &zone, B3) = 
+          residual[B3_FLUX];
+
+      #else
+        /* No GYROAVERAGING. NUM_FLUXES == DOF. Generic case. Easy peasy */
+        for (int var=0; var<DOF; var++)
+        {
+          INDEX_PETSC(residualGlobal, &zone, var) = residual[var];
+        }
       #endif /* No GYROAVERAGING */
 
     }
@@ -467,19 +568,20 @@ PetscErrorCode computeResidual(SNES snes,
                          &primOldGlobal); 
   DMDAVecRestoreArrayDOF(ts->dmdaWithGhostZones, ts->primPetscVecHalfStep,
                          &primHalfStepGlobal);
-
-  DMDAVecRestoreArrayDOF(ts->dmdaWithoutGhostZones, ts->divFluxPetscVecOld,
-                         &divFluxOldGlobal);
-  DMDAVecRestoreArrayDOF(ts->dmdaWithoutGhostZones, ts->sourceTermsPetscVecOld,
-                         &sourceTermsOldGlobal); 
-  DMDAVecRestoreArrayDOF(ts->dmdaWithoutGhostZones, ts->conservedVarsPetscVecOld,
-                         &conservedVarsOldGlobal); 
-  DMDAVecRestoreArrayDOF(ts->connectionDMDA, ts->connectionPetscVec,
-                         &connectionGlobal);
-
-  DMDAVecRestoreArrayDOF(ts->dmdaDt, ts->dtPetscVec, &dtGlobal);
   DMDAVecRestoreArrayDOF(ts->dmdaWithoutGhostZones, residualPetscVec,
                          &residualGlobal);
+
+  DMDAVecRestoreArrayDOF(ts->dmdaFluxes, ts->divFluxPetscVecOld,
+                         &divFluxOldGlobal);
+  DMDAVecRestoreArrayDOF(ts->dmdaFluxes, ts->sourceTermsPetscVecOld,
+                         &sourceTermsOldGlobal); 
+  DMDAVecRestoreArrayDOF(ts->dmdaFluxes, ts->conservedVarsPetscVecOld,
+                         &conservedVarsOldGlobal); 
+  
+  DMDAVecRestoreArrayDOF(ts->connectionDMDA, ts->connectionPetscVec,
+                         &connectionGlobal);
+  DMDAVecRestoreArrayDOF(ts->dmdaDt, ts->dtPetscVec, &dtGlobal);
+
   #if (CONDUCTION)
     DMDAVecRestoreArrayDOF(ts->gradTDM, ts->gradTPetscVec, &gradTGlobal);
     DMDAVecRestoreArrayDOF(ts->graduConDM, ts->graduConPetscVec, 

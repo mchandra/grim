@@ -1,14 +1,14 @@
 #include "riemannsolver.h"
 
 /* Returns a wavespeed */
-REAL riemannSolver(const REAL fluxLeft[ARRAY_ARGS DOF],
-                   const REAL fluxRight[ARRAY_ARGS DOF],
-                   const REAL conservedVarsLeft[ARRAY_ARGS DOF],
-                   const REAL conservedVarsRight[ARRAY_ARGS DOF],
-                   const REAL primVarsLeft[ARRAY_ARGS DOF],
-                   const REAL primVarsRight[ARRAY_ARGS DOF],
-                   const struct geometry geom[ARRAY_ARGS DOF],
-                   const int dir, REAL fluxes[ARRAY_ARGS DOF])
+REAL riemannSolver(const REAL fluxLeft[ARRAY_ARGS NUM_FLUXES],
+                   const REAL fluxRight[ARRAY_ARGS NUM_FLUXES],
+                   const REAL conservedVarsLeft[ARRAY_ARGS NUM_FLUXES],
+                   const REAL conservedVarsRight[ARRAY_ARGS NUM_FLUXES],
+                   const REAL primVarsLeft[ARRAY_ARGS NUM_FLUXES],
+                   const REAL primVarsRight[ARRAY_ARGS NUM_FLUXES],
+                   const struct geometry geom[ARRAY_ARGS NUM_FLUXES],
+                   const int dir, REAL fluxes[ARRAY_ARGS NUM_FLUXES])
 {
   REAL cMinLeft, cMaxLeft;
   struct fluidElement elem;
@@ -23,7 +23,7 @@ REAL riemannSolver(const REAL fluxLeft[ARRAY_ARGS DOF],
 	REAL cMin = fabs(fmax(fmax(0., -cMinLeft), -cMinRight));
 	REAL cLaxFriedrichs = fmax(cMax, cMin);
     
-  for (int var=0; var<DOF; var++) 
+  for (int var=0; var<NUM_FLUXES; var++) 
   {
     fluxes[var] = 0.5*(fluxLeft[var] + fluxRight[var]
                        - cLaxFriedrichs*(  conservedVarsRight[var]
@@ -47,20 +47,22 @@ void waveSpeeds(const struct fluidElement elem[ARRAY_ARGS 1],
   REAL bSqr = covDotCon(bCov, elem->bCon);
 
   #if (REAPER)
-  REAL rho  = getDensity(elem); 
-  REAL temperature = getTemperature(elem);
-  REAL internalEnergy = rho*temperature/(ADIABATIC_INDEX - 1.);
+    REAL rho  = getDensity(elem); 
+    REAL temperature = getTemperature(elem);
+    REAL internalEnergy = rho*temperature/(ADIABATIC_INDEX - 1.);
 
-  REAL cAlvenSqr = bSqr/(bSqr + rho
-                              + ADIABATIC_INDEX*internalEnergy);
-  REAL csSqr = (ADIABATIC_INDEX)*(ADIABATIC_INDEX-1)*internalEnergy
-              /(rho + ADIABATIC_INDEX*internalEnergy);
+    REAL cAlvenSqr = bSqr/(bSqr + rho
+                                + ADIABATIC_INDEX*internalEnergy
+                          );
+    REAL csSqr = (ADIABATIC_INDEX)*(ADIABATIC_INDEX-1)*internalEnergy
+                /(rho + ADIABATIC_INDEX*internalEnergy);
   #else
 
-  REAL cAlvenSqr = bSqr/(bSqr + elem->primVars[RHO] 
-                              + ADIABATIC_INDEX*elem->primVars[UU]);
-  REAL csSqr = (ADIABATIC_INDEX)*(ADIABATIC_INDEX-1)*elem->primVars[UU]
-              /(elem->primVars[RHO] + ADIABATIC_INDEX*elem->primVars[UU]);
+    REAL cAlvenSqr = bSqr/(bSqr + elem->primVars[RHO] 
+                                + ADIABATIC_INDEX*elem->primVars[UU]
+                          );
+    REAL csSqr = (ADIABATIC_INDEX)*(ADIABATIC_INDEX-1)*elem->primVars[UU]
+                /(elem->primVars[RHO] + ADIABATIC_INDEX*elem->primVars[UU]);
   #endif
 
   REAL cmSqr = csSqr + cAlvenSqr - csSqr*cAlvenSqr;

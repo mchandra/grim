@@ -21,6 +21,7 @@ struct timeStepper
   SNES snes;
   DM dmdaWithGhostZones;
   DM dmdaWithoutGhostZones;
+  DM dmdaFluxes;
   DM connectionDMDA;
   DM dmdaDt;
 

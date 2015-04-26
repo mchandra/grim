@@ -20,10 +20,10 @@
 
 
 /* Only Monotonized central slope limiter implemented so far. */
-void slopeLim(const REAL left[ARRAY_ARGS DOF],
-              const REAL mid[ARRAY_ARGS DOF],
-              const REAL right[ARRAY_ARGS DOF],
-              REAL ans[ARRAY_ARGS DOF]);
+void slopeLim(const REAL left[ARRAY_ARGS NUM_FLUXES],
+              const REAL mid[ARRAY_ARGS NUM_FLUXES],
+              const REAL right[ARRAY_ARGS NUM_FLUXES],
+              REAL ans[ARRAY_ARGS NUM_FLUXES]);
 
 REAL slopeLimitedDerivative(const REAL left, const REAL mid, const REAL right);
 

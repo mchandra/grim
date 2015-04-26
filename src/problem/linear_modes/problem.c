@@ -130,24 +130,29 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
             primVars0[B00] = 0.;
             primVars0[B01] = 0.;
             primVars0[B02] = 0.;
-            primVars0[B03] = 0.;
             primVars0[B11] = 0.;
             primVars0[B12] = 0.;
-            primVars0[B13] = 0.;
             primVars0[B22] = 0.;
-            primVars0[B23] = 0.;
-            primVars0[B33] = 0.;
 
             deltaPrimVars[B00] = 0.;
             deltaPrimVars[B01] = 0.;
             deltaPrimVars[B02] = 0.;
-            deltaPrimVars[B03] = 0.;
             deltaPrimVars[B11] = 0.;
             deltaPrimVars[B12] = 0.;
-            deltaPrimVars[B13] = 0.;
             deltaPrimVars[B22] = 0.;
-            deltaPrimVars[B23] = 0.;
-            deltaPrimVars[B33] = 0.;
+
+            #if (GYROAVERAGING==0)
+              primVars0[B03] = 0.;
+              primVars0[B13] = 0.;
+              primVars0[B23] = 0.;
+              primVars0[B33] = 0.;
+
+              deltaPrimVars[B03] = 0.;
+              deltaPrimVars[B13] = 0.;
+              deltaPrimVars[B23] = 0.;
+              deltaPrimVars[B33] = 0.;
+            #endif /* No GYROAVERAGING */
+
           #endif 
           
           REAL rho0 = 1.;

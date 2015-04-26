@@ -16,14 +16,37 @@
     #define B2              (6)
     #define B3              (7)
     #define DOF             (8)
-    #define NUM_EQNS        (DOF) /* NUM_EQNS same as DOF when not using GYROAVERAGING */
+    #define NUM_FLUXES      (DOF) /* NUM_FLUXES same as DOF when not using GYROAVERAGING */
 
   #elif (REAPER_MOMENTS==15)
 
-    #if (GYROAVERAGING)
+    #define ALPHA_FLUX      (0)
+    #define A0_FLUX         (1)
+    #define U1_FLUX         (2)
+    #define U2_FLUX         (3)
+    #define U3_FLUX         (4)
+    #define B00_FLUX        (5)
+    #define B01_FLUX        (6)
+    #define B02_FLUX        (7)
+    #define B03_FLUX        (8)
+    #define B11_FLUX        (9)
+    #define B12_FLUX        (10)
+    #define B13_FLUX        (11)
+    #define B22_FLUX        (12)
+    #define B23_FLUX        (13)
+    #define B33_FLUX        (14)
+    #define B1_FLUX         (15)
+    #define B2_FLUX         (16)
+    #define B3_FLUX         (17)
+    #define NUM_FLUXES      (18)
 
+    #if (GYROAVERAGING)
       /* 1 --> Parallel
          2 --> Perpendicular
+
+         When GYROAVERAGING, number of primitive variables is lesser than the
+         number of fluxes. So we have seperate mnemonics for each. First the
+         primitive variables and then the fluxes.
       */
       #define ALPHA           (0)
       #define A0              (1)
@@ -40,10 +63,9 @@
       #define B2              (12)
       #define B3              (13)
       #define DOF             (14)
-      #define NUM_EQNS        (18)
 
     #else
-      /* Not GYROAVERAGING */
+      /* Not GYROAVERAGING. Number of primitive variables == Number of fluxes */
       #define ALPHA           (0)
       #define A0              (1)
       #define U1              (2)
@@ -63,7 +85,7 @@
       #define B2              (16)
       #define B3              (17)
       #define DOF             (18)
-      #define NUM_EQNS        (DOF)
+      #define NUM_FLUXES      (DOF)
 
     #endif /* GYROAVERAGING? */
   
@@ -87,7 +109,7 @@
   #else
     #define DOF           (8)
   #endif
-  #define NUM_EQNS        (DOF)
+  #define NUM_FLUXES      (DOF)
 
 #endif
 
@@ -205,12 +227,12 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
 void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                    const struct geometry geom[ARRAY_ARGS 1],
                    const int dir,
-                   REAL fluxes[ARRAY_ARGS NUM_EQNS]);
+                   REAL fluxes[ARRAY_ARGS NUM_FLUXES]);
 
 void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
                         const struct geometry geom[ARRAY_ARGS 1],
                         const REAL christoffel[ARRAY_ARGS 64],
-                        REAL sourceTerms[ARRAY_ARGS NUM_EQNS]);
+                        REAL sourceTerms[ARRAY_ARGS NUM_FLUXES]);
 
 #if (CONDUCTION)
 void addConductionSourceTermsToResidual
