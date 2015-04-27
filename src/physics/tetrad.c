@@ -19,7 +19,7 @@ void makeTetrad(const REAL eDown0Hat[NDIM],
      * This is given as a contravarient input in the coordinate basis i.e. 
      * if the input eDown0Hat = {a^0, a^1, a^2, a^3} then,
      *
-     * $\overheadarroa{e}_\hat{0} = a^mu $\overheadarrow{e}_mu$ 
+     * $\overheadarrow{e}_\hat{0} = a^mu $\overheadarrow{e}_mu$ 
      *
      * where $\overheadarrow{e}_{\mu}$ is the coordinate basis.
      *
