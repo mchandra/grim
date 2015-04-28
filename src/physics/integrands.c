@@ -288,7 +288,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
 
     REAL bDownDown[NDIM][NDIM];
     #if (GYROAVERAGING)
-      bDownDown[0][0] = elem->primVars[B00];
+      bDownDown[0][0] = 0.*elem->primVars[B00];
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B02];

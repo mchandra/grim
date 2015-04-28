@@ -432,15 +432,24 @@ PetscErrorCode computeResidual(SNES snes,
         /* NUM_FLUXES > DOF. Need to contract so that final number of residuals
          * == DOF */
         REAL divMUpUp[NDIM][NDIM];
-        for (int mu=0; mu<NDIM; mu++)
-        {
-          for (int nu=0; nu<NDIM; nu++)
-          {
-            divMUpUp[mu][nu] = residual[B00_FLUX + nu + mu*NDIM];
-          }
-        }
+        divMUpUp[0][0] = residual[B00_FLUX];
+        divMUpUp[0][1] = residual[B01_FLUX];
+        divMUpUp[0][2] = residual[B02_FLUX];
+        divMUpUp[0][3] = residual[B03_FLUX];
+        divMUpUp[1][0] = residual[B01_FLUX];
+        divMUpUp[1][1] = residual[B11_FLUX];
+        divMUpUp[1][2] = residual[B12_FLUX];
+        divMUpUp[1][3] = residual[B13_FLUX];
+        divMUpUp[2][0] = residual[B02_FLUX];
+        divMUpUp[2][1] = residual[B12_FLUX];
+        divMUpUp[2][2] = residual[B22_FLUX];
+        divMUpUp[2][3] = residual[B23_FLUX];
+        divMUpUp[3][0] = residual[B03_FLUX];
+        divMUpUp[3][1] = residual[B13_FLUX];
+        divMUpUp[3][2] = residual[B23_FLUX];
+        divMUpUp[3][3] = residual[B33_FLUX];
 
-        residual[B00_FLUX] = 0.;
+        residual[B00_FLUX] = 0.; /* Need to remove B00 variable */
         residual[B01_FLUX] = 0.;
         residual[B02_FLUX] = 0.;
         residual[B11_FLUX] = 0.;
@@ -450,11 +459,6 @@ PetscErrorCode computeResidual(SNES snes,
         {
           for (int nu=0; nu<NDIM; nu++)
           {
-            residual[B00_FLUX] +=
-              elem.eDownNoHatUpHat[mu][0]
-            * elem.eDownNoHatUpHat[nu][0]
-            * divMUpUp[mu][nu];
-
             residual[B01_FLUX] +=
               elem.eDownNoHatUpHat[mu][0]
             * elem.eDownNoHatUpHat[nu][1]
