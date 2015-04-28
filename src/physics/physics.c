@@ -204,7 +204,7 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
     fluxes[U3_FLUX] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
     #if (REAPER_MOMENTS == 15)
-      fluxes[B00_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 0)];
+      fluxes[B00_FLUX] = 0.*g*elem->moments[M_UP_UP_UP(dir, 0, 0)];
       fluxes[B01_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 1)]; 
       fluxes[B02_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 2)]; 
       fluxes[B03_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 3)]; 

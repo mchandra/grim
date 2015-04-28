@@ -8,14 +8,14 @@ set(PROBLEM_DATA "\"${PROBLEM}/problemdata.h\"")
 # Time stepping options: EXPLICIT, IMEX or IMPLICIT
 set(TIME_STEPPING "EXPLICIT")
 set(DT "0.01")
-set(DT_DUMP ".1")
+set(DT_DUMP ".01")
 set(START_TIME "0.")
 set(FINAL_TIME "1.")
 set(COURANT ".5")
 set(MAX_DT_INCREMENT "1.")
 
 # Domain size. If the problem is 1D then N2 is ignored.
-set(N1 "32")
+set(N1 "64")
 set(N2 "128")
 
 # The entire global domain is divided into tiles that are small enough to fit

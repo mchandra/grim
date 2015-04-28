@@ -305,7 +305,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
       bDownDown[3][2] = elem->primVars[B22];
       bDownDown[3][3] = elem->primVars[B22];
     #else 
-      bDownDown[0][0] = elem->primVars[B00];
+      bDownDown[0][0] = 0.*elem->primVars[B00];
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B03];
