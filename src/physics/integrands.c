@@ -40,28 +40,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
        0.02095999,  0.01742871,  0.01383263,  0.01018519,  0.00650034,
        0.00279681};
   
-  #if (GYROAVERAGING)
-    /* Using roots of the shifte Legendre polynomaials for integration 
-       from [0, 1] (i.e. [0, inf) in the perpendicular direction).
-       We get the quad points and the weights from 
-       scipy.special.orthogonal.ps_roots() */
-
-    REAL quadPtsPerp[NUM_QUAD_PERP] = \
-      {0.00222152,  0.01166804,  0.02851271,  0.052504  ,  0.08327869,
-       0.12037037,  0.16321682,  0.21116853,  0.26349863,  0.31941385,
-       0.37806656,  0.43856765,  0.5       ,  0.56143235,  0.62193344,
-       0.68058615,  0.73650137,  0.78883147,  0.83678318,  0.87962963,
-       0.91672131,  0.947496  ,  0.97148729,  0.98833196,  0.99777848};
-  
-    REAL weightsPerp[NUM_QUAD_PERP] = \
-      {0.0056969 ,  0.01317749,  0.02046958,  0.02745235,  0.03401917,
-       0.04007035,  0.04551413,  0.05026797,  0.05425981,  0.05742913,
-       0.05972788,  0.06112122,  0.06158803,  0.06112122,  0.05972788,
-       0.05742913,  0.05425981,  0.05026797,  0.04551413,  0.04007035,
-       0.03401917,  0.02745235,  0.02046958,  0.01317749,  0.0056969};
-
-  #endif
-
   REAL momentsInOrthTetrad[NUM_ALL_COMPONENTS];
 
   for (int mu=0; mu<NDIM; mu++)
@@ -80,59 +58,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       #endif
     }
   }
-
-#if (GYROAVERAGING)
-  for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
-  {
-    for (int jQuad=0; jQuad<NUM_QUAD_PERP; jQuad++)
-    {
-      REAL t[NDIM], pUpHat[NDIM], pDownHat[NDIM];
-
-      t[1] = quadPts[iQuad];
-      t[2] = quadPtsPerp[jQuad];
-
-      pDownHat[1] = scaleFactor * P_DOWN_FROM_T_FULL(t[1]);
-      pDownHat[2] = scaleFactor * P_DOWN_FROM_T_PLUS_HALF(t[2]);
-      pDownHat[3] = pDownHat[2];
-
-      REAL f;
-      computefAndPUpHatUsingOrthTetradPDownHatSpatial
-                                (
-                                  pDownHat, geom, elem,
-                                  pUpHat, &f
-                                );
-
-      REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
-                      * scaleFactor * JACOBIAN_PLUS_HALF(t[2]);
-      
-      /* Instead of cartesian coordinates, now integrating in cylindrical 
-       * coordinates */
-      REAL weight =  weights[iQuad]*weightsPerp[jQuad]
-                   * jacobian/pUpHat[0] * 2.*M_PI * pUpHat[2] * f; 
-      
-      for (int mu=0; mu<NDIM; mu++)
-      {
-        momentsInOrthTetrad[N_UP(mu)] += weight * pUpHat[mu];
-
-        for (int nu=0; nu<NDIM; nu++)
-        {
-          momentsInOrthTetrad[T_UP_UP(mu, nu)] += 
-             weight * pUpHat[mu] * pUpHat[nu];
-
-          #if (REAPER_MOMENTS == 15) 
-            for (int lambda=0; lambda<NDIM; lambda++)
-            {
-              momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
-                weight * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
-            }
-          #endif 
-
-        }
-      }
-    }
-  }
-
-#else
 
   for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
   {
@@ -190,7 +115,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
     }
   }
-#endif /* Are we GYROAVERAGING? */
 
   for (int mu=0; mu<NDIM; mu++)
   {
