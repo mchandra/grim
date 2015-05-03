@@ -25,20 +25,19 @@
     #define U1_FLUX         (2)
     #define U2_FLUX         (3)
     #define U3_FLUX         (4)
-    #define B00_FLUX        (5)
-    #define B01_FLUX        (6)
-    #define B02_FLUX        (7)
-    #define B03_FLUX        (8)
-    #define B11_FLUX        (9)
-    #define B12_FLUX        (10)
-    #define B13_FLUX        (11)
-    #define B22_FLUX        (12)
-    #define B23_FLUX        (13)
-    #define B33_FLUX        (14)
-    #define B1_FLUX         (15)
-    #define B2_FLUX         (16)
-    #define B3_FLUX         (17)
-    #define NUM_FLUXES      (18)
+    #define B01_FLUX        (5)
+    #define B02_FLUX        (6)
+    #define B03_FLUX        (7)
+    #define B11_FLUX        (8)
+    #define B12_FLUX        (9)
+    #define B13_FLUX        (10)
+    #define B22_FLUX        (11)
+    #define B23_FLUX        (12)
+    #define B33_FLUX        (13)
+    #define B1_FLUX         (14)
+    #define B2_FLUX         (15)
+    #define B3_FLUX         (16)
+    #define NUM_FLUXES      (17)
 
     #if (GYROAVERAGING)
       /* 1 --> Parallel
@@ -53,16 +52,15 @@
       #define U1              (2)
       #define U2              (3)
       #define U3              (4)
-      #define B00             (5)
-      #define B01             (6)
-      #define B02             (7)
-      #define B11             (8)
-      #define B12             (9)
-      #define B22             (10)
-      #define B1              (11)
-      #define B2              (12)
-      #define B3              (13)
-      #define DOF             (14)
+      #define B01             (5)
+      #define B02             (6)
+      #define B11             (7)
+      #define B12             (8)
+      #define B22             (9)
+      #define B1              (10)
+      #define B2              (11)
+      #define B3              (12)
+      #define DOF             (13)
 
     #else
       /* Not GYROAVERAGING. Number of primitive variables == Number of fluxes */
@@ -71,20 +69,19 @@
       #define U1              (2)
       #define U2              (3)
       #define U3              (4)
-      #define B00             (5)
-      #define B01             (6)
-      #define B02             (7)
-      #define B03             (8)
-      #define B11             (9)
-      #define B12             (10)
-      #define B13             (11)
-      #define B22             (12)
-      #define B23             (13)
-      #define B33             (14)
-      #define B1              (15)
-      #define B2              (16)
-      #define B3              (17)
-      #define DOF             (18)
+      #define B01             (5)
+      #define B02             (6)
+      #define B03             (7)
+      #define B11             (8)
+      #define B12             (9)
+      #define B13             (10)
+      #define B22             (11)
+      #define B23             (12)
+      #define B33             (13)
+      #define B1              (14)
+      #define B2              (15)
+      #define B3              (16)
+      #define DOF             (17)
 
     #endif /* GYROAVERAGING? */
   
@@ -124,7 +121,8 @@
   /*   4  components of the number flux vector
    * + 16 components of the stress tensor
    * + 64 components of the rank 3 moment of f */
-  #define NUM_ALL_COMPONENTS  (84) 
+  #define NUM_ALL_COMPONENTS          (84) 
+  #define NUM_ALL_COLLISION_INTEGRALS (16)
 #endif
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
@@ -206,6 +204,10 @@ struct fluidElement
      *                             * $\overheadarrow{e}_\hat{nu}$
      */
     REAL eDownNoHatUpHat[NDIM][NDIM]; 
+
+    #if (REAPER_MOMENTS==15)
+      REAL collisionIntegrals[NUM_ALL_COLLISION_INTEGRALS];
+    #endif
   #endif
 };
 
@@ -296,7 +298,8 @@ REAL getbSqr(const struct fluidElement elem[ARRAY_ARGS 1],
 void fixedQuadIntegration(const struct fluidElement *elem,
                           const struct geometry *geom,
                           REAL scaleFactor,
-                          REAL *moments);
+                          REAL *moments,
+                          REAL *collisionIntegrals);
 
 void computefAndPUpHatUsingOrthTetradPDownHatSpatial
 (
@@ -304,7 +307,8 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f
+  REAL *f,
+  REAL *collisionOperator
 );
 
 /* Internal functions used in tetrad construction, also needed for the repaer

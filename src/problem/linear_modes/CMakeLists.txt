@@ -10,7 +10,7 @@ set(TIME_STEPPING "EXPLICIT")
 set(DT "0.01")
 set(DT_DUMP ".01")
 set(START_TIME "0.")
-set(FINAL_TIME "1.")
+set(FINAL_TIME "10.")
 set(COURANT ".5")
 set(MAX_DT_INCREMENT "1.")
 
@@ -61,17 +61,18 @@ set(RECONSTRUCTION "MONOTONIZED_CENTRAL")
 # 2) HYDRO_SOUND_MODE_1D
 # 3) CONDUCTION_STABLE_1D
 # 4) CONDUCTION_STABLE_2D
-set(AMPLITUDE "1e-4")
+set(AMPLITUDE "1e-3")
 set(MODE      "ENTROPY_WAVE_1D")
 
 set(REAPER         "ON")
 set(REAPER_MOMENTS "15")
-set(GYROAVERAGING  "ON")
+set(GYROAVERAGING  "OFF")
 
 # Physics options set automatically by the choice of the mode being tested
 if (${MODE} STREQUAL "ENTROPY_WAVE_1D")
   set(COMPUTE_DIM "1")
-  set(ADIABATIC_INDEX "1.43210621832")
+  #set(ADIABATIC_INDEX "1.43210621832")
+  set(ADIABATIC_INDEX "1.530057")
   set(CONDUCTION "OFF")
 endif(${MODE} STREQUAL "ENTROPY_WAVE_1D")
 

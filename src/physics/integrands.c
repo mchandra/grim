@@ -3,7 +3,8 @@
 void fixedQuadIntegration(const struct fluidElement *elem,
                           const struct geometry *geom,
                           REAL scaleFactor,
-                          REAL *moments)
+                          REAL *moments,
+                          REAL *collisionIntegrals)
 {
   /* Using roots of the Legendre polynomaials for integration from [-1, 1].
      We get the quad points and the weights from 
@@ -55,6 +56,8 @@ void fixedQuadIntegration(const struct fluidElement *elem,
         {
           momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
         }
+        
+        collisionIntegrals[nu + NDIM*mu] = 0.;
       #endif
     }
   }
@@ -77,12 +80,12 @@ void fixedQuadIntegration(const struct fluidElement *elem,
           pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
         }
 
-        REAL f;
+        REAL f, collisionOperator;
 
         computefAndPUpHatUsingOrthTetradPDownHatSpatial
                                   (
                                     pDownHat, geom, elem,
-                                    pUpHat, &f
+                                    pUpHat, &f, &collisionOperator
                                   );
 
         REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
@@ -91,7 +94,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
         
         REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
                      * jacobian/pUpHat[0] * f; 
-
+        
         for (int mu=0; mu<NDIM; mu++)
         {
           momentsInOrthTetrad[N_UP(mu)] += weight * pUpHat[mu];
@@ -107,6 +110,9 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
                   weight * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
+
+              collisionIntegrals[nu + NDIM*mu] +=
+                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
             #endif 
 
 	        }
@@ -172,7 +178,8 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f
+  REAL *f,
+  REAL *collisionOperator
 )
 {
   /* Calculate pDownHat[0] from normalization of four-momentum */
@@ -212,7 +219,6 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
 
     REAL bDownDown[NDIM][NDIM];
     #if (GYROAVERAGING)
-      bDownDown[0][0] = 0.*elem->primVars[B00];
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B02];
@@ -229,7 +235,6 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
       bDownDown[3][2] = elem->primVars[B22];
       bDownDown[3][3] = elem->primVars[B22];
     #else 
-      bDownDown[0][0] = 0.*elem->primVars[B00];
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B03];
@@ -259,6 +264,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
 
+    *collisionOperator = 0.;
   #endif    
   return;
 }

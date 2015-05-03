@@ -127,14 +127,12 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           deltaPrimVars[B3]  = 0.;
  
           #if (REAPER_MOMENTS==15)
-            primVars0[B00] = 0.;
             primVars0[B01] = 0.;
             primVars0[B02] = 0.;
             primVars0[B11] = 0.;
             primVars0[B12] = 0.;
             primVars0[B22] = 0.;
 
-            deltaPrimVars[B00] = 0.;
             deltaPrimVars[B01] = 0.;
             deltaPrimVars[B02] = 0.;
             deltaPrimVars[B11] = 0.;
@@ -168,8 +166,11 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
           REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
           
-          REAL gammaApprox = 1.43210621832;
-          REAL temperature = (gammaApprox - 1.)*uu/rho;
+          //REAL gammaApprox = 1.43210621832;
+          //REAL temperature = (gammaApprox - 1.)*uu/rho;
+          //REAL temperature = 0.8642;
+          REAL gammaApprox = 1.530057;
+          REAL temperature = 0.2650286;
           
           INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
           INDEX_PETSC(primOldGlobal, &zone, A0)    = getA0(temperature);

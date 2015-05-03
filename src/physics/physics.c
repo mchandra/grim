@@ -127,7 +127,8 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
   }
 
   REAL moments[NUM_ALL_COMPONENTS];
-  fixedQuadIntegration(elem, geom, scaleFactor, moments);
+  fixedQuadIntegration(elem, geom, scaleFactor, moments, 
+                       elem->collisionIntegrals);
 
   /* Now lower .._UP to .._DOWN for the stress-tensor to exactly conserve
    * angular momentum and energy in the Kerr metric. */
@@ -204,7 +205,6 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
     fluxes[U3_FLUX] = g*elem->moments[T_UP_DOWN(dir, 3)];
 
     #if (REAPER_MOMENTS == 15)
-      fluxes[B00_FLUX] = 0.*g*elem->moments[M_UP_UP_UP(dir, 0, 0)];
       fluxes[B01_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 1)]; 
       fluxes[B02_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 2)]; 
       fluxes[B03_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 3)]; 
@@ -277,6 +277,18 @@ void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
         }
       }
     }
+  #endif
+
+  #if (REAPER && REAPER_MOMENTS==15)
+    sourceTerms[B01] = elem->collisionIntegrals[0 + 1*NDIM];
+    sourceTerms[B02] = elem->collisionIntegrals[0 + 2*NDIM];
+    sourceTerms[B03] = elem->collisionIntegrals[0 + 3*NDIM];
+    sourceTerms[B11] = elem->collisionIntegrals[1 + 1*NDIM];
+    sourceTerms[B12] = elem->collisionIntegrals[1 + 2*NDIM];
+    sourceTerms[B13] = elem->collisionIntegrals[1 + 3*NDIM];
+    sourceTerms[B22] = elem->collisionIntegrals[2 + 2*NDIM];
+    sourceTerms[B23] = elem->collisionIntegrals[2 + 3*NDIM];
+    sourceTerms[B33] = elem->collisionIntegrals[3 + 3*NDIM];
   #endif
 }
 
