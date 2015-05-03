@@ -264,7 +264,10 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
 
-    *collisionOperator = 0.;
+    /* Relativistic BGK operator */
+    REAL tau = 10*DT;
+    REAL f0 = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0]);
+    *collisionOperator = -pUpHat[0] * (*f - f0)/tau;
   #endif    
   return;
 }
