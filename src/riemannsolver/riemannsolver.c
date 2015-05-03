@@ -26,12 +26,9 @@ REAL riemannSolver(const REAL fluxLeft[ARRAY_ARGS NUM_FLUXES],
   for (int var=0; var<NUM_FLUXES; var++) 
   {
     fluxes[var] = 0.5*(fluxLeft[var] + fluxRight[var]
-                       - (  conservedVarsRight[var]
-                          - conservedVarsLeft[var]
-                         )
-//                       - cLaxFriedrichs*(  conservedVarsRight[var]
-//                                         - conservedVarsLeft[var]
-//                                        )
+                       - cLaxFriedrichs*(  conservedVarsRight[var]
+                                         - conservedVarsLeft[var]
+                                        )
                       );
                          
   }
