@@ -107,10 +107,36 @@ void diagnostics(struct timeStepper ts[ARRAY_ARGS 1])
                         || fabs(ts->t - FINAL_TIME) < 1e-10 
      )
   {
+    PetscViewer viewer;
+
+    #if (REAPER)
+      /* Moments at the previous time step calculated and stored inside
+       * computeResidual(). Since computeResidual() is called while
+       * timestepping, and diagnostics() is called after a time step, the output
+       * moments is at the (n-1)th time step, while primitive vars are dumped at
+       * the (n)th time step. The indexing is kept consistant in the file output
+       * so moments000000.h5 corresponds to data000000.h5 */
+
+      if (ts->dumpCounter > 0)
+      {
+        char momentsFileName[50];
+        sprintf(momentsFileName, "%s%06d.h5", "moments", ts->dumpCounter-1);
+
+        PetscViewerHDF5Open(PETSC_COMM_WORLD, momentsFileName,
+                            FILE_MODE_WRITE, &viewer);
+        PetscObjectSetName((PetscObject) ts->momentsVec, "moments");
+        VecView(ts->momentsVec, viewer);
+        PetscViewerDestroy(&viewer);
+
+        PetscPrintf(PETSC_COMM_WORLD,
+                    "Dumped moments at t = %f in %s",
+                    ts->t - ts->dt, momentsFileName);
+      }
+    #endif
+
     char primVarsFileName[50];
     sprintf(primVarsFileName, "%s%06d.h5", DUMP_FILE_PREFIX, ts->dumpCounter);
 
-    PetscViewer viewer;
     PetscViewerHDF5Open(PETSC_COMM_WORLD, primVarsFileName,
                         FILE_MODE_WRITE, &viewer);
     PetscObjectSetName((PetscObject) ts->primPetscVec, "primVars");

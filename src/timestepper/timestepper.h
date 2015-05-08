@@ -45,6 +45,11 @@ struct timeStepper
     Vec graduConHigherOrderTerm2PetscVec;
   #endif
 
+  #if (REAPER)
+    DM momentsDM;
+    Vec momentsVec;
+  #endif
+
   struct problemData *problemSpecificData;
 
   int computeOldSourceTermsAndOldDivOfFluxes;
@@ -98,6 +103,11 @@ void diagnostics(struct timeStepper ts[ARRAY_ARGS 1]);
 #if (CONDUCTION)
   void initConductionDataStructures(struct timeStepper ts[ARRAY_ARGS 1]);
   void destroyConductionDataStructures(struct timeStepper ts[ARRAY_ARGS 1]);
+#endif
+
+#if (REAPER)
+  void initReaperDataStructures(struct timeStepper ts[ARRAY_ARGS 1]);
+  void destroyReaperDataStructures(struct timeStepper ts[ARRAY_ARGS 1]);
 #endif
 
 #endif /* GRIM_TIMESTEPPER_H_ */

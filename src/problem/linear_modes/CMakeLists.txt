@@ -71,8 +71,8 @@ set(GYROAVERAGING  "OFF")
 # Physics options set automatically by the choice of the mode being tested
 if (${MODE} STREQUAL "ENTROPY_WAVE_1D")
   set(COMPUTE_DIM "1")
-  #set(ADIABATIC_INDEX "1.43210621832")
-  set(ADIABATIC_INDEX "1.530057")
+  set(ADIABATIC_INDEX "1.43210621832")
+  #set(ADIABATIC_INDEX "1.530057")
   set(CONDUCTION "OFF")
 endif(${MODE} STREQUAL "ENTROPY_WAVE_1D")
 

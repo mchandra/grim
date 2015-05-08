@@ -1,5 +1,6 @@
 #include "physics.h"
 
+#if (REAPER)
 void fixedQuadIntegration(const struct fluidElement *elem,
                           const struct geometry *geom,
                           REAL scaleFactor,
@@ -40,7 +41,24 @@ void fixedQuadIntegration(const struct fluidElement *elem,
        0.03719527,  0.03417869,  0.03103497,  0.0277758 ,  0.0244133 ,
        0.02095999,  0.01742871,  0.01383263,  0.01018519,  0.00650034,
        0.00279681};
-  
+
+
+//  REAL quadPts[NUM_QUAD] = \
+//        {-9.93752171e-01,  -9.67226839e-01,  -9.20099334e-01,
+//         -8.53363365e-01,  -7.68439963e-01,  -6.67138804e-01,
+//         -5.51618836e-01,  -4.24342120e-01,  -2.88021317e-01,
+//         -1.45561854e-01,   1.98918497e-16,   1.45561854e-01,
+//          2.88021317e-01,   4.24342120e-01,   5.51618836e-01,
+//          6.67138804e-01,   7.68439963e-01,   8.53363365e-01,
+//          9.20099334e-01,   9.67226839e-01,   9.93752171e-01};
+//
+//  REAL weights[NUM_QUAD] = \
+//        {0.01601723,  0.03695379,  0.05713443,  0.07610011,  0.09344442,
+//         0.1087973 ,  0.12183142,  0.13226894,  0.13988739,  0.1445244 ,
+//         0.14608113,  0.1445244 ,  0.13988739,  0.13226894,  0.12183142,
+//         0.1087973 ,  0.09344442,  0.07610011,  0.05713443,  0.03695379,
+//         0.01601723};
+
   REAL momentsInOrthTetrad[NUM_ALL_COMPONENTS];
 
   for (int mu=0; mu<NDIM; mu++)
@@ -80,39 +98,33 @@ void fixedQuadIntegration(const struct fluidElement *elem,
           pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
         }
 
-        REAL f, collisionOperator;
-
-        computefAndPUpHatUsingOrthTetradPDownHatSpatial
-                                  (
-                                    pDownHat, geom, elem,
-                                    pUpHat, &f, &collisionOperator
-                                  );
+        REAL f;
+        computefAndPUpHat(pDownHat, geom, elem,
+                          pUpHat, &f
+                         );
 
         REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
                         * scaleFactor * JACOBIAN_FULL(t[2])
                         * scaleFactor * JACOBIAN_FULL(t[3]);
         
         REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
-                     * jacobian/pUpHat[0] * f; 
+                     * jacobian/pUpHat[0]; 
         
         for (int mu=0; mu<NDIM; mu++)
         {
-          momentsInOrthTetrad[N_UP(mu)] += weight * pUpHat[mu];
+          momentsInOrthTetrad[N_UP(mu)] += weight * f * pUpHat[mu];
 
           for (int nu=0; nu<NDIM; nu++)
           {
             momentsInOrthTetrad[T_UP_UP(mu, nu)] += 
-              weight * pUpHat[mu] * pUpHat[nu];
+              weight * f * pUpHat[mu] * pUpHat[nu];
 
             #if (REAPER_MOMENTS == 15)
               for (int lambda=0; lambda<NDIM; lambda++)
               {
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
-                  weight * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+                  weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
-
-              collisionIntegrals[nu + NDIM*mu] +=
-                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
             #endif 
 
 	        }
@@ -121,6 +133,56 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
     }
   }
+
+  #if (REAPER_MOMENTS == 15)
+  /* Only compute collision integral for REAPER_MOMENTS > 5 */
+  for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
+  {
+    for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
+    {
+      for (int kQuad=0; kQuad<NUM_QUAD; kQuad++)
+      {
+
+        REAL t[NDIM], pUpHat[NDIM], pDownHat[NDIM];
+
+        t[1] = quadPts[iQuad];
+        t[2] = quadPts[jQuad];
+        t[3] = quadPts[kQuad];
+      
+        for (int i=1; i<NDIM; i++)
+        {
+          pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
+        }
+
+        REAL collisionOperator;
+        computeCollisionOperatorAndPUpHat(
+                                          pDownHat, geom, elem,
+                                          momentsInOrthTetrad,
+                                          pUpHat,
+                                          &collisionOperator
+                                         );
+
+        REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
+                        * scaleFactor * JACOBIAN_FULL(t[2])
+                        * scaleFactor * JACOBIAN_FULL(t[3]);
+        
+        REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
+                     * jacobian/pUpHat[0]; 
+        
+        for (int mu=0; mu<NDIM; mu++)
+        {
+          for (int nu=0; nu<NDIM; nu++)
+          {
+            collisionIntegrals[nu + NDIM*mu] +=
+              weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
+	        }
+        }
+        
+      }
+    }
+  }
+  #endif 
+
 
   for (int mu=0; mu<NDIM; mu++)
   {
@@ -170,16 +232,16 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       #endif
     }
   }
+
 }
 
-void computefAndPUpHatUsingOrthTetradPDownHatSpatial
+void computefAndPUpHat
 (
   REAL pDownHat[NDIM],
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f,
-  REAL *collisionOperator
+  REAL *f
 )
 {
   /* Calculate pDownHat[0] from normalization of four-momentum */
@@ -219,6 +281,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
 
     REAL bDownDown[NDIM][NDIM];
     #if (GYROAVERAGING)
+      bDownDown[0][0] = 0.;
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B02];
@@ -235,6 +298,7 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
       bDownDown[3][2] = elem->primVars[B22];
       bDownDown[3][3] = elem->primVars[B22];
     #else 
+      bDownDown[0][0] = 0.;
       bDownDown[0][1] = elem->primVars[B01];
       bDownDown[0][2] = elem->primVars[B02];
       bDownDown[0][3] = elem->primVars[B03];
@@ -264,10 +328,53 @@ void computefAndPUpHatUsingOrthTetradPDownHatSpatial
     
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
 
-    /* Relativistic BGK operator */
-    REAL tau = 10*DT;
-    REAL f0 = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0]);
-    *collisionOperator = -pUpHat[0] * (*f - f0)/tau;
   #endif    
+
   return;
 }
+
+
+void computeCollisionOperatorAndPUpHat
+(
+  REAL pDownHat[NDIM],
+  const struct geometry* geom,
+  const struct fluidElement* elem,
+  const REAL momentsInOrthTetrad[ARRAY_ARGS NUM_ALL_COMPONENTS],
+  REAL pUpHat[NDIM],
+  REAL *collisionOperator
+)
+{
+  REAL f;
+  computefAndPUpHat(pDownHat, geom, elem,
+                    pUpHat, &f
+                   );
+
+  /* Relativistic BGK operator */
+  REAL rho      = momentsInOrthTetrad[N_UP(0)];
+  REAL pressure = (1./3.) * (  momentsInOrthTetrad[T_UP_UP(1, 1)]
+                             + momentsInOrthTetrad[T_UP_UP(2, 2)]
+                             + momentsInOrthTetrad[T_UP_UP(3, 3)]
+                            );
+  REAL temperature = pressure/rho;
+
+  REAL alpha     = getAlpha(rho, temperature);
+  REAL aDownHat0 = getA0(temperature);
+  
+  REAL f0 = alpha * exp(aDownHat0*pUpHat[0]);
+
+  REAL uUpHat[NDIM] = {1, 0, 0, 0};
+  REAL pDotU =  pDownHat[0]*uUpHat[0] + pDownHat[1]*uUpHat[1] 
+              + pDownHat[2]*uUpHat[2] + pDownHat[3]*uUpHat[3];
+
+  REAL vThermal = sqrt(temperature);
+  REAL sigma    = 0.1;
+  REAL tau0     = 1./(rho * vThermal * sigma);
+  REAL tau      = 0.1;
+
+  //*collisionOperator = - pDotU * (f - f0)/tau0;
+  *collisionOperator = - (f - f0)/tau;
+
+  return;
+}
+
+#endif /* Only compile when REAPER==ON */

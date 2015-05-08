@@ -62,6 +62,11 @@ PetscErrorCode computeResidual(SNES snes,
                        &graduConHigherOrderTerm2Global);
   #endif
 
+  #if (REAPER)
+    ARRAY(momentsGlobal);
+    DMDAVecGetArrayDOF(ts->momentsDM, ts->momentsVec, &momentsGlobal);
+  #endif
+
   if (ts->computeOldSourceTermsAndOldDivOfFluxes)
   {
     Vec primPetscVecOldLocal, primPetscVecHalfStepLocal;
@@ -197,6 +202,28 @@ PetscErrorCode computeResidual(SNES snes,
         struct fluidElement elem;
         setFluidElement(&INDEX_PETSC(primOldLocal, &zone, 0), &geom, &elem);
         computeFluxes(&elem, &geom, 0, conservedVars);
+
+        #if (REAPER)
+          for (int mu=0; mu<NDIM; mu++)
+          {
+            INDEX_PETSC(momentsGlobal, &zone, N_UP(mu)) = 
+              elem.moments[N_UP(mu)];
+
+            for (int nu=0; nu<NDIM; nu++)
+            {
+              INDEX_PETSC(momentsGlobal, &zone, T_UP_DOWN(mu, nu)) =
+                elem.moments[T_UP_DOWN(mu, nu)];
+
+              #if (REAPER_MOMENTS==15)
+              	for (int lambda=0; lambda<NDIM; lambda++)
+              	{
+                  INDEX_PETSC(momentsGlobal, &zone, M_UP_UP_UP(mu, nu, lambda)) =
+                    elem.moments[M_UP_UP_UP(mu, nu, lambda)];
+                }
+              #endif
+            }
+          }
+        #endif
 
         for (int var=0; var<NUM_FLUXES; var++)
         {
@@ -432,7 +459,7 @@ PetscErrorCode computeResidual(SNES snes,
         /* NUM_FLUXES > DOF. Need to contract so that final number of residuals
          * == DOF */
         REAL divMUpUp[NDIM][NDIM];
-        divMUpUp[0][0] = residual[B00_FLUX];
+        divMUpUp[0][0] = 0.;
         divMUpUp[0][1] = residual[B01_FLUX];
         divMUpUp[0][2] = residual[B02_FLUX];
         divMUpUp[0][3] = residual[B03_FLUX];
@@ -449,7 +476,6 @@ PetscErrorCode computeResidual(SNES snes,
         divMUpUp[3][2] = residual[B23_FLUX];
         divMUpUp[3][3] = residual[B33_FLUX];
 
-        residual[B00_FLUX] = 0.; /* Need to remove B00 variable */
         residual[B01_FLUX] = 0.;
         residual[B02_FLUX] = 0.;
         residual[B11_FLUX] = 0.;
@@ -500,9 +526,6 @@ PetscErrorCode computeResidual(SNES snes,
 
         INDEX_PETSC(residualGlobal, &zone, U3) = 
           residual[U3_FLUX];
-
-        INDEX_PETSC(residualGlobal, &zone, B00) = 
-          residual[B00_FLUX];
 
         INDEX_PETSC(residualGlobal, &zone, B01) = 
           residual[B01_FLUX];
@@ -597,5 +620,10 @@ PetscErrorCode computeResidual(SNES snes,
                            ts->graduConHigherOrderTerm2PetscVec,
                            &graduConHigherOrderTerm2Global);
   #endif
+
+  #if (REAPER)
+    DMDAVecRestoreArrayDOF(ts->momentsDM, ts->momentsVec, &momentsGlobal);
+  #endif
+
   return(0);
 }

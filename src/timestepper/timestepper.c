@@ -168,6 +168,10 @@ void timeStepperInit(struct timeStepper ts[ARRAY_ARGS 1])
   initConductionDataStructures(ts);
   #endif
 
+  #if (REAPER)
+  initReaperDataStructures(ts);
+  #endif
+
   /* Initialize problem dependent data */
   PetscMalloc1(1, &ts->problemSpecificData);
 
@@ -271,7 +275,6 @@ void timeStepperInit(struct timeStepper ts[ARRAY_ARGS 1])
   /* Output the initial conditions */
   VecCopy(ts->primPetscVecOld, ts->primPetscVec);
   diagnostics(ts);
-
 }
 
 #if (CONDUCTION)
@@ -340,6 +343,36 @@ void destroyConductionDataStructures(struct timeStepper ts[ARRAY_ARGS 1])
   DMDestroy(&ts->graduConHigherOrderTermsDM);
 }
 #endif
+
+#if (REAPER)
+void initReaperDataStructures(struct timeStepper ts[ARRAY_ARGS 1])
+{
+
+  #if (COMPUTE_DIM==1)
+    DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N1, NUM_ALL_COMPONENTS, 0, NULL,
+                 &ts->momentsDM);
+
+  #elif (COMPUTE_DIM==2)
+    DMDACreate2d(PETSC_COMM_WORLD, 
+                 DM_BOUNDARY_NONE, DM_BOUNDARY_NONE,
+                 DMDA_STENCIL_BOX,
+                 N1, N2,
+                 PETSC_DECIDE, PETSC_DECIDE,
+                 NUM_ALL_COMPONENTS, 0, PETSC_NULL, PETSC_NULL,
+                 &ts->momentsDM);
+  #endif
+
+  DMCreateGlobalVector(ts->momentsDM, &ts->momentsVec);
+  VecSet(ts->momentsVec, 0.);
+}
+
+void destroyReaperDataStructures(struct timeStepper ts[ARRAY_ARGS 1])
+{
+  VecDestroy(&ts->momentsVec);
+  DMDestroy(&ts->momentsDM);
+}
+#endif
+
 
 void setChristoffelSymbols(struct timeStepper ts[ARRAY_ARGS 1])
 {
@@ -551,6 +584,10 @@ void timeStepperDestroy(struct timeStepper ts[ARRAY_ARGS 1])
 
   #if (CONDUCTION)
     destroyConductionDataStructures(ts);
+  #endif
+
+  #if (REAPER)
+    destroyReaperDataStructures(ts);
   #endif
 
   PetscPrintf(PETSC_COMM_WORLD, "\n");

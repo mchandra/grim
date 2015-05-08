@@ -50,10 +50,12 @@ int main(int argc, char **argv)
   setFluidElement(primVars, &geom, &elem);
 
   REAL momentsUpUp[NUM_ALL_COMPONENTS], moments[NUM_ALL_COMPONENTS];
-  fixedQuadIntegration5Moments(&elem, &geom, temperature, momentsUpUp);
+  fixedQuadIntegration(&elem, &geom, temperature, momentsUpUp, elem.collisionIntegrals);
 
   for (int mu=0; mu<NDIM; mu++)
   {
+    moments[N_UP(mu)] = momentsUpUp[N_UP(mu)];
+
     for (int nu=0; nu<NDIM; nu++)
     {
       moments[T_UP_DOWN(mu, nu)] = 0.;
@@ -65,6 +67,20 @@ int main(int argc, char **argv)
     }
   }
 
+//  REAL n = -(- moments[N_UP(0)]*elem.uCon[0] 
+//             + moments[N_UP(1)]*elem.uCon[1] 
+//             + moments[N_UP(2)]*elem.uCon[2] 
+//             + moments[N_UP(3)]*elem.uCon[3]
+//            );
+
+  REAL n =  sqrt(-(- moments[N_UP(0)]*moments[N_UP(0)]
+             + moments[N_UP(1)]*moments[N_UP(1)]
+             + moments[N_UP(2)]*moments[N_UP(2)]
+             + moments[N_UP(3)]*moments[N_UP(3)]
+            ));
+
+  PetscPrintf(PETSC_COMM_WORLD, "n     = %f\n", n);
+  PetscPrintf(PETSC_COMM_WORLD, "N^0   = %f\n", moments[N_UP(0)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^0_0 = %f\n", moments[T_UP_DOWN(0, 0)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^0_1 = %f\n", moments[T_UP_DOWN(0, 1)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^0_2 = %f\n", moments[T_UP_DOWN(0, 2)]);
@@ -82,7 +98,8 @@ int main(int argc, char **argv)
   PetscPrintf(PETSC_COMM_WORLD, "T^3_2 = %f\n", moments[T_UP_DOWN(3, 2)]);
   PetscPrintf(PETSC_COMM_WORLD, "T^3_3 = %f\n", moments[T_UP_DOWN(3, 3)]);
 
-
+  */
+  /*
   REAL pressure = rho * temperature;
   REAL uu = pressure/(ADIABATIC_INDEX - 1.);
   REAL bCov[NDIM], bSqr, uCov[NDIM];

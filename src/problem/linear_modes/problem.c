@@ -166,11 +166,11 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
           REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
           
-          //REAL gammaApprox = 1.43210621832;
-          //REAL temperature = (gammaApprox - 1.)*uu/rho;
+          REAL gammaApprox = 1.43210621832;
+          REAL temperature = (gammaApprox - 1.)*uu/rho;
           //REAL temperature = 0.8642;
-          REAL gammaApprox = 1.530057;
-          REAL temperature = 0.2650286;
+          //REAL gammaApprox = 1.530057;
+          //REAL temperature = 0.2650286;
           
           INDEX_PETSC(primOldGlobal, &zone, ALPHA) = getAlpha(rho, temperature);
           INDEX_PETSC(primOldGlobal, &zone, A0)    = getA0(temperature);
@@ -180,9 +180,12 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
             INDEX_PETSC(primOldGlobal, &zone, var) =  
               primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
           }
+
         #else
+          REAL temperature = 0.8642;
           primVars0[RHO] = 1.;
-          primVars0[UU]  = 2.;
+          //primVars0[UU]  = 2.;
+          primVars0[UU]  = temperature * primVars0[RHO] / (ADIABATIC_INDEX - 1.);
           primVars0[U1]  = 0.;
           primVars0[U2]  = 0.;
           primVars0[U3]  = 0.;
@@ -191,7 +194,8 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           primVars0[B3]  = 0.;
 
           deltaPrimVars[RHO] = 1.;
-          deltaPrimVars[UU]  = 0.;
+          //deltaPrimVars[UU]  = 0.;
+          deltaPrimVars[UU]  = temperature * deltaPrimVars[RHO] / (ADIABATIC_INDEX-1.);
           deltaPrimVars[U1]  = 0.;
           deltaPrimVars[U2]  = 0.;
           deltaPrimVars[U3]  = 0.;

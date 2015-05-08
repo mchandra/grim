@@ -146,7 +146,6 @@
 /* Integration is over pDown0, pDown1, pDown2 */
 #define NDIM_INTEGRATION  (3)
 #define NUM_QUAD          (51)
-#define NUM_QUAD_PERP     (25) /* Only used when GYROAVERAGING==ON */
 
 /* Macros used in integrands.c 
  * FULL functions are used when integrating from -inf to inf 
@@ -301,13 +300,22 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                           REAL *moments,
                           REAL *collisionIntegrals);
 
-void computefAndPUpHatUsingOrthTetradPDownHatSpatial
+void computefAndPUpHat
 (
   REAL pDownHat[NDIM],
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f,
+  REAL *f
+);
+
+void computeCollisionOperatorAndPUpHat
+(
+  REAL pDownHat[NDIM],
+  const struct geometry* geom,
+  const struct fluidElement* elem,
+  const REAL momentsInOrthTetrad[ARRAY_ARGS NUM_ALL_COMPONENTS],
+  REAL pUpHat[NDIM],
   REAL *collisionOperator
 );
 

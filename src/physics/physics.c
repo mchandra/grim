@@ -227,6 +227,7 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
                         );
   #else
 
+    /* Using canonical GRIM scheme */
     fluxes[RHO] = g*elem->moments[N_UP(dir)];
 
     fluxes[UU] = g*elem->moments[T_UP_DOWN(dir, 0)] + fluxes[RHO];

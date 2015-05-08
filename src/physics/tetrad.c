@@ -1,5 +1,6 @@
 #include "physics.h"
 
+#if (REAPER)
 void setTetrad(const struct geometry *geom,
                struct fluidElement *elem)
 {
@@ -188,3 +189,4 @@ void orthogonalize(const REAL inputVecCon[NDIM],
                            / inputVecDotInputVec;
     }
 }
+#endif /* Only compile if REAPER==ON */
