@@ -37,7 +37,12 @@
     #define B1_FLUX         (14)
     #define B2_FLUX         (15)
     #define B3_FLUX         (16)
-    #define NUM_FLUXES      (17)
+    #define F0_ALPHA_FLUX   (17)
+    #define F0_A0_FLUX      (18)
+    #define F0_A1_FLUX      (19)
+    #define F0_A2_FLUX      (20)
+    #define F0_A3_FLUX      (21)
+    #define NUM_FLUXES      (22)
 
     #if (GYROAVERAGING)
       /* 1 --> Parallel
@@ -81,7 +86,12 @@
       #define B1              (14)
       #define B2              (15)
       #define B3              (16)
-      #define DOF             (17)
+      #define F0_ALPHA        (17)
+      #define F0_A0           (18)
+      #define F0_A1           (19)
+      #define F0_A2           (20)
+      #define F0_A3           (21)
+      #define DOF             (22)
 
     #endif /* GYROAVERAGING? */
   
@@ -117,12 +127,14 @@
    * + 16 components of the stress tensor.
    * Both grim and reaper 5 moment scheme have the same number of components */
   #define NUM_ALL_COMPONENTS  (20)
+  #define NUM_COLLISION_PARAMETERS    (0)
 #elif (REAPER_MOMENTS==15)
   /*   4  components of the number flux vector
    * + 16 components of the stress tensor
    * + 64 components of the rank 3 moment of f */
   #define NUM_ALL_COMPONENTS          (84) 
-  #define NUM_ALL_COLLISION_INTEGRALS (16)
+  #define NUM_COLLISION_PARAMETERS    (5)
+  #define NUM_ALL_COLLISION_INTEGRALS (21) /* 5 parameters + 16 */
 #endif
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
@@ -133,6 +145,9 @@
 #define T_UP_UP(mu, nu)   (nu + NDIM*(mu) + NDIM)
 #define M_UP_UP_DOWN(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
 #define M_UP_UP_UP(mu, nu, lambda)   (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
+
+/* Indices for elem.collisionIntegrals */
+#define COLLISION_INTEGRAL(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
 
 /* Indices for the Christoffel symbols */
 #define GAMMA_UP_DOWN_DOWN(eta,mu,nu) (eta+NDIM*(mu+NDIM*(nu) ) )
@@ -145,7 +160,7 @@
 
 /* Integration is over pDown0, pDown1, pDown2 */
 #define NDIM_INTEGRATION  (3)
-#define NUM_QUAD          (51)
+#define NUM_QUAD          (21)
 
 /* Macros used in integrands.c 
  * FULL functions are used when integrating from -inf to inf 
@@ -306,16 +321,7 @@ void computefAndPUpHat
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f
-);
-
-void computeCollisionOperatorAndPUpHat
-(
-  REAL pDownHat[NDIM],
-  const struct geometry* geom,
-  const struct fluidElement* elem,
-  const REAL momentsInOrthTetrad[ARRAY_ARGS NUM_ALL_COMPONENTS],
-  REAL pUpHat[NDIM],
+  REAL *f,
   REAL *collisionOperator
 );
 

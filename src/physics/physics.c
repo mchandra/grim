@@ -214,6 +214,12 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
       fluxes[B22_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 2)]; 
       fluxes[B23_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 3)]; 
       fluxes[B33_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 3, 3)]; 
+
+      fluxes[F0_ALPHA_FLUX] = 0.;
+      fluxes[F0_A0_FLUX]    = 0.;
+      fluxes[F0_A1_FLUX]    = 0.;
+      fluxes[F0_A2_FLUX]    = 0.;
+      fluxes[F0_A3_FLUX]    = 0.;
     #endif
 
     fluxes[B1_FLUX] = g*(  elem->bCon[1]*elem->uCon[dir] 
@@ -281,15 +287,21 @@ void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
   #endif
 
   #if (REAPER && REAPER_MOMENTS==15)
-    sourceTerms[B01] = elem->collisionIntegrals[0 + 1*NDIM];
-    sourceTerms[B02] = elem->collisionIntegrals[0 + 2*NDIM];
-    sourceTerms[B03] = elem->collisionIntegrals[0 + 3*NDIM];
-    sourceTerms[B11] = elem->collisionIntegrals[1 + 1*NDIM];
-    sourceTerms[B12] = elem->collisionIntegrals[1 + 2*NDIM];
-    sourceTerms[B13] = elem->collisionIntegrals[1 + 3*NDIM];
-    sourceTerms[B22] = elem->collisionIntegrals[2 + 2*NDIM];
-    sourceTerms[B23] = elem->collisionIntegrals[2 + 3*NDIM];
-    sourceTerms[B33] = elem->collisionIntegrals[3 + 3*NDIM];
+    sourceTerms[F0_ALPHA] = elem->collisionIntegrals[0];
+    sourceTerms[F0_A0]    = elem->collisionIntegrals[1];
+    sourceTerms[F0_A1]    = elem->collisionIntegrals[2];
+    sourceTerms[F0_A2]    = elem->collisionIntegrals[3];
+    sourceTerms[F0_A3]    = elem->collisionIntegrals[4];
+
+    sourceTerms[B01] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,1)];
+    sourceTerms[B02] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,2)];
+    sourceTerms[B03] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,3)];
+    sourceTerms[B11] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,1)];
+    sourceTerms[B12] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,2)];
+    sourceTerms[B13] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,3)];
+    sourceTerms[B22] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,2)];
+    sourceTerms[B23] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,3)];
+    sourceTerms[B33] = elem->collisionIntegrals[COLLISION_INTEGRAL(3,3)];
   #endif
 }
 

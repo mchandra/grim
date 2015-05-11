@@ -181,6 +181,17 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
               primVars0[var] + AMPLITUDE*creal(deltaPrimVars[var]*mode);
           }
 
+          INDEX_PETSC(primOldGlobal, &zone, F0_ALPHA) = 
+            INDEX_PETSC(primOldGlobal, &zone, ALPHA);
+          
+          INDEX_PETSC(primOldGlobal, &zone, F0_A0) = 
+            INDEX_PETSC(primOldGlobal, &zone, A0);
+
+          INDEX_PETSC(primOldGlobal, &zone, F0_A1) = 0.;
+          INDEX_PETSC(primOldGlobal, &zone, F0_A2) = 0.;
+          INDEX_PETSC(primOldGlobal, &zone, F0_A3) = 0.;
+
+
         #else
           REAL temperature = 0.8642;
           primVars0[RHO] = 1.;

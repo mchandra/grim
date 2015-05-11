@@ -10,56 +10,63 @@ void fixedQuadIntegration(const struct fluidElement *elem,
   /* Using roots of the Legendre polynomaials for integration from [-1, 1].
      We get the quad points and the weights from 
      scipy.special.orthogonal.p_roots() */
-  REAL quadPts[NUM_QUAD] = \
-      {-9.98909991e-01,  -9.94261260e-01,  -9.85915992e-01,
-       -9.73903368e-01,  -9.58267849e-01,  -9.39067544e-01,
-       -9.16373862e-01,  -8.90271218e-01,  -8.60856711e-01,
-       -8.28239764e-01,  -7.92541712e-01,  -7.53895354e-01,
-       -7.12444458e-01,  -6.68343221e-01,  -6.21755705e-01,
-       -5.72855216e-01,  -5.21823669e-01,  -4.68850904e-01,
-       -4.14133983e-01,  -3.57876457e-01,  -3.00287606e-01,
-       -2.41581666e-01,  -1.81977027e-01,  -1.21695421e-01,
-       -6.09611002e-02,   3.98821425e-16,   6.09611002e-02,
-        1.21695421e-01,   1.81977027e-01,   2.41581666e-01,
-        3.00287606e-01,   3.57876457e-01,   4.14133983e-01,
-        4.68850904e-01,   5.21823669e-01,   5.72855216e-01,
-        6.21755705e-01,   6.68343221e-01,   7.12444458e-01,
-        7.53895354e-01,   7.92541712e-01,   8.28239764e-01,
-        8.60856711e-01,   8.90271218e-01,   9.16373862e-01,
-        9.39067544e-01,   9.58267849e-01,   9.73903368e-01,
-        9.85915992e-01,   9.94261260e-01,   9.98909991e-01};
-
-  REAL weights[NUM_QUAD] = \
-      {0.00279681,  0.00650034,  0.01018519,  0.01383263,  0.01742871,
-       0.02095999,  0.0244133 ,  0.0277758 ,  0.03103497,  0.03417869,
-       0.03719527,  0.04007348,  0.04280261,  0.04537251,  0.04777363,
-       0.04999702,  0.05203442,  0.05387825,  0.05552165,  0.05695851,
-       0.05818347,  0.05919199,  0.05998032,  0.06054551,  0.06088546,
-       0.06099892,  0.06088546,  0.06054551,  0.05998032,  0.05919199,
-       0.05818347,  0.05695851,  0.05552165,  0.05387825,  0.05203442,
-       0.04999702,  0.04777363,  0.04537251,  0.04280261,  0.04007348,
-       0.03719527,  0.03417869,  0.03103497,  0.0277758 ,  0.0244133 ,
-       0.02095999,  0.01742871,  0.01383263,  0.01018519,  0.00650034,
-       0.00279681};
-
-
 //  REAL quadPts[NUM_QUAD] = \
-//        {-9.93752171e-01,  -9.67226839e-01,  -9.20099334e-01,
-//         -8.53363365e-01,  -7.68439963e-01,  -6.67138804e-01,
-//         -5.51618836e-01,  -4.24342120e-01,  -2.88021317e-01,
-//         -1.45561854e-01,   1.98918497e-16,   1.45561854e-01,
-//          2.88021317e-01,   4.24342120e-01,   5.51618836e-01,
-//          6.67138804e-01,   7.68439963e-01,   8.53363365e-01,
-//          9.20099334e-01,   9.67226839e-01,   9.93752171e-01};
+//      {-9.98909991e-01,  -9.94261260e-01,  -9.85915992e-01,
+//       -9.73903368e-01,  -9.58267849e-01,  -9.39067544e-01,
+//       -9.16373862e-01,  -8.90271218e-01,  -8.60856711e-01,
+//       -8.28239764e-01,  -7.92541712e-01,  -7.53895354e-01,
+//       -7.12444458e-01,  -6.68343221e-01,  -6.21755705e-01,
+//       -5.72855216e-01,  -5.21823669e-01,  -4.68850904e-01,
+//       -4.14133983e-01,  -3.57876457e-01,  -3.00287606e-01,
+//       -2.41581666e-01,  -1.81977027e-01,  -1.21695421e-01,
+//       -6.09611002e-02,   3.98821425e-16,   6.09611002e-02,
+//        1.21695421e-01,   1.81977027e-01,   2.41581666e-01,
+//        3.00287606e-01,   3.57876457e-01,   4.14133983e-01,
+//        4.68850904e-01,   5.21823669e-01,   5.72855216e-01,
+//        6.21755705e-01,   6.68343221e-01,   7.12444458e-01,
+//        7.53895354e-01,   7.92541712e-01,   8.28239764e-01,
+//        8.60856711e-01,   8.90271218e-01,   9.16373862e-01,
+//        9.39067544e-01,   9.58267849e-01,   9.73903368e-01,
+//        9.85915992e-01,   9.94261260e-01,   9.98909991e-01};
 //
 //  REAL weights[NUM_QUAD] = \
-//        {0.01601723,  0.03695379,  0.05713443,  0.07610011,  0.09344442,
-//         0.1087973 ,  0.12183142,  0.13226894,  0.13988739,  0.1445244 ,
-//         0.14608113,  0.1445244 ,  0.13988739,  0.13226894,  0.12183142,
-//         0.1087973 ,  0.09344442,  0.07610011,  0.05713443,  0.03695379,
-//         0.01601723};
+//      {0.00279681,  0.00650034,  0.01018519,  0.01383263,  0.01742871,
+//       0.02095999,  0.0244133 ,  0.0277758 ,  0.03103497,  0.03417869,
+//       0.03719527,  0.04007348,  0.04280261,  0.04537251,  0.04777363,
+//       0.04999702,  0.05203442,  0.05387825,  0.05552165,  0.05695851,
+//       0.05818347,  0.05919199,  0.05998032,  0.06054551,  0.06088546,
+//       0.06099892,  0.06088546,  0.06054551,  0.05998032,  0.05919199,
+//       0.05818347,  0.05695851,  0.05552165,  0.05387825,  0.05203442,
+//       0.04999702,  0.04777363,  0.04537251,  0.04280261,  0.04007348,
+//       0.03719527,  0.03417869,  0.03103497,  0.0277758 ,  0.0244133 ,
+//       0.02095999,  0.01742871,  0.01383263,  0.01018519,  0.00650034,
+//       0.00279681};
+
+
+  REAL quadPts[NUM_QUAD] = \
+        {-9.93752171e-01,  -9.67226839e-01,  -9.20099334e-01,
+         -8.53363365e-01,  -7.68439963e-01,  -6.67138804e-01,
+         -5.51618836e-01,  -4.24342120e-01,  -2.88021317e-01,
+         -1.45561854e-01,   1.98918497e-16,   1.45561854e-01,
+          2.88021317e-01,   4.24342120e-01,   5.51618836e-01,
+          6.67138804e-01,   7.68439963e-01,   8.53363365e-01,
+          9.20099334e-01,   9.67226839e-01,   9.93752171e-01};
+
+  REAL weights[NUM_QUAD] = \
+        {0.01601723,  0.03695379,  0.05713443,  0.07610011,  0.09344442,
+         0.1087973 ,  0.12183142,  0.13226894,  0.13988739,  0.1445244 ,
+         0.14608113,  0.1445244 ,  0.13988739,  0.13226894,  0.12183142,
+         0.1087973 ,  0.09344442,  0.07610011,  0.05713443,  0.03695379,
+         0.01601723};
 
   REAL momentsInOrthTetrad[NUM_ALL_COMPONENTS];
+  #if (REAPER_MOMENTS == 15)
+    collisionIntegrals[0] = 0.;
+    collisionIntegrals[1] = 0.;
+    collisionIntegrals[2] = 0.;
+    collisionIntegrals[3] = 0.;
+    collisionIntegrals[4] = 0.;
+  #endif
 
   for (int mu=0; mu<NDIM; mu++)
   {
@@ -75,7 +82,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
           momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
         }
         
-        collisionIntegrals[nu + NDIM*mu] = 0.;
+        collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] = 0.;
       #endif
     }
   }
@@ -98,9 +105,9 @@ void fixedQuadIntegration(const struct fluidElement *elem,
           pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
         }
 
-        REAL f;
+        REAL f, collisionOperator;
         computefAndPUpHat(pDownHat, geom, elem,
-                          pUpHat, &f
+                          pUpHat, &f, &collisionOperator
                          );
 
         REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
@@ -110,6 +117,12 @@ void fixedQuadIntegration(const struct fluidElement *elem,
         REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
                      * jacobian/pUpHat[0]; 
         
+        collisionIntegrals[0] += weight * collisionOperator;
+        collisionIntegrals[1] += weight * collisionOperator * pUpHat[0];
+        collisionIntegrals[2] += weight * collisionOperator * pUpHat[1];
+        collisionIntegrals[3] += weight * collisionOperator * pUpHat[2];
+        collisionIntegrals[4] += weight * collisionOperator * pUpHat[3];  
+
         for (int mu=0; mu<NDIM; mu++)
         {
           momentsInOrthTetrad[N_UP(mu)] += weight * f * pUpHat[mu];
@@ -125,6 +138,9 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
                   weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
+
+              collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] +=
+                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
             #endif 
 
 	        }
@@ -133,55 +149,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       }
     }
   }
-
-  #if (REAPER_MOMENTS == 15)
-  /* Only compute collision integral for REAPER_MOMENTS > 5 */
-  for (int iQuad=0; iQuad<NUM_QUAD; iQuad++)
-  {
-    for (int jQuad=0; jQuad<NUM_QUAD; jQuad++)
-    {
-      for (int kQuad=0; kQuad<NUM_QUAD; kQuad++)
-      {
-
-        REAL t[NDIM], pUpHat[NDIM], pDownHat[NDIM];
-
-        t[1] = quadPts[iQuad];
-        t[2] = quadPts[jQuad];
-        t[3] = quadPts[kQuad];
-      
-        for (int i=1; i<NDIM; i++)
-        {
-          pDownHat[i] = scaleFactor * P_DOWN_FROM_T_FULL(t[i]);
-        }
-
-        REAL collisionOperator;
-        computeCollisionOperatorAndPUpHat(
-                                          pDownHat, geom, elem,
-                                          momentsInOrthTetrad,
-                                          pUpHat,
-                                          &collisionOperator
-                                         );
-
-        REAL jacobian =   scaleFactor * JACOBIAN_FULL(t[1]) 
-                        * scaleFactor * JACOBIAN_FULL(t[2])
-                        * scaleFactor * JACOBIAN_FULL(t[3]);
-        
-        REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
-                     * jacobian/pUpHat[0]; 
-        
-        for (int mu=0; mu<NDIM; mu++)
-        {
-          for (int nu=0; nu<NDIM; nu++)
-          {
-            collisionIntegrals[nu + NDIM*mu] +=
-              weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
-	        }
-        }
-        
-      }
-    }
-  }
-  #endif 
 
 
   for (int mu=0; mu<NDIM; mu++)
@@ -241,7 +208,8 @@ void computefAndPUpHat
   const struct geometry* geom,
   const struct fluidElement* elem,
   REAL pUpHat[NDIM],
-  REAL *f
+  REAL *f,
+  REAL *collisionOperator
 )
 {
   /* Calculate pDownHat[0] from normalization of four-momentum */
@@ -327,52 +295,25 @@ void computefAndPUpHat
     }
     
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
+    
+    REAL f0 =  elem->primVars[F0_ALPHA]
+             * exp(  elem->primVars[F0_A0]*pUpHat[0]
+                   + elem->primVars[F0_A1]*pUpHat[1]
+                   + elem->primVars[F0_A2]*pUpHat[2]
+                   + elem->primVars[F0_A3]*pUpHat[3]
+                  );
+
+    REAL uUpHat[NDIM] = {1, 0, 0, 0};
+    REAL pDotU =  pDownHat[0]*uUpHat[0] + pDownHat[1]*uUpHat[1] 
+                + pDownHat[2]*uUpHat[2] + pDownHat[3]*uUpHat[3];
+
+    //REAL tau = 100.*(-tanh((pUpHat[0]- 10.)*1.) + 1.) + DT;
+    //REAL tau = exp(-(pUpHat[0] - 1.5));
+    REAL tau = 1.;
+
+    *collisionOperator = - pUpHat[0] * (*f - f0)/tau;
 
   #endif    
-
-  return;
-}
-
-
-void computeCollisionOperatorAndPUpHat
-(
-  REAL pDownHat[NDIM],
-  const struct geometry* geom,
-  const struct fluidElement* elem,
-  const REAL momentsInOrthTetrad[ARRAY_ARGS NUM_ALL_COMPONENTS],
-  REAL pUpHat[NDIM],
-  REAL *collisionOperator
-)
-{
-  REAL f;
-  computefAndPUpHat(pDownHat, geom, elem,
-                    pUpHat, &f
-                   );
-
-  /* Relativistic BGK operator */
-  REAL rho      = momentsInOrthTetrad[N_UP(0)];
-  REAL pressure = (1./3.) * (  momentsInOrthTetrad[T_UP_UP(1, 1)]
-                             + momentsInOrthTetrad[T_UP_UP(2, 2)]
-                             + momentsInOrthTetrad[T_UP_UP(3, 3)]
-                            );
-  REAL temperature = pressure/rho;
-
-  REAL alpha     = getAlpha(rho, temperature);
-  REAL aDownHat0 = getA0(temperature);
-  
-  REAL f0 = alpha * exp(aDownHat0*pUpHat[0]);
-
-  REAL uUpHat[NDIM] = {1, 0, 0, 0};
-  REAL pDotU =  pDownHat[0]*uUpHat[0] + pDownHat[1]*uUpHat[1] 
-              + pDownHat[2]*uUpHat[2] + pDownHat[3]*uUpHat[3];
-
-  REAL vThermal = sqrt(temperature);
-  REAL sigma    = 0.1;
-  REAL tau0     = 1./(rho * vThermal * sigma);
-  REAL tau      = 0.1;
-
-  //*collisionOperator = - pDotU * (f - f0)/tau0;
-  *collisionOperator = - (f - f0)/tau;
 
   return;
 }

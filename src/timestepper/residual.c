@@ -557,8 +557,17 @@ PetscErrorCode computeResidual(SNES snes,
         {
           INDEX_PETSC(residualGlobal, &zone, var) = residual[var];
         }
+        INDEX_PETSC(residualGlobal, &zone, F0_ALPHA) = 
+          elem.collisionIntegrals[0];
+        INDEX_PETSC(residualGlobal, &zone, F0_A0) = 
+          elem.collisionIntegrals[1];
+        INDEX_PETSC(residualGlobal, &zone, F0_A1) = 
+          elem.collisionIntegrals[2];
+        INDEX_PETSC(residualGlobal, &zone, F0_A2) = 
+          elem.collisionIntegrals[3];
+        INDEX_PETSC(residualGlobal, &zone, F0_A3) = 
+          elem.collisionIntegrals[4];
       #endif /* No GYROAVERAGING */
-
     }
 
     #if (CONDUCTION)
