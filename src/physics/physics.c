@@ -220,6 +220,42 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
       fluxes[F0_A1_FLUX]    = 0.;
       fluxes[F0_A2_FLUX]    = 0.;
       fluxes[F0_A3_FLUX]    = 0.;
+    #elif (REAPER_MOMENTS == 35)
+      fluxes[B01_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 1)]; 
+      fluxes[B02_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 2)]; 
+      fluxes[B03_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 0, 3)]; 
+      fluxes[B11_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 1)]; 
+      fluxes[B12_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 2)]; 
+      fluxes[B13_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 1, 3)]; 
+      fluxes[B22_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 2)]; 
+      fluxes[B23_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 3)]; 
+      fluxes[B33_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 3, 3)]; 
+      fluxes[C000_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,0)];
+      fluxes[C001_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,1)];
+      fluxes[C002_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,2)];
+      fluxes[C003_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,3)];
+      fluxes[C011_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,1)];
+      fluxes[C012_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,2)];
+      fluxes[C013_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,3)];
+      fluxes[C022_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,2,2)];
+      fluxes[C023_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,2,3)];
+      fluxes[C033_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,3,3)];
+      fluxes[C111_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,1,1)];
+      fluxes[C112_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,1,2)];
+      fluxes[C113_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,1,3)];
+      fluxes[C122_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,2,2)];
+      fluxes[C123_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,2,3)];
+      fluxes[C133_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,3,3)];
+      fluxes[C222_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,2,2,2)];
+      fluxes[C223_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,2,2,3)];
+      fluxes[C233_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,2,3,3)];
+      fluxes[C333_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,3,3,3)];
+     
+      fluxes[F0_ALPHA_FLUX] = 0.;
+      fluxes[F0_A0_FLUX]    = 0.;
+      fluxes[F0_A1_FLUX]    = 0.;
+      fluxes[F0_A2_FLUX]    = 0.;
+      fluxes[F0_A3_FLUX]    = 0.;
     #endif
 
     fluxes[B1_FLUX] = g*(  elem->bCon[1]*elem->uCon[dir] 
@@ -302,6 +338,33 @@ void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
     sourceTerms[B22] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,2)];
     sourceTerms[B23] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,3)];
     sourceTerms[B33] = elem->collisionIntegrals[COLLISION_INTEGRAL(3,3)];
+  #elif (REAPER && REAPER_MOMENTS==35)
+    sourceTerms[F0_ALPHA] = elem->collisionIntegrals[0];
+    sourceTerms[F0_A0]    = elem->collisionIntegrals[1];
+    sourceTerms[F0_A1]    = elem->collisionIntegrals[2];
+    sourceTerms[F0_A2]    = elem->collisionIntegrals[3];
+    sourceTerms[F0_A3]    = elem->collisionIntegrals[4];
+
+    sourceTerms[C000] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,0,0)];
+    sourceTerms[C001] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,0,1)];
+    sourceTerms[C002] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,0,2)];
+    sourceTerms[C003] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,0,3)];
+    sourceTerms[C011] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,1,1)];
+    sourceTerms[C012] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,1,2)];
+    sourceTerms[C013] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,1,3)];
+    sourceTerms[C022] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,2,2)];
+    sourceTerms[C023] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,2,3)];
+    sourceTerms[C033] = elem->collisionIntegrals[COLLISION_INTEGRAL(0,3,3)];
+    sourceTerms[C111] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,1,1)];
+    sourceTerms[C112] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,1,2)];
+    sourceTerms[C113] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,1,3)];
+    sourceTerms[C122] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,2,2)];
+    sourceTerms[C123] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,2,3)];
+    sourceTerms[C133] = elem->collisionIntegrals[COLLISION_INTEGRAL(1,3,3)];
+    sourceTerms[C222] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,2,2)];
+    sourceTerms[C223] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,2,3)];
+    sourceTerms[C233] = elem->collisionIntegrals[COLLISION_INTEGRAL(2,3,3)];
+    sourceTerms[C333] = elem->collisionIntegrals[COLLISION_INTEGRAL(3,3,3)];
   #endif
 }
 

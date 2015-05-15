@@ -95,7 +95,124 @@
 
     #endif /* GYROAVERAGING? */
   
-  #endif /* REAPER 15 moments */
+  #elif (REAPER_MOMENTS==35)
+
+    #define ALPHA_FLUX      (0)
+    #define A0_FLUX         (1)
+    #define U1_FLUX         (2)
+    #define U2_FLUX         (3)
+    #define U3_FLUX         (4)
+    #define B01_FLUX        (5)
+    #define B02_FLUX        (6)
+    #define B03_FLUX        (7)
+    #define B11_FLUX        (8)
+    #define B12_FLUX        (9)
+    #define B13_FLUX        (10)
+    #define B22_FLUX        (11)
+    #define B23_FLUX        (12)
+    #define B33_FLUX        (13)
+    #define C000_FLUX       (14)
+    #define C001_FLUX       (15)
+    #define C002_FLUX       (16)
+    #define C003_FLUX       (17)
+    #define C011_FLUX       (18)
+    #define C012_FLUX       (19)
+    #define C013_FLUX       (20)
+    #define C022_FLUX       (21)
+    #define C023_FLUX       (22)
+    #define C033_FLUX       (23)
+    #define C111_FLUX       (24)
+    #define C112_FLUX       (25)
+    #define C113_FLUX       (26)
+    #define C122_FLUX       (27)
+    #define C123_FLUX       (28)
+    #define C133_FLUX       (29)
+    #define C222_FLUX       (30)
+    #define C223_FLUX       (31)
+    #define C233_FLUX       (32)
+    #define C333_FLUX       (33)
+    #define B1_FLUX         (34)
+    #define B2_FLUX         (35)
+    #define B3_FLUX         (36)
+    #define F0_ALPHA_FLUX   (37)
+    #define F0_A0_FLUX      (38)
+    #define F0_A1_FLUX      (39)
+    #define F0_A2_FLUX      (40)
+    #define F0_A3_FLUX      (41)
+    #define NUM_FLUXES      (42)
+
+    #if (GYROAVERAGING)
+      /* 1 --> Parallel
+         2 --> Perpendicular
+
+         When GYROAVERAGING, number of primitive variables is lesser than the
+         number of fluxes. So we have seperate mnemonics for each. First the
+         primitive variables and then the fluxes.
+      */
+      #define ALPHA           (0)
+      #define A0              (1)
+      #define U1              (2)
+      #define U2              (3)
+      #define U3              (4)
+      #define B01             (5)
+      #define B02             (6)
+      #define B11             (7)
+      #define B12             (8)
+      #define B22             (9)
+      #define B1              (10)
+      #define B2              (11)
+      #define B3              (12)
+      #define DOF             (13)
+
+    #else
+      /* Not GYROAVERAGING. Number of primitive variables == Number of fluxes */
+      #define ALPHA           (0)
+      #define A0              (1)
+      #define U1              (2)
+      #define U2              (3)
+      #define U3              (4)
+      #define B01             (5)
+      #define B02             (6)
+      #define B03             (7)
+      #define B11             (8)
+      #define B12             (9)
+      #define B13             (10)
+      #define B22             (11)
+      #define B23             (12)
+      #define B33             (13)
+      #define C000            (14)
+      #define C001            (15)
+      #define C002            (16)
+      #define C003            (17)
+      #define C011            (18)
+      #define C012            (19)
+      #define C013            (20)
+      #define C022            (21)
+      #define C023            (22)
+      #define C033            (23)
+      #define C111            (24)
+      #define C112            (25)
+      #define C113            (26)
+      #define C122            (27)
+      #define C123            (28)
+      #define C133            (29)
+      #define C222            (30)
+      #define C223            (31)
+      #define C233            (32)
+      #define C333            (33)
+      #define B1              (34)
+      #define B2              (35)
+      #define B3              (36)
+      #define F0_ALPHA        (37)
+      #define F0_A0           (38)
+      #define F0_A1           (39)
+      #define F0_A2           (40)
+      #define F0_A3           (41)
+      #define DOF             (42)
+
+    #endif /* GYROAVERAGING? */
+  
+  #endif /* REAPER moments */
   
 #else
 
@@ -135,6 +252,14 @@
   #define NUM_ALL_COMPONENTS          (84) 
   #define NUM_COLLISION_PARAMETERS    (5)
   #define NUM_ALL_COLLISION_INTEGRALS (21) /* 5 parameters + 16 */
+#elif (REAPER_MOMENTS==35)
+  /*   4   components of the number flux vector
+   * + 16  components of the stress tensor
+   * + 64  components of the rank 3 moment of f
+   * + 256 components of the rank 4 moment of f */
+  #define NUM_ALL_COMPONENTS          (340)
+  #define NUM_COLLISION_PARAMETERS    (5)
+  #define NUM_ALL_COLLISION_INTEGRALS (69) /* 5 parameters + 64 */
 #endif
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
@@ -145,9 +270,19 @@
 #define T_UP_UP(mu, nu)   (nu + NDIM*(mu) + NDIM)
 #define M_UP_UP_DOWN(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
 #define M_UP_UP_UP(mu, nu, lambda)   (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
+#define R_UP_UP_UP_UP(mu, nu, lambda, eta)   ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
+                                          + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM \
+                                          + NDIM)
+#define R_UP_UP_UP_DOWN(mu, nu, lambda, eta) ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
+                                          + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM \
+                                          + NDIM)
 
 /* Indices for elem.collisionIntegrals */
-#define COLLISION_INTEGRAL(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+#if (REAPER_MOMENTS==15)
+  #define COLLISION_INTEGRAL(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+#elif (REAPER_MOMENTS==35)
+  #define COLLISION_INTEGRAL(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+#endif /* Reaper moments */
 
 /* Indices for the Christoffel symbols */
 #define GAMMA_UP_DOWN_DOWN(eta,mu,nu) (eta+NDIM*(mu+NDIM*(nu) ) )
@@ -219,7 +354,7 @@ struct fluidElement
      */
     REAL eDownNoHatUpHat[NDIM][NDIM]; 
 
-    #if (REAPER_MOMENTS==15)
+    #if (REAPER_MOMENTS==15 || REAPER_MOMENTS==35)
       REAL collisionIntegrals[NUM_ALL_COLLISION_INTEGRALS];
     #endif
   #endif

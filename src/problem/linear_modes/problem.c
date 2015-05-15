@@ -150,7 +150,66 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
               deltaPrimVars[B23] = 0.;
               deltaPrimVars[B33] = 0.;
             #endif /* No GYROAVERAGING */
+          #elif (REAPER_MOMENTS==35)
+            primVars0[B01] = 0.;
+            primVars0[B02] = 0.;
+            primVars0[B11] = 0.;
+            primVars0[B12] = 0.;
+            primVars0[B22] = 0.;
+            primVars0[B03] = 0.;
+            primVars0[B13] = 0.;
+            primVars0[B23] = 0.;
+            primVars0[B33] = 0.;
+            primVars0[C000] = 0.;
+            primVars0[C001] = 0.;
+            primVars0[C002] = 0.;
+            primVars0[C003] = 0.;
+            primVars0[C011] = 0.;
+            primVars0[C012] = 0.;
+            primVars0[C013] = 0.;
+            primVars0[C022] = 0.;
+            primVars0[C023] = 0.;
+            primVars0[C033] = 0.;
+            primVars0[C111] = 0.;
+            primVars0[C112] = 0.;
+            primVars0[C113] = 0.;
+            primVars0[C122] = 0.;
+            primVars0[C123] = 0.;
+            primVars0[C133] = 0.;
+            primVars0[C222] = 0.;
+            primVars0[C223] = 0.;
+            primVars0[C233] = 0.;
+            primVars0[C333] = 0.;
 
+            deltaPrimVars[B01] = 0.;
+            deltaPrimVars[B02] = 0.;
+            deltaPrimVars[B11] = 0.;
+            deltaPrimVars[B12] = 0.;
+            deltaPrimVars[B22] = 0.;
+            deltaPrimVars[B03] = 0.;
+            deltaPrimVars[B13] = 0.;
+            deltaPrimVars[B23] = 0.;
+            deltaPrimVars[B33] = 0.;
+            deltaPrimVars[C000] = 0.;
+            deltaPrimVars[C001] = 0.;
+            deltaPrimVars[C002] = 0.;
+            deltaPrimVars[C003] = 0.;
+            deltaPrimVars[C011] = 0.;
+            deltaPrimVars[C012] = 0.;
+            deltaPrimVars[C013] = 0.;
+            deltaPrimVars[C022] = 0.;
+            deltaPrimVars[C023] = 0.;
+            deltaPrimVars[C033] = 0.;
+            deltaPrimVars[C111] = 0.;
+            deltaPrimVars[C112] = 0.;
+            deltaPrimVars[C113] = 0.;
+            deltaPrimVars[C122] = 0.;
+            deltaPrimVars[C123] = 0.;
+            deltaPrimVars[C133] = 0.;
+            deltaPrimVars[C222] = 0.;
+            deltaPrimVars[C223] = 0.;
+            deltaPrimVars[C233] = 0.;
+            deltaPrimVars[C333] = 0.;
           #endif 
           
           REAL rho0 = 1.;

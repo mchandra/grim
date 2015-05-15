@@ -60,7 +60,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
          0.01601723};
 
   REAL momentsInOrthTetrad[NUM_ALL_COMPONENTS];
-  #if (REAPER_MOMENTS == 15)
+  #if (REAPER_MOMENTS == 15 || REAPER_MOMENTS == 35)
     collisionIntegrals[0] = 0.;
     collisionIntegrals[1] = 0.;
     collisionIntegrals[2] = 0.;
@@ -83,6 +83,19 @@ void fixedQuadIntegration(const struct fluidElement *elem,
         }
         
         collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] = 0.;
+      #elif (REAPER_MOMENTS==35)
+        for (int lambda=0; lambda<NDIM; lambda++)
+        {
+          momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+          
+          for (int eta=0; eta<NDIM; eta++)
+          {
+            momentsInOrthTetrad[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 0.;
+          }
+
+          collisionIntegrals[COLLISION_INTEGRAL(mu, nu, lambda)] = 0.;
+        }
+        
       #endif
     }
   }
@@ -141,6 +154,20 @@ void fixedQuadIntegration(const struct fluidElement *elem,
 
               collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] +=
                 weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
+            #elif (REAPER_MOMENTS==35)
+              for (int lambda=0; lambda<NDIM; lambda++)
+              {
+                momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
+                  weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+                for (int eta=0; eta<NDIM; eta++)
+                {
+                  momentsInOrthTetrad[R_UP_UP_UP_UP(mu, nu, lambda, eta)] += 
+                    weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda] * pUpHat[eta];
+                }
+
+                collisionIntegrals[COLLISION_INTEGRAL(mu, nu, lambda)] += 
+                  weight * collisionOperator * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+              }
             #endif 
 
 	        }
@@ -192,6 +219,48 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                            * elem->eDownHatUpNoHat[beta][nu]
                            * elem->eDownHatUpNoHat[gamma][lambda]
                            * momentsInOrthTetrad[M_UP_UP_UP(alpha, beta, gamma)];
+            }
+          }
+        }
+      }
+      #elif (REAPER_MOMENTS == 35)
+      for (int lambda=0; lambda<NDIM; lambda++)
+      {
+        moments[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+        
+        for (int alpha=0; alpha<NDIM; alpha++)
+        {
+          for (int beta=0; beta<NDIM; beta++)
+          {
+            for (int gamma=0; gamma<NDIM; gamma++)
+            {
+              moments[M_UP_UP_UP(mu, nu, lambda)] +=
+                             elem->eDownHatUpNoHat[alpha][mu]
+                           * elem->eDownHatUpNoHat[beta][nu]
+                           * elem->eDownHatUpNoHat[gamma][lambda]
+                           * momentsInOrthTetrad[M_UP_UP_UP(alpha, beta, gamma)];
+            }
+          }
+        }
+        for (int eta=0; eta<NDIM; eta++)
+        {
+          moments[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 0.;
+          for (int alpha=0; alpha<NDIM; alpha++)
+          {
+            for (int beta=0; beta<NDIM; beta++)
+            {
+              for (int gamma=0; gamma<NDIM; gamma++)
+              {
+                for (int delta=0; delta<NDIM; delta++)
+                {
+                  moments[R_UP_UP_UP_UP(mu, nu, lambda, delta)] += 
+                    elem->eDownHatUpNoHat[alpha][mu]
+                  * elem->eDownHatUpNoHat[beta][nu]
+                  * elem->eDownHatUpNoHat[gamma][lambda]
+                  * elem->eDownHatUpNoHat[delta][eta]
+                  * momentsInOrthTetrad[R_UP_UP_UP_UP(alpha, beta, gamma, delta)];
+                }
+              }
             }
           }
         }
@@ -284,6 +353,7 @@ void computefAndPUpHat
       bDownDown[3][3] = elem->primVars[B33];
     #endif
 
+
     REAL bScalar = 0.;
 
     for (int mu=0; mu<NDIM; mu++)
@@ -295,6 +365,151 @@ void computefAndPUpHat
     }
     
     *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar);
+    
+    REAL f0 =  elem->primVars[F0_ALPHA]
+             * exp(  elem->primVars[F0_A0]*pUpHat[0]
+                   + elem->primVars[F0_A1]*pUpHat[1]
+                   + elem->primVars[F0_A2]*pUpHat[2]
+                   + elem->primVars[F0_A3]*pUpHat[3]
+                  );
+
+    REAL uUpHat[NDIM] = {1, 0, 0, 0};
+    REAL pDotU =  pDownHat[0]*uUpHat[0] + pDownHat[1]*uUpHat[1] 
+                + pDownHat[2]*uUpHat[2] + pDownHat[3]*uUpHat[3];
+
+    //REAL tau = 100.*(-tanh((pUpHat[0]- 10.)*1.) + 1.) + DT;
+    //REAL tau = exp(-(pUpHat[0] - 1.5));
+    REAL tau = 1.;
+
+    *collisionOperator = - pUpHat[0] * (*f - f0)/tau;
+
+  #elif (REAPER_MOMENTS==35)
+    /* 35 moment Israel-Stewart ansatz in a tetrad frame:
+     *
+     * f = \alpha exp(a_\hat{\mu} p^\hat{\mu} 
+                    + b_{\hat{\mu} \hat{\nu}} p^{\hat{\mu} \hat{\nu}} 
+                    + c_{\hat{\mu} \hat{\nu} \hat{\lambda}} p^{\hat{\mu} \hat{\nu} \hat{\lambda}})
+     */
+
+    REAL bDownDown[NDIM][NDIM];
+    REAL cDownDownDown[NDIM][NDIM][NDIM];
+    #if (GYROAVERAGING)
+      bDownDown[0][0] = 0.;
+      bDownDown[0][1] = elem->primVars[B01];
+      bDownDown[0][2] = elem->primVars[B02];
+      bDownDown[0][3] = elem->primVars[B02];
+      bDownDown[1][0] = elem->primVars[B01];
+      bDownDown[1][1] = elem->primVars[B11];
+      bDownDown[1][2] = elem->primVars[B12];
+      bDownDown[1][3] = elem->primVars[B12];
+      bDownDown[2][0] = elem->primVars[B02];
+      bDownDown[2][1] = elem->primVars[B12];
+      bDownDown[2][2] = elem->primVars[B22];
+      bDownDown[2][3] = elem->primVars[B22];
+      bDownDown[3][0] = elem->primVars[B02];
+      bDownDown[3][1] = elem->primVars[B12];
+      bDownDown[3][2] = elem->primVars[B22];
+      bDownDown[3][3] = elem->primVars[B22];
+    #else 
+      bDownDown[0][0] = 0.;
+      bDownDown[0][1] = elem->primVars[B01];
+      bDownDown[0][2] = elem->primVars[B02];
+      bDownDown[0][3] = elem->primVars[B03];
+      bDownDown[1][0] = elem->primVars[B01];
+      bDownDown[1][1] = elem->primVars[B11];
+      bDownDown[1][2] = elem->primVars[B12];
+      bDownDown[1][3] = elem->primVars[B13];
+      bDownDown[2][0] = elem->primVars[B02];
+      bDownDown[2][1] = elem->primVars[B12];
+      bDownDown[2][2] = elem->primVars[B22];
+      bDownDown[2][3] = elem->primVars[B23];
+      bDownDown[3][0] = elem->primVars[B03];
+      bDownDown[3][1] = elem->primVars[B13];
+      bDownDown[3][2] = elem->primVars[B23];
+      bDownDown[3][3] = elem->primVars[B33];
+      cDownDownDown[0][0][0] = 0.;
+      cDownDownDown[0][0][1] = elem->primVars[C001];
+      cDownDownDown[0][0][2] = elem->primVars[C002];
+      cDownDownDown[0][0][3] = elem->primVars[C003];
+      cDownDownDown[0][1][0] = elem->primVars[C001];
+      cDownDownDown[0][1][1] = elem->primVars[C011];
+      cDownDownDown[0][1][2] = elem->primVars[C012];
+      cDownDownDown[0][1][3] = elem->primVars[C013];
+      cDownDownDown[0][2][0] = elem->primVars[C002];
+      cDownDownDown[0][2][1] = elem->primVars[C012];
+      cDownDownDown[0][2][2] = elem->primVars[C022];
+      cDownDownDown[0][2][3] = elem->primVars[C023];
+      cDownDownDown[0][3][0] = elem->primVars[C003];
+      cDownDownDown[0][3][1] = elem->primVars[C013];
+      cDownDownDown[0][3][2] = elem->primVars[C023];
+      cDownDownDown[0][0][3] = elem->primVars[C003];
+      cDownDownDown[1][0][0] = elem->primVars[C001];
+      cDownDownDown[1][0][1] = elem->primVars[C011];
+      cDownDownDown[1][0][2] = elem->primVars[C012];
+      cDownDownDown[1][0][3] = elem->primVars[C013];
+      cDownDownDown[1][1][0] = elem->primVars[C011];
+      cDownDownDown[1][1][1] = elem->primVars[C111];
+      cDownDownDown[1][1][2] = elem->primVars[C112];
+      cDownDownDown[1][1][3] = elem->primVars[C113];
+      cDownDownDown[1][2][0] = elem->primVars[C012];
+      cDownDownDown[1][2][1] = elem->primVars[C112];
+      cDownDownDown[1][2][2] = elem->primVars[C122];
+      cDownDownDown[1][2][3] = elem->primVars[C123];
+      cDownDownDown[1][3][0] = elem->primVars[C013];
+      cDownDownDown[1][3][1] = elem->primVars[C113];
+      cDownDownDown[1][3][2] = elem->primVars[C123];
+      cDownDownDown[1][0][3] = elem->primVars[C013];
+      cDownDownDown[2][0][0] = elem->primVars[C002];
+      cDownDownDown[2][0][1] = elem->primVars[C012];
+      cDownDownDown[2][0][2] = elem->primVars[C022];
+      cDownDownDown[2][0][3] = elem->primVars[C023];
+      cDownDownDown[2][1][0] = elem->primVars[C012];
+      cDownDownDown[2][1][1] = elem->primVars[C112];
+      cDownDownDown[2][1][2] = elem->primVars[C122];
+      cDownDownDown[2][1][3] = elem->primVars[C123];
+      cDownDownDown[2][2][0] = elem->primVars[C022];
+      cDownDownDown[2][2][1] = elem->primVars[C122];
+      cDownDownDown[2][2][2] = elem->primVars[C222];
+      cDownDownDown[2][2][3] = elem->primVars[C223];
+      cDownDownDown[2][3][0] = elem->primVars[C023];
+      cDownDownDown[2][3][1] = elem->primVars[C123];
+      cDownDownDown[2][3][2] = elem->primVars[C223];
+      cDownDownDown[2][0][3] = elem->primVars[C023];
+      cDownDownDown[3][0][0] = elem->primVars[C003];
+      cDownDownDown[3][0][1] = elem->primVars[C013];
+      cDownDownDown[3][0][2] = elem->primVars[C023];
+      cDownDownDown[3][0][3] = elem->primVars[C033];
+      cDownDownDown[3][1][0] = elem->primVars[C013];
+      cDownDownDown[3][1][1] = elem->primVars[C113];
+      cDownDownDown[3][1][2] = elem->primVars[C123];
+      cDownDownDown[3][1][3] = elem->primVars[C133];
+      cDownDownDown[3][2][0] = elem->primVars[C023];
+      cDownDownDown[3][2][1] = elem->primVars[C123];
+      cDownDownDown[3][2][2] = elem->primVars[C223];
+      cDownDownDown[3][2][3] = elem->primVars[C233];
+      cDownDownDown[3][3][0] = elem->primVars[C033];
+      cDownDownDown[3][3][1] = elem->primVars[C133];
+      cDownDownDown[3][3][2] = elem->primVars[C233];
+      cDownDownDown[3][0][3] = elem->primVars[C033];
+    #endif
+
+
+    REAL bScalar = 0.;
+    REAL cScalar = 0.;
+
+    for (int mu=0; mu<NDIM; mu++)
+    {
+      for (int nu=0; nu<NDIM; nu++)
+      {
+        bScalar += bDownDown[mu][nu]*pUpHat[mu]*pUpHat[nu];
+        for (int lambda=0; lambda<NDIM; lambda++)
+        {
+          cScalar += cDownDownDown[mu][nu][lambda]*pUpHat[mu]*pUpHat[nu]*pUpHat[lambda];
+        }
+      }
+    }
+    
+    *f = elem->primVars[ALPHA] * exp(elem->primVars[A0]*pUpHat[0] + bScalar + cScalar);
     
     REAL f0 =  elem->primVars[F0_ALPHA]
              * exp(  elem->primVars[F0_A0]*pUpHat[0]
