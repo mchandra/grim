@@ -421,27 +421,30 @@ void computefAndPUpHat
     bDownDown[3][2] = elem->primVars[B23];
     bDownDown[3][3] = elem->primVars[B33];
 
-    cDownDownDown[0][0][0] = elem->primVars[C000];
-    cDownDownDown[0][0][1] = elem->primVars[C001];
-    cDownDownDown[0][0][2] = elem->primVars[C002];
-    cDownDownDown[0][0][3] = elem->primVars[C003];
+    /* The following 4 variables are redundant. For example C_001 simply adds to
+     * a_1, C_111, C_221 and C_331 because p0^2 ~ 1 + p1^2 + p2^2 + p3^2, and
+     * a_1 (along with a_2, a_3) has been set to zero as a frame choice. */
+    cDownDownDown[0][0][0] = 0.;
+    cDownDownDown[0][0][1] = 0.;
+    cDownDownDown[0][0][2] = 0.;
+    cDownDownDown[0][0][3] = 0.;
     
-    cDownDownDown[0][1][0] = elem->primVars[C001];
+    cDownDownDown[0][1][0] = 0.;
     cDownDownDown[0][1][1] = elem->primVars[C011];
     cDownDownDown[0][1][2] = elem->primVars[C012];
     cDownDownDown[0][1][3] = elem->primVars[C013];
 
-    cDownDownDown[0][2][0] = elem->primVars[C002];
+    cDownDownDown[0][2][0] = 0.;
     cDownDownDown[0][2][1] = elem->primVars[C012];
     cDownDownDown[0][2][2] = elem->primVars[C022];
     cDownDownDown[0][2][3] = elem->primVars[C023];
 
-    cDownDownDown[0][3][0] = elem->primVars[C003];
+    cDownDownDown[0][3][0] = 0.;
     cDownDownDown[0][3][1] = elem->primVars[C013];
     cDownDownDown[0][3][2] = elem->primVars[C023];
     cDownDownDown[0][3][3] = elem->primVars[C033];
 
-    cDownDownDown[1][0][0] = elem->primVars[C001];
+    cDownDownDown[1][0][0] = 0.;
     cDownDownDown[1][0][1] = elem->primVars[C011];
     cDownDownDown[1][0][2] = elem->primVars[C012];
     cDownDownDown[1][0][3] = elem->primVars[C013];
@@ -461,7 +464,7 @@ void computefAndPUpHat
     cDownDownDown[1][3][2] = elem->primVars[C123];
     cDownDownDown[1][3][3] = elem->primVars[C133];
 
-    cDownDownDown[2][0][0] = elem->primVars[C002];
+    cDownDownDown[2][0][0] = 0.;
     cDownDownDown[2][0][1] = elem->primVars[C012];
     cDownDownDown[2][0][2] = elem->primVars[C022];
     cDownDownDown[2][0][3] = elem->primVars[C023];
@@ -481,7 +484,7 @@ void computefAndPUpHat
     cDownDownDown[2][3][2] = elem->primVars[C223];
     cDownDownDown[2][3][3] = elem->primVars[C233];
 
-    cDownDownDown[3][0][0] = elem->primVars[C003];
+    cDownDownDown[3][0][0] = 0.;
     cDownDownDown[3][0][1] = elem->primVars[C013];
     cDownDownDown[3][0][2] = elem->primVars[C023];
     cDownDownDown[3][0][3] = elem->primVars[C033];
@@ -526,7 +529,7 @@ void computefAndPUpHat
                    + elem->primVars[F0_A3]*pUpHat[3]
                   );
 
-    REAL tau = 1.;
+    REAL tau = 0.1;
 
     *collisionOperator = - pUpHat[0] * (*f - f0)/tau;
 

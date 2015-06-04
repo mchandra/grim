@@ -248,10 +248,23 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
       fluxes[B23_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 2, 3)]; 
       fluxes[B33_FLUX] = g*elem->moments[M_UP_UP_UP(dir, 3, 3)]; 
 
-      fluxes[C000_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,0)];
-      fluxes[C001_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,1)];
-      fluxes[C002_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,2)];
-      fluxes[C003_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,0,3)];
+//      fluxes[C011_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,1)];
+//      fluxes[C012_FLUX] = 0.;
+//      fluxes[C013_FLUX] = 0.;
+//      fluxes[C022_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,2,2)];
+//      fluxes[C023_FLUX] = 0.;
+//      fluxes[C033_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,3,3)];
+//      fluxes[C111_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,1,1)];
+//      fluxes[C112_FLUX] = 0.;
+//      fluxes[C113_FLUX] = 0.;
+//      fluxes[C122_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,2,2)];
+//      fluxes[C123_FLUX] = 0.;
+//      fluxes[C133_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,1,3,3)];
+//      fluxes[C222_FLUX] = 0.;
+//      fluxes[C223_FLUX] = 0.;
+//      fluxes[C233_FLUX] = 0.;
+//      fluxes[C333_FLUX] = 0.;
+     
       fluxes[C011_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,1)];
       fluxes[C012_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,2)];
       fluxes[C013_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,0,1,3)];
@@ -268,7 +281,7 @@ void computeFluxes(const struct fluidElement elem[ARRAY_ARGS 1],
       fluxes[C223_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,2,2,3)];
       fluxes[C233_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,2,3,3)];
       fluxes[C333_FLUX] = g*elem->moments[R_UP_UP_UP_UP(dir,3,3,3)];
-     
+
       fluxes[F0_ALPHA_FLUX] = 0.;
       fluxes[F0_A0_FLUX]    = 0.;
       fluxes[F0_A1_FLUX]    = 0.;
@@ -377,10 +390,23 @@ void computeSourceTerms(const struct fluidElement elem[ARRAY_ARGS 1],
     sourceTerms[B23_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_2(2,3)];
     sourceTerms[B33_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_2(3,3)];
 
-    sourceTerms[C000_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,0,0)];
-    sourceTerms[C001_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,0,1)];
-    sourceTerms[C002_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,0,2)];
-    sourceTerms[C003_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,0,3)];
+//    sourceTerms[C011_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,1,1)];
+//    sourceTerms[C012_FLUX] = 0.;
+//    sourceTerms[C013_FLUX] = 0.;
+//    sourceTerms[C022_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,2,2)];
+//    sourceTerms[C023_FLUX] = 0.;
+//    sourceTerms[C033_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,3,3)];
+//    sourceTerms[C111_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(1,1,1)];
+//    sourceTerms[C112_FLUX] = 0.;
+//    sourceTerms[C113_FLUX] = 0.;
+//    sourceTerms[C122_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(1,2,2)];
+//    sourceTerms[C123_FLUX] = 0.;
+//    sourceTerms[C133_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(1,3,3)];
+//    sourceTerms[C222_FLUX] = 0.;
+//    sourceTerms[C223_FLUX] = 0.;
+//    sourceTerms[C233_FLUX] = 0.;
+//    sourceTerms[C333_FLUX] = 0.;
+
     sourceTerms[C011_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,1,1)];
     sourceTerms[C012_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,1,2)];
     sourceTerms[C013_FLUX] = elem->collisionIntegrals[COLLISION_INTEGRAL_3(0,1,3)];

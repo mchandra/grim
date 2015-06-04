@@ -160,10 +160,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
             primVars0[B13] = 0.;
             primVars0[B23] = 0.;
             primVars0[B33] = 0.;
-            primVars0[C000] = 0.;
-            primVars0[C001] = 0.;
-            primVars0[C002] = 0.;
-            primVars0[C003] = 0.;
+
             primVars0[C011] = 0.;
             primVars0[C012] = 0.;
             primVars0[C013] = 0.;
@@ -190,10 +187,7 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
             deltaPrimVars[B13] = 0.;
             deltaPrimVars[B23] = 0.;
             deltaPrimVars[B33] = 0.;
-            deltaPrimVars[C000] = 0.;
-            deltaPrimVars[C001] = 0.;
-            deltaPrimVars[C002] = 0.;
-            deltaPrimVars[C003] = 0.;
+
             deltaPrimVars[C011] = 0.;
             deltaPrimVars[C012] = 0.;
             deltaPrimVars[C013] = 0.;
