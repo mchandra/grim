@@ -291,7 +291,7 @@
   
   #define COLLISION_INTEGRAL_2(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
   #define COLLISION_INTEGRAL_3(mu, nu, lambda) \
-    (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+    (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS + NDIM*NDIM)
 
 #endif /* Reaper moments */
 
