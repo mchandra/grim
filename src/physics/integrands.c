@@ -82,7 +82,7 @@ void fixedQuadIntegration(const struct fluidElement *elem,
           momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
         }
         
-        collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] = 0.;
+        collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
       #elif (REAPER_MOMENTS==35)
         for (int lambda=0; lambda<NDIM; lambda++)
         {
@@ -93,9 +93,10 @@ void fixedQuadIntegration(const struct fluidElement *elem,
             momentsInOrthTetrad[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 0.;
           }
 
-          collisionIntegrals[COLLISION_INTEGRAL(mu, nu, lambda)] = 0.;
+          collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] = 0.;
         }
         
+        collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
       #endif
     }
   }
@@ -152,22 +153,28 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                   weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
 
-              collisionIntegrals[COLLISION_INTEGRAL(mu, nu)] +=
+              collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] +=
                 weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
+
             #elif (REAPER_MOMENTS==35)
               for (int lambda=0; lambda<NDIM; lambda++)
               {
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
                   weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+
+                collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] += 
+                  weight * collisionOperator * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
+
                 for (int eta=0; eta<NDIM; eta++)
                 {
                   momentsInOrthTetrad[R_UP_UP_UP_UP(mu, nu, lambda, eta)] += 
                     weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda] * pUpHat[eta];
                 }
 
-                collisionIntegrals[COLLISION_INTEGRAL(mu, nu, lambda)] += 
-                  weight * collisionOperator * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
+
+              collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] +=
+                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
             #endif 
 
 	        }

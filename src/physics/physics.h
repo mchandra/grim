@@ -245,6 +245,7 @@
    * Both grim and reaper 5 moment scheme have the same number of components */
   #define NUM_ALL_COMPONENTS  (20)
   #define NUM_COLLISION_PARAMETERS    (0)
+
 #elif (REAPER_MOMENTS==15)
   /*   4  components of the number flux vector
    * + 16 components of the stress tensor
@@ -259,7 +260,7 @@
    * + 256 components of the rank 4 moment of f */
   #define NUM_ALL_COMPONENTS          (340)
   #define NUM_COLLISION_PARAMETERS    (5)
-  #define NUM_ALL_COLLISION_INTEGRALS (69) /* 5 parameters + 64 */
+  #define NUM_ALL_COLLISION_INTEGRALS (85) /* 5 parameters + 16 + 64 */
 #endif
 
 #define DELTA(mu, nu) (mu==nu ? 1 : 0)
@@ -270,18 +271,28 @@
 #define T_UP_UP(mu, nu)   (nu + NDIM*(mu) + NDIM)
 #define M_UP_UP_DOWN(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
 #define M_UP_UP_UP(mu, nu, lambda)   (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NDIM*NDIM + NDIM)
-#define R_UP_UP_UP_UP(mu, nu, lambda, eta)   ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
-                                          + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM \
-                                          + NDIM)
-#define R_UP_UP_UP_DOWN(mu, nu, lambda, eta) ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
-                                          + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM \
-                                          + NDIM)
+
+#define R_UP_UP_UP_UP(mu, nu, lambda, eta) \
+  ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
+        + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM + NDIM \
+  )
+
+#define R_UP_UP_UP_DOWN(mu, nu, lambda, eta) \
+  ( eta + NDIM*(lambda) + NDIM*NDIM*(nu) \
+        + NDIM*NDIM*NDIM*(mu) + NDIM*NDIM*NDIM + NDIM*NDIM + NDIM \
+  )
 
 /* Indices for elem.collisionIntegrals */
 #if (REAPER_MOMENTS==15)
-  #define COLLISION_INTEGRAL(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+
+  #define COLLISION_INTEGRAL_2(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+
 #elif (REAPER_MOMENTS==35)
-  #define COLLISION_INTEGRAL(mu, nu, lambda) (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+  
+  #define COLLISION_INTEGRAL_2(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+  #define COLLISION_INTEGRAL_3(mu, nu, lambda) \
+    (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS)
+
 #endif /* Reaper moments */
 
 /* Indices for the Christoffel symbols */
