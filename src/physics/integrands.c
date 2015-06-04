@@ -249,9 +249,11 @@ void fixedQuadIntegration(const struct fluidElement *elem,
             }
           }
         }
+
         for (int eta=0; eta<NDIM; eta++)
         {
           moments[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 0.;
+
           for (int alpha=0; alpha<NDIM; alpha++)
           {
             for (int beta=0; beta<NDIM; beta++)
@@ -324,6 +326,7 @@ void computefAndPUpHat
      * We define bScalar = b_{\hat{\mu} \hat{\nu}} p^{\hat{\mu} \hat{\nu}} */
 
     REAL bDownDown[NDIM][NDIM];
+    /* Note: b_{00} = 0 because it is a redundant variable */
     #if (GYROAVERAGING)
       bDownDown[0][0] = 0.;
       bDownDown[0][1] = elem->primVars[B01];
@@ -400,106 +403,103 @@ void computefAndPUpHat
 
     REAL bDownDown[NDIM][NDIM];
     REAL cDownDownDown[NDIM][NDIM][NDIM];
-    #if (GYROAVERAGING)
-      bDownDown[0][0] = 0.;
-      bDownDown[0][1] = elem->primVars[B01];
-      bDownDown[0][2] = elem->primVars[B02];
-      bDownDown[0][3] = elem->primVars[B02];
-      bDownDown[1][0] = elem->primVars[B01];
-      bDownDown[1][1] = elem->primVars[B11];
-      bDownDown[1][2] = elem->primVars[B12];
-      bDownDown[1][3] = elem->primVars[B12];
-      bDownDown[2][0] = elem->primVars[B02];
-      bDownDown[2][1] = elem->primVars[B12];
-      bDownDown[2][2] = elem->primVars[B22];
-      bDownDown[2][3] = elem->primVars[B22];
-      bDownDown[3][0] = elem->primVars[B02];
-      bDownDown[3][1] = elem->primVars[B12];
-      bDownDown[3][2] = elem->primVars[B22];
-      bDownDown[3][3] = elem->primVars[B22];
-    #else 
-      bDownDown[0][0] = 0.;
-      bDownDown[0][1] = elem->primVars[B01];
-      bDownDown[0][2] = elem->primVars[B02];
-      bDownDown[0][3] = elem->primVars[B03];
-      bDownDown[1][0] = elem->primVars[B01];
-      bDownDown[1][1] = elem->primVars[B11];
-      bDownDown[1][2] = elem->primVars[B12];
-      bDownDown[1][3] = elem->primVars[B13];
-      bDownDown[2][0] = elem->primVars[B02];
-      bDownDown[2][1] = elem->primVars[B12];
-      bDownDown[2][2] = elem->primVars[B22];
-      bDownDown[2][3] = elem->primVars[B23];
-      bDownDown[3][0] = elem->primVars[B03];
-      bDownDown[3][1] = elem->primVars[B13];
-      bDownDown[3][2] = elem->primVars[B23];
-      bDownDown[3][3] = elem->primVars[B33];
-      cDownDownDown[0][0][0] = 0.;
-      cDownDownDown[0][0][1] = elem->primVars[C001];
-      cDownDownDown[0][0][2] = elem->primVars[C002];
-      cDownDownDown[0][0][3] = elem->primVars[C003];
-      cDownDownDown[0][1][0] = elem->primVars[C001];
-      cDownDownDown[0][1][1] = elem->primVars[C011];
-      cDownDownDown[0][1][2] = elem->primVars[C012];
-      cDownDownDown[0][1][3] = elem->primVars[C013];
-      cDownDownDown[0][2][0] = elem->primVars[C002];
-      cDownDownDown[0][2][1] = elem->primVars[C012];
-      cDownDownDown[0][2][2] = elem->primVars[C022];
-      cDownDownDown[0][2][3] = elem->primVars[C023];
-      cDownDownDown[0][3][0] = elem->primVars[C003];
-      cDownDownDown[0][3][1] = elem->primVars[C013];
-      cDownDownDown[0][3][2] = elem->primVars[C023];
-      cDownDownDown[0][0][3] = elem->primVars[C003];
-      cDownDownDown[1][0][0] = elem->primVars[C001];
-      cDownDownDown[1][0][1] = elem->primVars[C011];
-      cDownDownDown[1][0][2] = elem->primVars[C012];
-      cDownDownDown[1][0][3] = elem->primVars[C013];
-      cDownDownDown[1][1][0] = elem->primVars[C011];
-      cDownDownDown[1][1][1] = elem->primVars[C111];
-      cDownDownDown[1][1][2] = elem->primVars[C112];
-      cDownDownDown[1][1][3] = elem->primVars[C113];
-      cDownDownDown[1][2][0] = elem->primVars[C012];
-      cDownDownDown[1][2][1] = elem->primVars[C112];
-      cDownDownDown[1][2][2] = elem->primVars[C122];
-      cDownDownDown[1][2][3] = elem->primVars[C123];
-      cDownDownDown[1][3][0] = elem->primVars[C013];
-      cDownDownDown[1][3][1] = elem->primVars[C113];
-      cDownDownDown[1][3][2] = elem->primVars[C123];
-      cDownDownDown[1][0][3] = elem->primVars[C013];
-      cDownDownDown[2][0][0] = elem->primVars[C002];
-      cDownDownDown[2][0][1] = elem->primVars[C012];
-      cDownDownDown[2][0][2] = elem->primVars[C022];
-      cDownDownDown[2][0][3] = elem->primVars[C023];
-      cDownDownDown[2][1][0] = elem->primVars[C012];
-      cDownDownDown[2][1][1] = elem->primVars[C112];
-      cDownDownDown[2][1][2] = elem->primVars[C122];
-      cDownDownDown[2][1][3] = elem->primVars[C123];
-      cDownDownDown[2][2][0] = elem->primVars[C022];
-      cDownDownDown[2][2][1] = elem->primVars[C122];
-      cDownDownDown[2][2][2] = elem->primVars[C222];
-      cDownDownDown[2][2][3] = elem->primVars[C223];
-      cDownDownDown[2][3][0] = elem->primVars[C023];
-      cDownDownDown[2][3][1] = elem->primVars[C123];
-      cDownDownDown[2][3][2] = elem->primVars[C223];
-      cDownDownDown[2][0][3] = elem->primVars[C023];
-      cDownDownDown[3][0][0] = elem->primVars[C003];
-      cDownDownDown[3][0][1] = elem->primVars[C013];
-      cDownDownDown[3][0][2] = elem->primVars[C023];
-      cDownDownDown[3][0][3] = elem->primVars[C033];
-      cDownDownDown[3][1][0] = elem->primVars[C013];
-      cDownDownDown[3][1][1] = elem->primVars[C113];
-      cDownDownDown[3][1][2] = elem->primVars[C123];
-      cDownDownDown[3][1][3] = elem->primVars[C133];
-      cDownDownDown[3][2][0] = elem->primVars[C023];
-      cDownDownDown[3][2][1] = elem->primVars[C123];
-      cDownDownDown[3][2][2] = elem->primVars[C223];
-      cDownDownDown[3][2][3] = elem->primVars[C233];
-      cDownDownDown[3][3][0] = elem->primVars[C033];
-      cDownDownDown[3][3][1] = elem->primVars[C133];
-      cDownDownDown[3][3][2] = elem->primVars[C233];
-      cDownDownDown[3][0][3] = elem->primVars[C033];
-    #endif
 
+    bDownDown[0][0] = 0.;
+    bDownDown[0][1] = elem->primVars[B01];
+    bDownDown[0][2] = elem->primVars[B02];
+    bDownDown[0][3] = elem->primVars[B03];
+    bDownDown[1][0] = elem->primVars[B01];
+    bDownDown[1][1] = elem->primVars[B11];
+    bDownDown[1][2] = elem->primVars[B12];
+    bDownDown[1][3] = elem->primVars[B13];
+    bDownDown[2][0] = elem->primVars[B02];
+    bDownDown[2][1] = elem->primVars[B12];
+    bDownDown[2][2] = elem->primVars[B22];
+    bDownDown[2][3] = elem->primVars[B23];
+    bDownDown[3][0] = elem->primVars[B03];
+    bDownDown[3][1] = elem->primVars[B13];
+    bDownDown[3][2] = elem->primVars[B23];
+    bDownDown[3][3] = elem->primVars[B33];
+
+    cDownDownDown[0][0][0] = elem->primVars[C000];
+    cDownDownDown[0][0][1] = elem->primVars[C001];
+    cDownDownDown[0][0][2] = elem->primVars[C002];
+    cDownDownDown[0][0][3] = elem->primVars[C003];
+    
+    cDownDownDown[0][1][0] = elem->primVars[C001];
+    cDownDownDown[0][1][1] = elem->primVars[C011];
+    cDownDownDown[0][1][2] = elem->primVars[C012];
+    cDownDownDown[0][1][3] = elem->primVars[C013];
+
+    cDownDownDown[0][2][0] = elem->primVars[C002];
+    cDownDownDown[0][2][1] = elem->primVars[C012];
+    cDownDownDown[0][2][2] = elem->primVars[C022];
+    cDownDownDown[0][2][3] = elem->primVars[C023];
+
+    cDownDownDown[0][3][0] = elem->primVars[C003];
+    cDownDownDown[0][3][1] = elem->primVars[C013];
+    cDownDownDown[0][3][2] = elem->primVars[C023];
+    cDownDownDown[0][3][3] = elem->primVars[C033];
+
+    cDownDownDown[1][0][0] = elem->primVars[C001];
+    cDownDownDown[1][0][1] = elem->primVars[C011];
+    cDownDownDown[1][0][2] = elem->primVars[C012];
+    cDownDownDown[1][0][3] = elem->primVars[C013];
+
+    cDownDownDown[1][1][0] = elem->primVars[C011];
+    cDownDownDown[1][1][1] = elem->primVars[C111];
+    cDownDownDown[1][1][2] = elem->primVars[C112];
+    cDownDownDown[1][1][3] = elem->primVars[C113];
+
+    cDownDownDown[1][2][0] = elem->primVars[C012];
+    cDownDownDown[1][2][1] = elem->primVars[C112];
+    cDownDownDown[1][2][2] = elem->primVars[C122];
+    cDownDownDown[1][2][3] = elem->primVars[C123];
+
+    cDownDownDown[1][3][0] = elem->primVars[C013];
+    cDownDownDown[1][3][1] = elem->primVars[C113];
+    cDownDownDown[1][3][2] = elem->primVars[C123];
+    cDownDownDown[1][3][3] = elem->primVars[C133];
+
+    cDownDownDown[2][0][0] = elem->primVars[C002];
+    cDownDownDown[2][0][1] = elem->primVars[C012];
+    cDownDownDown[2][0][2] = elem->primVars[C022];
+    cDownDownDown[2][0][3] = elem->primVars[C023];
+
+    cDownDownDown[2][1][0] = elem->primVars[C012];
+    cDownDownDown[2][1][1] = elem->primVars[C112];
+    cDownDownDown[2][1][2] = elem->primVars[C122];
+    cDownDownDown[2][1][3] = elem->primVars[C123];
+
+    cDownDownDown[2][2][0] = elem->primVars[C022];
+    cDownDownDown[2][2][1] = elem->primVars[C122];
+    cDownDownDown[2][2][2] = elem->primVars[C222];
+    cDownDownDown[2][2][3] = elem->primVars[C223];
+
+    cDownDownDown[2][3][0] = elem->primVars[C023];
+    cDownDownDown[2][3][1] = elem->primVars[C123];
+    cDownDownDown[2][3][2] = elem->primVars[C223];
+    cDownDownDown[2][3][3] = elem->primVars[C233];
+
+    cDownDownDown[3][0][0] = elem->primVars[C003];
+    cDownDownDown[3][0][1] = elem->primVars[C013];
+    cDownDownDown[3][0][2] = elem->primVars[C023];
+    cDownDownDown[3][0][3] = elem->primVars[C033];
+
+    cDownDownDown[3][1][0] = elem->primVars[C013];
+    cDownDownDown[3][1][1] = elem->primVars[C113];
+    cDownDownDown[3][1][2] = elem->primVars[C123];
+    cDownDownDown[3][1][3] = elem->primVars[C133];
+
+    cDownDownDown[3][2][0] = elem->primVars[C023];
+    cDownDownDown[3][2][1] = elem->primVars[C123];
+    cDownDownDown[3][2][2] = elem->primVars[C223];
+    cDownDownDown[3][2][3] = elem->primVars[C233];
+
+    cDownDownDown[3][3][0] = elem->primVars[C033];
+    cDownDownDown[3][3][1] = elem->primVars[C133];
+    cDownDownDown[3][3][2] = elem->primVars[C233];
+    cDownDownDown[3][3][3] = elem->primVars[C333];
 
     REAL bScalar = 0.;
     REAL cScalar = 0.;
@@ -509,6 +509,7 @@ void computefAndPUpHat
       for (int nu=0; nu<NDIM; nu++)
       {
         bScalar += bDownDown[mu][nu]*pUpHat[mu]*pUpHat[nu];
+
         for (int lambda=0; lambda<NDIM; lambda++)
         {
           cScalar += cDownDownDown[mu][nu][lambda]*pUpHat[mu]*pUpHat[nu]*pUpHat[lambda];
@@ -525,12 +526,6 @@ void computefAndPUpHat
                    + elem->primVars[F0_A3]*pUpHat[3]
                   );
 
-    REAL uUpHat[NDIM] = {1, 0, 0, 0};
-    REAL pDotU =  pDownHat[0]*uUpHat[0] + pDownHat[1]*uUpHat[1] 
-                + pDownHat[2]*uUpHat[2] + pDownHat[3]*uUpHat[3];
-
-    //REAL tau = 100.*(-tanh((pUpHat[0]- 10.)*1.) + 1.) + DT;
-    //REAL tau = exp(-(pUpHat[0] - 1.5));
     REAL tau = 1.;
 
     *collisionOperator = - pUpHat[0] * (*f - f0)/tau;

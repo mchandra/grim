@@ -152,6 +152,21 @@ void computeMoments(const struct geometry geom[ARRAY_ARGS 1],
                 moments[M_UP_UP_UP(mu, nu, lambda)];
         }
       #endif
+
+      #if (REAPER_MOMENTS==35)
+      	for (int lambda=0; lambda<NDIM; lambda++)
+      	{
+          elem->moments[M_UP_UP_UP(mu, nu, lambda)] = 
+                moments[M_UP_UP_UP(mu, nu, lambda)];
+      	  
+          for (int eta=0; eta<NDIM; eta++)
+      	  {
+            elem->moments[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 
+                  moments[R_UP_UP_UP_UP(mu, nu, lambda, eta)];
+          }
+        }
+      #endif
+
     }
   }
 #else

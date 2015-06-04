@@ -63,6 +63,7 @@ PetscErrorCode computeResidual(SNES snes,
   #endif
 
   #if (REAPER)
+    /* Required for diagnostics */
     ARRAY(momentsGlobal);
     DMDAVecGetArrayDOF(ts->momentsDM, ts->momentsVec, &momentsGlobal);
   #endif
@@ -205,6 +206,7 @@ PetscErrorCode computeResidual(SNES snes,
         computeFluxes(&elem, &geom, 0, conservedVars);
 
         #if (REAPER)
+          /* Store moments in global petsc var so that it can dumped to disk */
           for (int mu=0; mu<NDIM; mu++)
           {
             INDEX_PETSC(momentsGlobal, &zone, N_UP(mu)) = 
@@ -220,6 +222,20 @@ PetscErrorCode computeResidual(SNES snes,
               	{
                   INDEX_PETSC(momentsGlobal, &zone, M_UP_UP_UP(mu, nu, lambda)) =
                     elem.moments[M_UP_UP_UP(mu, nu, lambda)];
+                }
+              #endif
+              #if (REAPER_MOMENTS==35)
+              	for (int lambda=0; lambda<NDIM; lambda++)
+              	{
+                  INDEX_PETSC(momentsGlobal, &zone, M_UP_UP_UP(mu, nu, lambda)) =
+                    elem.moments[M_UP_UP_UP(mu, nu, lambda)];
+
+              	  for (int eta=0; eta<NDIM; eta++)
+                	{
+                    INDEX_PETSC(momentsGlobal, &zone, 
+                                R_UP_UP_UP_UP(mu, nu, lambda, eta)) =
+                      elem.moments[R_UP_UP_UP_UP(mu, nu, lambda, eta)];
+                  }
                 }
               #endif
             }
@@ -604,27 +620,6 @@ PetscErrorCode computeResidual(SNES snes,
          iTile, jTile, X1Start, X2Start, X1Size, X2Size,
          residualGlobal
         );
-
-//      LOOP_INSIDE_TILE(0, TILE_SIZE_X1, 0, TILE_SIZE_X2)
-//      {
-//        struct gridZone zone;
-//        setGridZone(iTile, jTile,
-//                    iInTile, jInTile,
-//                    X1Start, X2Start, 
-//                    X1Size, X2Size, 
-//                    &zone);
-//
-//        REAL XCoords[NDIM];
-//
-//        getXCoords(&zone, CENTER, XCoords);
-//        struct geometry geom; setGeometry(XCoords, &geom);
-//        struct fluidElement elem;
-//        setFluidElement(&INDEX_PETSC(primGlobal, &zone, 0), &geom, &elem);
-//
-//        INDEX_PETSC(residualGlobal, &zone, PHI) =
-//          elem.tau * INDEX_PETSC(residualGlobal, &zone, PHI);
-//
-//      }
     #endif
 
 

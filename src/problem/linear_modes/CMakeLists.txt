@@ -65,7 +65,7 @@ set(AMPLITUDE "1e-3")
 set(MODE      "ENTROPY_WAVE_1D")
 
 set(REAPER         "ON")
-set(REAPER_MOMENTS "35")
+set(REAPER_MOMENTS "15")
 set(GYROAVERAGING  "OFF")
 
 # Physics options set automatically by the choice of the mode being tested
