@@ -440,21 +440,37 @@ void addConductionSourceTermsToResidual
       REAL norm = g;
       #if (TIME_STEPPING == EXPLICIT)
 
-        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) += 
-          (- higherOrderTerm1 + 0.*higherOrderTerm2
-           + g*( elemCenter.primVars[PHI]
-                 - bDotq
-               )/elemCenter.tau
-          )/norm;
+//        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) += 
+//          (- higherOrderTerm1 + 0.*higherOrderTerm2
+//           + g*( elemCenter.primVars[PHI]
+//                 - bDotq
+//               )/elemCenter.tau
+//          )/norm;
+        
+        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) *= elemCenter.tau;
 
+        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) +=
+              (    (- higherOrderTerm1 + 0.*higherOrderTerm2)*elemCenter.tau
+               + g*( elemCenter.primVars[PHI] - bDotq
+                   )
+              )/norm;
       #elif (TIME_STEPPING == IMEX || TIME_STEPPING == IMPLICIT)
   
-        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) += 
-          (- higherOrderTerm1 + higherOrderTerm2
-           + g*( 0.5*(elem.primVars[PHI] + elemOld.primVars[PHI])
-                - bDotq
-               )/elemCenter.tau
-          )/norm;
+//        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) += 
+//          (- higherOrderTerm1 + higherOrderTerm2
+//           + g*( 0.5*(elem.primVars[PHI] + elemOld.primVars[PHI])
+//                - bDotq
+//               )/elemCenter.tau
+//          )/norm;
+
+        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) *= elemCenter.tau;
+
+        INDEX_PETSC(residualGlobal, &zoneCenter, PHI) +=
+              (    (- higherOrderTerm1 + higherOrderTerm2)*elemCenter.tau
+               + g*( 0.5*(elem.primVars[PHI] + elemOld.primVars[PHI])
+                    - bDotq
+                   )
+              )/norm;
 
       #endif
 

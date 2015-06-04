@@ -420,6 +420,15 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
       {
         AVectorTile[INDEX_TILE(&zone, 0)] = AVec;
       }
+      
+      /* Two loop initial magnetic field */
+      REAL XCoords[NDIM], xCoords[NDIM];
+      getXCoords(&zone, CENTER, XCoords);
+      XTox(XCoords, xCoords);
+
+      REAL theta = xCoords[2];
+      AVectorTile[INDEX_TILE(&zone, 0)] = 
+        cos(theta) * AVectorTile[INDEX_TILE(&zone, 0)];
     }
 
     LOOP_INSIDE_TILE(0, TILE_SIZE_X1, 0, TILE_SIZE_X2)
@@ -1022,21 +1031,31 @@ void setConductionParameters(const struct geometry geom[ARRAY_ARGS 1],
 
   REAL r = xCoords[1];
 
-  REAL P   = (ADIABATIC_INDEX-1.)*elem->primVars[UU];
-  REAL T   = P/elem->primVars[RHO];
+  REAL Rho = elem->primVars[RHO];
+  if(Rho<RHO_FLOOR_MIN)
+     Rho=RHO_FLOOR_MIN;
+  REAL U = elem->primVars[UU];
+  if(U<UU_FLOOR_MIN)
+     U = UU_FLOOR_MIN;
+
+  REAL P   = (ADIABATIC_INDEX-1.)*U;
   REAL cs  = sqrt(  (ADIABATIC_INDEX-1.)*P
-                  / (elem->primVars[RHO] + elem->primVars[UU])
+                  / (Rho + U)
                  );
 
-  REAL phiCeil = elem->primVars[RHO] * pow(cs, 3.);
+  REAL phiCeil = Rho * pow(cs, 3.);
 
   REAL tauDynamical = pow(r, 3./2.);
   REAL lambda       = 0.1;
-  REAL y            = elem->primVars[PHI]/phiCeil;
-  REAL fermiDirac   = 1./(exp((y-1.)/lambda) + 1.) + 1e-10;
+  //REAL y            = elem->primVars[PHI]/phiCeil;
+  //REAL fermiDirac   = 1./(exp((y-1.)/lambda) + 1.) + 1e-10;
+
+  REAL y = fabs(elem->primVars[PHI])/fabs(phiCeil);
+  y = (y-1)/lambda;
+  REAL fermiDirac = exp(-y)/(exp(-y) + 1.)+1.e-10;
     
   REAL tau    = tauDynamical*fermiDirac;
-  elem->kappa = 1e-5*cs*cs*tau*elem->primVars[RHO];
+  elem->kappa = 10.*cs*cs*tau*elem->primVars[RHO];
   elem->tau   = tau + 0.01; 
 
 //  elem->kappa = 0.2 * pow(r, 0.5) * fabs(elem->primVars[RHO]);
