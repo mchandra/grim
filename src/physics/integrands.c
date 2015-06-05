@@ -60,12 +60,15 @@ void fixedQuadIntegration(const struct fluidElement *elem,
          0.01601723};
 
   REAL momentsInOrthTetrad[NUM_ALL_COMPONENTS];
+
   #if (REAPER_MOMENTS == 15 || REAPER_MOMENTS == 35)
-    collisionIntegrals[0] = 0.;
-    collisionIntegrals[1] = 0.;
-    collisionIntegrals[2] = 0.;
-    collisionIntegrals[3] = 0.;
-    collisionIntegrals[4] = 0.;
+    REAL collisionIntegralsInOrthTetrad[NUM_ALL_COLLISION_INTEGRALS];
+
+    collisionIntegralsInOrthTetrad[0] = 0.;
+    collisionIntegralsInOrthTetrad[1] = 0.;
+    collisionIntegralsInOrthTetrad[2] = 0.;
+    collisionIntegralsInOrthTetrad[3] = 0.;
+    collisionIntegralsInOrthTetrad[4] = 0.;
   #endif
 
   for (int mu=0; mu<NDIM; mu++)
@@ -77,26 +80,30 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       momentsInOrthTetrad[T_UP_UP(mu, nu)] = 0.;
     
       #if (REAPER_MOMENTS==15)
+        
+        collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
+
         for (int lambda=0; lambda<NDIM; lambda++)
         {
           momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
         }
         
-        collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
       #elif (REAPER_MOMENTS==35)
+
+        collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
+
         for (int lambda=0; lambda<NDIM; lambda++)
         {
           momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+
+          collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_3(mu, nu, lambda)] = 0.;
           
           for (int eta=0; eta<NDIM; eta++)
           {
             momentsInOrthTetrad[R_UP_UP_UP_UP(mu, nu, lambda, eta)] = 0.;
           }
-
-          collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] = 0.;
         }
         
-        collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] = 0.;
       #endif
     }
   }
@@ -131,11 +138,13 @@ void fixedQuadIntegration(const struct fluidElement *elem,
         REAL weight =  weights[iQuad]*weights[jQuad]*weights[kQuad]
                      * jacobian/pUpHat[0]; 
         
-        collisionIntegrals[0] += weight * collisionOperator;
-        collisionIntegrals[1] += weight * collisionOperator * pUpHat[0];
-        collisionIntegrals[2] += weight * collisionOperator * pUpHat[1];
-        collisionIntegrals[3] += weight * collisionOperator * pUpHat[2];
-        collisionIntegrals[4] += weight * collisionOperator * pUpHat[3];  
+        #if (REAPER_MOMENTS == 15 || REAPER_MOMENTS == 35)
+        collisionIntegralsInOrthTetrad[0] += weight * collisionOperator;
+        collisionIntegralsInOrthTetrad[1] += weight * collisionOperator * pUpHat[0];
+        collisionIntegralsInOrthTetrad[2] += weight * collisionOperator * pUpHat[1];
+        collisionIntegralsInOrthTetrad[3] += weight * collisionOperator * pUpHat[2];
+        collisionIntegralsInOrthTetrad[4] += weight * collisionOperator * pUpHat[3];  
+        #endif
 
         for (int mu=0; mu<NDIM; mu++)
         {
@@ -147,22 +156,27 @@ void fixedQuadIntegration(const struct fluidElement *elem,
               weight * f * pUpHat[mu] * pUpHat[nu];
 
             #if (REAPER_MOMENTS == 15)
+
+              collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_2(mu, nu)] +=
+                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
+
               for (int lambda=0; lambda<NDIM; lambda++)
               {
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
                   weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
               }
 
-              collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] +=
+            #elif (REAPER_MOMENTS==35)
+
+              collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_2(mu, nu)] +=
                 weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
 
-            #elif (REAPER_MOMENTS==35)
               for (int lambda=0; lambda<NDIM; lambda++)
               {
                 momentsInOrthTetrad[M_UP_UP_UP(mu, nu, lambda)] += 
                   weight * f * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
 
-                collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] += 
+                collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_3(mu, nu, lambda)] += 
                   weight * collisionOperator * pUpHat[mu] * pUpHat[nu] * pUpHat[lambda];
 
                 for (int eta=0; eta<NDIM; eta++)
@@ -172,9 +186,6 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                 }
 
               }
-
-              collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] +=
-                weight * collisionOperator * pUpHat[mu] * pUpHat[nu];
             #endif 
 
 	        }
@@ -185,19 +196,32 @@ void fixedQuadIntegration(const struct fluidElement *elem,
   }
 
 
+  /* Integrals have all been performed in the tetrad frame. Now transform to the
+   * coordinate frame */
+
+  collisionIntegrals[0] = collisionIntegralsInOrthTetrad[0];
+
   for (int mu=0; mu<NDIM; mu++)
   {
     moments[N_UP(mu)] = 0;
+
+    collisionIntegrals[COLLISION_INTEGRAL_1(mu)] = 0;
 
     for (int alpha=0; alpha<NDIM; alpha++)
     {
       moments[N_UP(mu)] +=  momentsInOrthTetrad[N_UP(alpha)]
                           * elem->eDownHatUpNoHat[alpha][mu];
+
+      collisionIntegrals[COLLISION_INTEGRAL_1(mu)] +=
+          collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_1(alpha)]
+        * elem->eDownHatUpNoHat[alpha][mu];
     }
 
     for (int nu=0; nu<NDIM; nu++)
     {
       moments[T_UP_UP(mu, nu)] = 0.;
+
+      collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] = 0;
 
       for (int alpha=0; alpha<NDIM; alpha++)
       {
@@ -207,6 +231,11 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                               elem->eDownHatUpNoHat[alpha][mu]
                             * elem->eDownHatUpNoHat[beta][nu]
                             * momentsInOrthTetrad[T_UP_UP(alpha, beta)];
+
+          collisionIntegrals[COLLISION_INTEGRAL_2(mu, nu)] +=
+              elem->eDownHatUpNoHat[alpha][mu]
+            * elem->eDownHatUpNoHat[beta][nu]
+            * collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_2(alpha, beta)];
         }
       }
 
@@ -234,6 +263,8 @@ void fixedQuadIntegration(const struct fluidElement *elem,
       for (int lambda=0; lambda<NDIM; lambda++)
       {
         moments[M_UP_UP_UP(mu, nu, lambda)] = 0.;
+
+        collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] = 0;
         
         for (int alpha=0; alpha<NDIM; alpha++)
         {
@@ -246,6 +277,13 @@ void fixedQuadIntegration(const struct fluidElement *elem,
                            * elem->eDownHatUpNoHat[beta][nu]
                            * elem->eDownHatUpNoHat[gamma][lambda]
                            * momentsInOrthTetrad[M_UP_UP_UP(alpha, beta, gamma)];
+              
+            collisionIntegrals[COLLISION_INTEGRAL_3(mu, nu, lambda)] +=
+                elem->eDownHatUpNoHat[alpha][mu]
+              * elem->eDownHatUpNoHat[beta][nu]
+              * elem->eDownHatUpNoHat[gamma][lambda]
+              * collisionIntegralsInOrthTetrad[COLLISION_INTEGRAL_3(alpha, beta, gamma)];
+
             }
           }
         }

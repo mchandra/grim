@@ -277,10 +277,12 @@
 /* Indices for elem.collisionIntegrals */
 #if (REAPER_MOMENTS==15)
 
+  #define COLLISION_INTEGRAL_1(mu)     (mu + 1)
   #define COLLISION_INTEGRAL_2(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
 
 #elif (REAPER_MOMENTS==35)
   
+  #define COLLISION_INTEGRAL_1(mu)     (mu + 1)
   #define COLLISION_INTEGRAL_2(mu, nu) (nu + NDIM*(mu) + NUM_COLLISION_PARAMETERS)
   #define COLLISION_INTEGRAL_3(mu, nu, lambda) \
     (lambda + NDIM*(nu) + NDIM*NDIM*(mu) + NUM_COLLISION_PARAMETERS + NDIM*NDIM)
