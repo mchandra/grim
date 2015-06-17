@@ -574,35 +574,20 @@ PetscErrorCode computeResidual(SNES snes,
         {
           INDEX_PETSC(residualGlobal, &zone, var) = residual[var];
         }
-        INDEX_PETSC(residualGlobal, &zone, F0_ALPHA) = 
-          elem.collisionIntegrals[0];
-        INDEX_PETSC(residualGlobal, &zone, F0_A0) = 
-          elem.collisionIntegrals[1];
-        INDEX_PETSC(residualGlobal, &zone, F0_A1) = 
-          elem.collisionIntegrals[2];
-        INDEX_PETSC(residualGlobal, &zone, F0_A2) = 
-          elem.collisionIntegrals[3];
-        INDEX_PETSC(residualGlobal, &zone, F0_A3) = 
-          elem.collisionIntegrals[4];
+        #if (REAPER)
+          INDEX_PETSC(residualGlobal, &zone, F0_ALPHA) = 
+            elem.collisionIntegrals[0];
+          INDEX_PETSC(residualGlobal, &zone, F0_A0) = 
+            elem.collisionIntegrals[1];
+          INDEX_PETSC(residualGlobal, &zone, F0_A1) = 
+            elem.collisionIntegrals[2];
+          INDEX_PETSC(residualGlobal, &zone, F0_A2) = 
+            elem.collisionIntegrals[3];
+          INDEX_PETSC(residualGlobal, &zone, F0_A3) = 
+            elem.collisionIntegrals[4];
+        #endif
       #endif /* No GYROAVERAGING */
 
-      #if (REAPER_MOMENTS==35)
-        /* No GYROAVERAGING. NUM_FLUXES == DOF. Generic case. Easy peasy */
-        for (int var=0; var<DOF; var++)
-        {
-          INDEX_PETSC(residualGlobal, &zone, var) = residual[var];
-        }
-        INDEX_PETSC(residualGlobal, &zone, F0_ALPHA) = 
-          elem.collisionIntegrals[0];
-        INDEX_PETSC(residualGlobal, &zone, F0_A0) = 
-          elem.collisionIntegrals[1];
-        INDEX_PETSC(residualGlobal, &zone, F0_A1) = 
-          elem.collisionIntegrals[2];
-        INDEX_PETSC(residualGlobal, &zone, F0_A2) = 
-          elem.collisionIntegrals[3];
-        INDEX_PETSC(residualGlobal, &zone, F0_A3) = 
-          elem.collisionIntegrals[4];
-      #endif
     }
 
     #if (CONDUCTION)

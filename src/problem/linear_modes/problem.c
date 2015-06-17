@@ -219,9 +219,9 @@ void initialConditions(struct timeStepper ts[ARRAY_ARGS 1])
           REAL rho = rho0 + AMPLITUDE*creal(deltaRho*mode);
           REAL uu  = uu0  + AMPLITUDE*creal(deltaUU*mode);
           
-          REAL gammaApprox = 1.43210621832;
-          REAL temperature = (gammaApprox - 1.)*uu/rho;
-          //REAL temperature = 0.8642;
+          //REAL gammaApprox = 1.43210621832;
+          //REAL temperature = (gammaApprox - 1.)*uu/rho;
+          REAL temperature = 0.8642;
           //REAL gammaApprox = 1.530057;
           //REAL temperature = 0.2650286;
           
