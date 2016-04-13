@@ -154,6 +154,8 @@ coordinatesGrid::coordinatesGrid
 
 void coordinatesGrid::setXCoords(const int location)
 {
+  this->location = location;
+
   array indicesX1
     = af::range(N1Total, /* number of total zones in X1 */
                 N2Total, /* number of total zones in X2 */

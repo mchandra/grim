@@ -19,6 +19,7 @@ class geometry
                                   array& out
                                  );
   public:
+    int location;
     int N1, N2, N3, dim, numGhost;
 
     int metric;

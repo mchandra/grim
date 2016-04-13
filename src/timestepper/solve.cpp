@@ -21,14 +21,14 @@ void timeStepper::solve(grid &primGuess)
     computeResidual(primGuess, *residual, true, 
                     numReadsResidual, numWritesResidual
                    );
-    for (int var=0; var < vars::dof; var++)
+    for (int var=0; var < residual->numVars; var++)
     {
       /* Need residualSoA to compute norms */
       residualSoA(span, span, span, var) = residual->vars[var];
 
       /* Initialize primGuessPlusEps. Needed to numerically assemble the
        * Jacobian */
-      primGuessPlusEps->vars[var]        = primGuess.vars[var];
+      primGuessPlusEps->vars[var] = primGuess.vars[var];
     }
 
     /* Sum along last dim:vars to get L2 norm */
@@ -82,7 +82,7 @@ void timeStepper::solve(grid &primGuess)
 
     /* Assemble the Jacobian in Struct of Arrays format where the physics
      * operations are all vectorized */
-    for (int row=0; row < vars::dof; row++)
+    for (int row=0; row < numVars; row++)
     {
       /* Recommended value of Jacobian differencing parameter to achieve fp64
        * machine precision */
@@ -98,9 +98,9 @@ void timeStepper::solve(grid &primGuess)
                       numReadsResidual, numWritesResidual
                      );
 
-      for (int column=0; column < vars::dof; column++)
+      for (int column=0; column < numVars; column++)
       {
-        jacobianSoA(span, span, span, column + vars::dof*row)
+        jacobianSoA(span, span, span, column + numVars*row)
           = (  residualPlusEps->vars[column] 
              - residual->vars[column]
             )
@@ -133,7 +133,7 @@ void timeStepper::solve(grid &primGuess)
     /* Done with the solve. Now rearrange from AoS -> SoA */
     array deltaPrimSoA = af::reorder(deltaPrimAoS, 1, 2, 3, 0);
 
-    /* Quartic backtracking :
+    /* Quadratic backtracking :
      We minimize f(u+stepLength*du) = 0.5*sqr(residual[u+stepLength*du]).
      We use
        f0 = f(u)
@@ -155,7 +155,7 @@ void timeStepper::solve(grid &primGuess)
         )
     {
       /* 1) First take current step stepLength */
-      for (int var=0; var<vars::dof; var++)
+      for (int var=0; var<numVars; var++)
       {
         primGuessLineSearchTrial->vars[var] =  
           primGuess.vars[var] + stepLength*deltaPrimSoA(span, span, span, var);
@@ -165,7 +165,7 @@ void timeStepper::solve(grid &primGuess)
       computeResidual(*primGuessLineSearchTrial, *residual, true,
                       numReadsResidual, numWritesResidual
                      );
-      for (int var=0; var<vars::dof; var++)
+      for (int var=0; var<numVars; var++)
       {
         residualSoA(span, span, span, var) = residual->vars[var];
       }
@@ -197,7 +197,7 @@ void timeStepper::solve(grid &primGuess)
     }
 
     /* stepLength has now been set */
-    for (int var=0; var<vars::dof; var++)
+    for (int var=0; var<numVars; var++)
     {
       primGuess.vars[var] = 
         primGuess.vars[var] + stepLength*deltaPrimSoA(span, span, span, var);

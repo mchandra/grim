@@ -6,6 +6,7 @@ geometry::geometry(const int metric,
                    const coordinatesGrid &XCoordsGrid
                   )
 {
+  location  = XCoordsGrid.location;
   N1        = XCoordsGrid.N1;
   N2        = XCoordsGrid.N2;
   N3        = XCoordsGrid.N3;

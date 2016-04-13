@@ -1,6 +1,7 @@
 #include "physics.hpp"
 
 riemannSolver::riemannSolver(const grid &prim,
+                             const grid &magneticFields,
                              const geometry &geom
                             )
 {
@@ -12,28 +13,49 @@ riemannSolver::riemannSolver(const grid &prim,
   int dim      = prim.dim;
   int numVars  = prim.numVars;
 
-  fluxLeft  = new grid(N1, N2, N3, 
-                       dim, numVars, numGhost,
-                       false, false, false
-                      );
+  fluidFluxLeft  = new grid(N1, N2, N3, 
+                            dim, numVars, numGhost,
+                            false, false, false
+                           );
 
-  fluxRight = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       false, false, false
-                      );
+  fluidFluxRight = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            false, false, false
+                           );
 
-  consLeft  = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       false, false, false
-                      );
+  fluidConsLeft  = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            false, false, false
+                           );
 
-  consRight = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       false, false, false
-                      );
+  fluidConsRight = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            false, false, false
+                           );
+
+  magneticFluxLeft  = new grid(N1, N2, N3, 
+                               dim, 3, numGhost,
+                               false, false, false
+                              );
+
+  magneticFluxRight = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               false, false, false
+                              );
+
+  magneticConsLeft  = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               false, false, false
+                              );
+
+  magneticConsRight = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               false, false, false
+                              );
+
 
   int numReads, numWrites;
-  elemFace  = new fluidElement(prim, geom,
+  elemFace  = new fluidElement(prim, magneticFields, geom,
                                numReads, numWrites
                               );
 
@@ -46,8 +68,10 @@ riemannSolver::riemannSolver(const grid &prim,
 
 riemannSolver::~riemannSolver()
 {
-  delete fluxLeft, fluxRight;
-  delete consLeft, consRight;
+  delete fluidFluxLeft, fluidFluxRight;
+  delete fluidConsLeft, fluidConsRight;
+  delete magneticFluxLeft, magneticFluxRight;
+  delete magneticConsLeft, magneticConsRight;
   delete elemFace;
 }
 
@@ -203,71 +227,105 @@ void fluidElement::computeMinMaxCharSpeeds(const geometry &geom,
    * ------ */
 }
 
-void riemannSolver::solve(const grid &primLeft,
-                          const grid &primRight,
-                          const geometry &geomLeft,
-                          const geometry &geomRight,
-                          const int dir,
-                          grid &flux,
-                          int &numReads,
-                          int &numWrites
-                         )
+void computeShifts(const int dir,
+                   int &shiftX1, int &shiftX2, int &shiftX3
+                  )
 {
-  int shiftX1, shiftX2, shiftX3;
-  int fluxDirection;
   switch (dir)
   {
     case directions::X1:
-      fluxDirection = 1;
       shiftX1  = 1;
       shiftX2  = 0;
       shiftX3  = 0;
       break;
 
     case directions::X2:
-      fluxDirection = 2;
       shiftX1  = 0;
       shiftX2  = 1;
       shiftX3  = 0;
       break;
 
     case directions::X3:
-      fluxDirection = 3;
       shiftX1  = 0;
       shiftX2  = 0;
       shiftX3  = 1;
       break;
   }
+}
+
+void riemannSolver::solve(const grid &primLeft,
+                          const grid &primRight,
+                          const grid &magneticFieldsLeft,
+                          const grid &magneticFieldsRight,
+                          const geometry &geomLeft,
+                          const geometry &geomRight,
+                          const int dir,
+                          grid &fluidFluxes,
+                          grid &magneticFluxes,
+                          int &numReads,
+                          int &numWrites
+                         )
+{
+  int fluxDirection;
+  switch (dir)
+  {
+    case directions::X1:
+      fluxDirection = 1;
+      break;
+
+    case directions::X2:
+      fluxDirection = 2;
+      break;
+
+    case directions::X3:
+      fluxDirection = 3;
+      break;
+  }
+
+  int shiftX1, shiftX2, shiftX3;
+  computeShifts(dir, shiftX1, shiftX2, shiftX3);
 
   int numReadsElemSet, numWritesElemSet;
   int numReadsComputeFluxes, numWritesComputeFluxes;
   int numReadsCharSpeeds, numWritesCharSpeeds;
 
   /* Compute fluxes and cons at i+1/2 - eps : left flux on right face */
-  elemFace->set(primRight, geomRight,
+  elemFace->set(primRight, magneticFieldsRight, geomRight,
                 numReadsElemSet, numWritesElemSet
                );
-  elemFace->computeFluxes(geomRight, fluxDirection, *fluxLeft,
-                          numReadsComputeFluxes, numWritesComputeFluxes
-                         );
-  elemFace->computeFluxes(geomRight, 0,             *consLeft,
-                          numReadsComputeFluxes, numWritesComputeFluxes
-                         );
+  elemFace->computeFluidFluxes(geomRight, fluxDirection, *fluidFluxLeft,
+                               numReadsComputeFluxes, numWritesComputeFluxes
+                              );
+  elemFace->computeFluidFluxes(geomRight, 0,             *fluidConsLeft,
+                               numReadsComputeFluxes, numWritesComputeFluxes
+                              );
+  elemFace->computeMagneticFluxes(geomRight, fluxDirection, *magneticFluxLeft,
+                                  numReadsComputeFluxes, numWritesComputeFluxes
+                                 );
+  elemFace->computeMagneticFluxes(geomRight, 0,             *magneticConsLeft,
+                                  numReadsComputeFluxes, numWritesComputeFluxes
+                                 );
   elemFace->computeMinMaxCharSpeeds(geomRight, dir, 
                                     minSpeedLeft, maxSpeedLeft,
                                     numReadsCharSpeeds, numWritesCharSpeeds
                                    );
 
   /* Compute fluxes and cons at i-1/2 + eps : right flux on left face */
-  elemFace->set(primLeft, geomLeft,
+  elemFace->set(primLeft, magneticFieldsLeft, geomLeft,
                 numReadsElemSet, numWritesElemSet
                );
-  elemFace->computeFluxes(geomLeft, fluxDirection, *fluxRight,
-                          numReadsComputeFluxes, numWritesComputeFluxes
-                         );
-  elemFace->computeFluxes(geomLeft, 0,             *consRight,
-                          numReadsComputeFluxes, numWritesComputeFluxes
-                         );
+  elemFace->computeFluidFluxes(geomLeft, fluxDirection, *fluidFluxRight,
+                               numReadsComputeFluxes, numWritesComputeFluxes
+                              );
+  elemFace->computeFluidFluxes(geomLeft, 0,             *fluidConsRight,
+                               numReadsComputeFluxes, numWritesComputeFluxes
+                              );
+  elemFace->computeMagneticFluxes(geomLeft, fluxDirection, *magneticFluxRight,
+                                  numReadsComputeFluxes, numWritesComputeFluxes
+                                 );
+  elemFace->computeMagneticFluxes(geomLeft, 0,             *magneticConsRight,
+                                  numReadsComputeFluxes, numWritesComputeFluxes
+                                 );
   elemFace->computeMinMaxCharSpeeds(geomLeft, dir, 
                                     minSpeedRight, maxSpeedRight,
                                     numReadsCharSpeeds, numWritesCharSpeeds
@@ -295,33 +353,39 @@ void riemannSolver::solve(const grid &primLeft,
    * Writes: 0
    * ------ */
 
-  for (int var=0; var < primLeft.numVars; var++)
+  if (params::riemannSolver == riemannSolvers::HLL)
   {
-    if (params::riemannSolver == riemannSolvers::HLL)
-    {
-      flux.vars[var] = 
-        (   maxSpeedLeft * af::shift(fluxLeft->vars[var], shiftX1, shiftX2, shiftX3) 
-			    - minSpeedLeft * fluxRight->vars[var]
-			    + minSpeedLeft * maxSpeedLeft 
-			    * (  consRight->vars[var]
-			       - af::shift(consLeft->vars[var], shiftX1, shiftX2, shiftX3)
-			      )
-			  )/(maxSpeedLeft - minSpeedLeft);
-    }
-    else if (params::riemannSolver == riemannSolvers::LOCAL_LAX_FRIEDRICH)
-    {
-      flux.vars[var] =
-       0.5*(af::shift(fluxLeft->vars[var], shiftX1, shiftX2, shiftX3)
-	          + fluxRight->vars[var]
-	          - af::max(maxSpeedLeft,-minSpeedLeft)*
-     	      (  consRight->vars[var] 
-	           - af::shift(consLeft->vars[var], shiftX1, shiftX2, shiftX3)
-            )
-           );
-    }
+    HLLFluxFormula(minSpeedLeft, maxSpeedLeft,
+                   *fluidFluxLeft, *fluidFluxRight,
+                   *fluidConsLeft, *fluidConsRight,
+                   dir,
+                   fluidFluxes
+                  );
 
-    flux.vars[var].eval();
+    HLLFluxFormula(minSpeedLeft, maxSpeedLeft,
+                   *magneticFluxLeft, *magneticFluxRight,
+                   *magneticConsLeft, *magneticConsRight,
+                   dir,
+                   magneticFluxes
+                  );
   }
+  else if (params::riemannSolver == riemannSolvers::LOCAL_LAX_FRIEDRICH)
+  {
+    LLFFluxFormula(minSpeedLeft, maxSpeedLeft,
+                   *fluidFluxLeft, *fluidFluxRight,
+                   *fluidConsLeft, *fluidConsRight,
+                   dir,
+                   fluidFluxes
+                  );
+
+    LLFFluxFormula(minSpeedLeft, maxSpeedLeft,
+                   *magneticFluxLeft, *magneticFluxRight,
+                   *magneticConsLeft, *magneticConsRight,
+                   dir,
+                   magneticFluxes
+                  );
+  }
+
   /* Reads:
    * -----
    *  fluxLeft[var], fluxRight[var], consLeft[var], consRight[var] : 4*numVars
@@ -331,4 +395,56 @@ void riemannSolver::solve(const grid &primLeft,
    * flux[var] : numVars */
   numReads  += 4*primLeft.numVars;
   numWrites +=   primLeft.numVars;
+}
+
+void riemannSolver::HLLFluxFormula(const array &minSpeed,
+                                   const array &maxSpeed,
+                                   const grid &fluxLeft,
+                                   const grid &fluxRight,
+                                   const grid &consLeft,
+                                   const grid &consRight,
+                                   const int dir,
+                                   grid &flux
+                                  )
+{
+  int shiftX1, shiftX2, shiftX3;
+  computeShifts(dir, shiftX1, shiftX2, shiftX3);
+
+  for (int var=0; var < flux.numVars; var++)
+  {
+    flux.vars[var] = 
+      (   maxSpeed * af::shift(fluxLeft.vars[var], shiftX1, shiftX2, shiftX3) 
+		    - minSpeed * fluxRight.vars[var]
+		    + minSpeed * maxSpeed
+		    * (  consRight.vars[var]
+		       - af::shift(consLeft.vars[var], shiftX1, shiftX2, shiftX3)
+		      )
+		  )/(maxSpeed - minSpeed);
+  }
+}
+
+void riemannSolver::LLFFluxFormula(const array &minSpeed,
+                                   const array &maxSpeed,
+                                   const grid &fluxLeft,
+                                   const grid &fluxRight,
+                                   const grid &consLeft,
+                                   const grid &consRight,
+                                   const int dir,
+                                   grid &flux
+                                  )
+{
+  int shiftX1, shiftX2, shiftX3;
+  computeShifts(dir, shiftX1, shiftX2, shiftX3);
+
+  for (int var=0; var < flux.numVars; var++)
+  {
+    flux.vars[var] =
+     0.5*(af::shift(fluxLeft.vars[var], shiftX1, shiftX2, shiftX3)
+	        + fluxRight.vars[var]
+	        - af::max(maxSpeedLeft,-minSpeedLeft)*
+   	      (  consRight.vars[var] 
+	         - af::shift(consLeft.vars[var], shiftX1, shiftX2, shiftX3)
+          )
+         );
+  }
 }

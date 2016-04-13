@@ -11,25 +11,28 @@ void timeStepper::initialConditions(int &numReads, int &numWrites)
 
   primOld->vars[vars::RHO] = 25./(36.*M_PI);
   primOld->vars[vars::U]   = 5./(12.*M_PI*(params::adiabaticIndex - 1.));
-  //primOld->vars[vars::RHO] = 1. + af::exp(-r*r/0.01);
-  //primOld->vars[vars::U]  = 1./(params::adiabaticIndex - 1.);
+//  primOld->vars[vars::RHO] = 1. + af::exp(-r*r/0.01);
+//  primOld->vars[vars::U]  = 1./(params::adiabaticIndex - 1.);
 
   array v1 = -0.5*af::sin(2*M_PI*XCoords->vars[directions::X2]);
   array v2 =  0.5*af::sin(2*M_PI*XCoords->vars[directions::X1]);
-  //array v1 = 0.7 * elem->one;
-  //array v2 = 0.7 * elem->one;
-  array v3 =  0.*primOld->vars[vars::U3];
-  array gamma = 1./af::sqrt(1. - v1*v1 - v2*v2 - v3*v3);
+//  array v1 = 0.7 * elem->one;
+//  array v2 = 0.7 * elem->one;
+//  array v3 =  0.*primOld->vars[vars::U3];
+//  array gamma = 1./af::sqrt(1. - v1*v1 - v2*v2 - v3*v3);
 
   primOld->vars[vars::U1] = gamma*v1;
   primOld->vars[vars::U2] = gamma*v2;
-  primOld->vars[vars::U3] = gamma*v3;
+//  primOld->vars[vars::U3] = gamma*v3;
 
-  primOld->vars[vars::B1] = 
+  XCoords->setXCoords(locations::LEFT);
+  B1Left->vars[0] = 
     -1./sqrt(4*M_PI) * af::sin(2*M_PI*XCoords->vars[directions::X2]);
-  primOld->vars[vars::B2] = 
+
+  XCoords->setXCoords(locations::BOTTOM);
+  B2Bottom->vars[0] = 
     1./sqrt(4*M_PI) * af::sin(4*M_PI*XCoords->vars[directions::X1]);
-  primOld->vars[vars::B3] = 0.;
+  B3Back->vars[0] = 0.;
 
 }
 

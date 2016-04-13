@@ -19,15 +19,15 @@ project(grim)
 # Options for gcc:
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -O3 -g -fopenmp")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++11 -g -fopenmp")
-set(ARCH "CPU") # Choose CPU/OpenCL/CUDA
+set(ARCH "OpenCL") # Choose CPU/OpenCL/CUDA
 
 # Set custom install folders here
 # 
 # Configuration for SAVIO
-set(PETSC_DIR "/global/home/users/foucart/petsc_installation")
-set(YAML_ROOT_DIR "/global/home/users/manic/yaml-cpp/build")
-set(ArrayFire_ROOT_DIR "/global/scratch/manic/arrayfire/build_opencl_new/package")
-set(INTEL_MKL_ROOT_DIR "/global/software/sl-6.x86_64/modules/langs/intel/2016.1.150/mkl")
+#set(PETSC_DIR "/global/home/users/foucart/petsc_installation")
+#set(YAML_ROOT_DIR "/global/home/users/manic/yaml-cpp/build")
+#set(ArrayFire_ROOT_DIR "/global/scratch/manic/arrayfire/build_opencl_new/package")
+#set(INTEL_MKL_ROOT_DIR "/global/software/sl-6.x86_64/modules/langs/intel/2016.1.150/mkl")
 
 # Configuration for Stampede
 #set(PETSC_DIR "/work/03669/tg829690/petsc_installation")
@@ -35,13 +35,10 @@ set(INTEL_MKL_ROOT_DIR "/global/software/sl-6.x86_64/modules/langs/intel/2016.1.
 #set(ArrayFire_ROOT_DIR "/work/03669/tg829690/arrayfire/build/package")
 
 # Configuration for Deathstar
-#set(PETSC_DIR "/home/mani/Downloads/petsc_3.6.3_installation")
-#set(YAML_ROOT_DIR "/global/home/users/manic/yaml-cpp/build")
-#set(ArrayFire_ROOT_DIR "/home/mani/Downloads/arrayfire/build_gcc/package")
-#set(INTEL_MKL_ROOT_DIR "/opt/intel/mkl")
-
-# Double or float precision?
-set(REAL "double")
+set(PETSC_DIR "/home/mani/Downloads/petsc_3.6.3_installation")
+set(YAML_ROOT_DIR "/global/home/users/manic/yaml-cpp/build")
+set(ArrayFire_ROOT_DIR "/home/mani/Downloads/arrayfire/build_gcc/package")
+set(INTEL_MKL_ROOT_DIR "/opt/intel/mkl")
 
 # Choose the problem to be solved:
 #

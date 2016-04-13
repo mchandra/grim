@@ -1,6 +1,7 @@
 #include "physics.hpp"
 
 fluidElement::fluidElement(const grid &prim,
+                           const grid &magneticFields,
                            const geometry &geom,
                            int &numReads,
                            int &numWrites
@@ -33,26 +34,27 @@ fluidElement::fluidElement(const grid &prim,
     }
     
     deltaP0 = zero;
-    q0 = zero;
+    q0      = zero;
   }
 
-  set(prim, geom, numReads, numWrites);
+  set(prim, magneticFields, geom, numReads, numWrites);
 }
 
 void fluidElement::set(const grid &prim,
+                       const grid &magneticFields,
                        const geometry &geom,
                        int &numReads,
                        int &numWrites
                       )
 {
-  rho = af::max(prim.vars[vars::RHO],params::rhoFloorInFluidElement);
-  u   = af::max(prim.vars[vars::U  ],params::uFloorInFluidElement);
-  u1  = prim.vars[vars::U1 ];
-  u2  = prim.vars[vars::U2 ];
-  u3  = prim.vars[vars::U3 ];
-  B1  = prim.vars[vars::B1 ];
-  B2  = prim.vars[vars::B2 ];
-  B3  = prim.vars[vars::B3 ];
+  rho = af::max(prim.vars[vars::RHO], params::rhoFloorInFluidElement);
+  u   = af::max(prim.vars[vars::U  ], params::uFloorInFluidElement);
+  u1  = prim.vars[vars::U1];
+  u2  = prim.vars[vars::U2];
+  u3  = prim.vars[vars::U3];
+  B1  = magneticFields.vars[vars::B1];
+  B2  = magneticFields.vars[vars::B2];
+  B3  = magneticFields.vars[vars::B3];
 
   pressure    = (params::adiabaticIndex - 1.)*u;
   temperature = af::max(pressure/rho,params::temperatureFloorInFluidElement);
@@ -306,12 +308,58 @@ void fluidElement::set(const grid &prim,
   }
 }
 
-void fluidElement::computeFluxes(const geometry &geom, 
-                                 const int dir,
-                                 grid &flux,
-                                 int &numReads,
-                                 int &numWrites
-                                )
+void fluidElement::computeMagneticFluxes(const geometry &geom, 
+                                         const int dir,
+                                         grid &flux,
+                                         int &numReads,
+                                         int &numWrites
+                                        )
+{
+  array g = geom.g;
+
+  flux.vars[vars::B1]  = g*(bCon[1]*uCon[dir] - bCon[dir]*uCon[1]);
+  flux.vars[vars::B1].eval();
+  /* Reads:
+   * -----
+   * g, bCon[1], bCon[dir], uCon[1], uCon[dir] : 5
+   *
+   * Writes:
+   * ------
+   * flux[vars::B1] : 1 */
+  numReads  = 5;
+  numWrites = 1;
+
+  flux.vars[vars::B2]  = g*(bCon[2]*uCon[dir] - bCon[dir]*uCon[2]);
+  flux.vars[vars::B2].eval();
+  /* Reads:
+   * -----
+   * g, bCon[2], bCon[dir], uCon[2], uCon[dir] : 5
+   *
+   * Writes:
+   * ------
+   * flux[vars::B2] : 1 */
+  numReads  += 5;
+  numWrites += 1;
+
+  flux.vars[vars::B3]  = g*(bCon[3]*uCon[dir] - bCon[dir]*uCon[3]);
+  flux.vars[vars::B3].eval();
+  /* Reads:
+   * -----
+   * g, bCon[3], bCon[dir], uCon[3], uCon[dir] : 5
+   *
+   * Writes:
+   * ------
+   * flux[vars::B3] : 1 */
+  numReads  += 5;
+  numWrites += 1;
+}
+
+void fluidElement::computeFluidFluxes(const geometry &geom, 
+                                      const int dir,
+                                      grid &flux,
+                                      int &numReads,
+                                      int &numWrites
+                                      )
 {
   array g = geom.g;
 
@@ -364,36 +412,6 @@ void fluidElement::computeFluxes(const geometry &geom,
    * Writes:
    * ------
    * flux[vars::U3] : 1 */
-
-  flux.vars[vars::B1]  = g*(bCon[1]*uCon[dir] - bCon[dir]*uCon[1]);
-  flux.vars[vars::B1].eval();
-  /* Reads:
-   * -----
-   * g, bCon[1], bCon[dir], uCon[1], uCon[dir] : 5
-   *
-   * Writes:
-   * ------
-   * flux[vars::B1] : 1 */
-
-  flux.vars[vars::B2]  = g*(bCon[2]*uCon[dir] - bCon[dir]*uCon[2]);
-  flux.vars[vars::B2].eval();
-  /* Reads:
-   * -----
-   * g, bCon[2], bCon[dir], uCon[2], uCon[dir] : 5
-   *
-   * Writes:
-   * ------
-   * flux[vars::B2] : 1 */
-
-  flux.vars[vars::B3]  = g*(bCon[3]*uCon[dir] - bCon[dir]*uCon[3]);
-  flux.vars[vars::B3].eval();
-  /* Reads:
-   * -----
-   * g, bCon[3], bCon[dir], uCon[3], uCon[dir] : 5
-   *
-   * Writes:
-   * ------
-   * flux[vars::B3] : 1 */
 
   if (params::conduction)
   {

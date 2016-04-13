@@ -83,7 +83,7 @@ int main(int argc, char **argv)
   PetscPrintf(PETSC_COMM_WORLD, 
               "#### System info ####\n"
              );
-  if (rank==0)
+  //if (rank==0)
   {
     //af::setDevice(1);
     af::info();

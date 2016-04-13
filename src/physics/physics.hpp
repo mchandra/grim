@@ -40,22 +40,31 @@ class fluidElement
     array bNorm;
 
     fluidElement(const grid &prim,
+                 const grid &magneticFields,
                  const geometry &geom,
                  int &numReads,
                  int &numWrites
                 );
     void set(const grid &prim,
+             const grid &magneticFields,
              const geometry &geom,
              int &numReads,
              int &numWrites
             );
     void setFluidElementParameters(const geometry &geom);
-    void computeFluxes(const geometry &geom, 
-                       const int direction,
-                       grid &flux,
-                       int &numReads,
-                       int &numWrites
-                      );                                
+    void computeFluidFluxes(const geometry &geom, 
+                            const int direction,
+                            grid &flux,
+                            int &numReads,
+                            int &numWrites
+                           );                                
+
+    void computeMagneticFluxes(const geometry &geom, 
+                               const int dir,
+                               grid &flux,
+                               int &numReads,
+                               int &numWrites
+                              );
 
     void computeMinMaxCharSpeeds(const geometry &geom,
 			                           const int dir,
@@ -98,21 +107,49 @@ class riemannSolver
   public:
     fluidElement *elemFace;
 
-    grid *fluxLeft, *fluxRight;
-    grid *consLeft, *consRight;
+    grid *fluidFluxLeft, *fluidFluxRight;
+    grid *fluidConsLeft, *fluidConsRight;
+    grid *magneticFluxLeft, *magneticFluxRight;
+    grid *magneticConsLeft, *magneticConsRight;
 
     array minSpeedLeft,  maxSpeedLeft;
     array minSpeedRight, maxSpeedRight;
 
-    riemannSolver(const grid &prim, const geometry &geom);
+    riemannSolver(const grid &prim, 
+                  const grid &magneticFields,
+                  const geometry &geom
+                 );
     ~riemannSolver();
+
+    void HLLFluxFormula(const array &minSpeed,
+                        const array &maxSpeed,
+                        const grid &fluxLeft,
+                        const grid &fluxRight,
+                        const grid &consLeft,
+                        const grid &consRight,
+                        const int dir,
+                        grid &flux
+                       );
+
+    void LLFFluxFormula(const array &minSpeed,
+                        const array &maxSpeed,
+                        const grid &fluxLeft,
+                        const grid &fluxRight,
+                        const grid &consLeft,
+                        const grid &consRight,
+                        const int dir,
+                        grid &flux
+                       );
 
     void solve(const grid &primLeft,
                const grid &primRight,
+               const grid &magneticFieldsLeft,
+               const grid &magneticFieldsRight,
                const geometry &geomLeft,
                const geometry &geomRight,
                const int dir,
-               grid &flux,
+               grid &fluidFluxes,
+               grid &magneticFluxes,
                int &numReads,
                int &numWrites
               );

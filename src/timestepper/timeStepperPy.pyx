@@ -59,22 +59,29 @@ cdef class timeStepperPy(object):
     self.primHalfStep = \
         gridPy.createGridPyFromGridPtr(self.timeStepperPtr.primHalfStep)
 
-    self.fluxesX1 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluxesX1)
-    self.fluxesX2 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluxesX2)
-    self.fluxesX3 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluxesX3)
+    self.fluidFluxesX1 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluidFluxesX1)
+    self.fluidFluxesX2 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluidFluxesX2)
+    self.fluidFluxesX3 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.fluidFluxesX3)
+
+    self.magneticFluxesX1 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.magneticFluxesX1)
+    self.magneticFluxesX2 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.magneticFluxesX2)
+    self.magneticFluxesX3 = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.magneticFluxesX3)
 
     self.divFluxes = \
         gridPy.createGridPyFromGridPtr(self.timeStepperPtr.divFluxes)
 
-    self.emfX1 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.emfX1)
-    self.emfX2 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.emfX2)
-    self.emfX3 = \
-        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.emfX3)
+    self.E1BottomBack = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.E1BottomBack)
+    self.E2LeftBack = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.E2LeftBack)
+    self.E3LeftBottom = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.E3LeftBottom)
 
     self.sourcesExplicit = \
         gridPy.createGridPyFromGridPtr(self.timeStepperPtr.sourcesExplicit)
@@ -140,33 +147,33 @@ cdef class timeStepperPy(object):
     def __get__(self):
      return self.primHalfStep
 
-  property fluxesX1:
+  property fluidFluxesX1:
     def __get__(self):
-     return self.fluxesX1
+     return self.fluidFluxesX1
 
-  property fluxesX2:
+  property fluidFluxesX2:
     def __get__(self):
-     return self.fluxesX2
+     return self.fluidFluxesX2
 
-  property fluxesX3:
+  property fluidFluxesX3:
     def __get__(self):
-     return self.fluxesX3
+     return self.fluidFluxesX3
 
   property divFluxes:
     def __get__(self):
      return self.divFluxes
 
-  property emfX1:
+  property E1BottomBack:
     def __get__(self):
-     return self.emfX1
+     return self.E1BottomBack
 
-  property emfX2:
+  property E2LeftBack:
     def __get__(self):
-     return self.emfX2
+     return self.E2LeftBack
 
-  property emfX3:
+  property E3LeftBottom:
     def __get__(self):
-     return self.emfX3
+     return self.E3LeftBottom
 
   property sourcesExplicit:
     def __get__(self):
@@ -176,13 +183,6 @@ cdef class timeStepperPy(object):
     def __get__(self):
      return self.divB
 
-
-  def fluxCT(self):
-     cdef int numReads  = 0
-     cdef int numWrites = 0
-     self.timeStepperPtr.fluxCT(numReads, numWrites)
-     return numReads, numWrites
-
   def computeDivB(self, gridPy prim):
      cdef int numReads  = 0
      cdef int numWrites = 0
@@ -191,10 +191,10 @@ cdef class timeStepperPy(object):
                                     )
      return numReads, numWrites
 
-  def computeEMF(self):
+  def computeEdgeElectricFields(self):
      cdef int numReads  = 0
      cdef int numWrites = 0
-     self.timeStepperPtr.computeEMF(numReads, numWrites)
+     self.timeStepperPtr.computeEdgeElectricFields(numReads, numWrites)
      return numReads, numWrites
 
   def timeStep(self):

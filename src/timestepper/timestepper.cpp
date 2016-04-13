@@ -135,47 +135,47 @@ timeStepper::timeStepper(const int N1,
                        periodicBoundariesX3
                       );
 
-  fluxesX1  = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       periodicBoundariesX1,
-                       periodicBoundariesX2,
-                       periodicBoundariesX3
-                      );
+  fluidFluxesX1  = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            periodicBoundariesX1,
+                            periodicBoundariesX2,
+                            periodicBoundariesX3
+                           );
 
-  fluxesX2  = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       periodicBoundariesX1,
-                       periodicBoundariesX2,
-                       periodicBoundariesX3
-                      );
+  fluidFluxesX2  = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            periodicBoundariesX1,
+                            periodicBoundariesX2,
+                            periodicBoundariesX3
+                           );
 
-  fluxesX3  = new grid(N1, N2, N3,
-                       dim, numVars, numGhost,
-                       periodicBoundariesX1,
-                       periodicBoundariesX2,
-                       periodicBoundariesX3
-                      );
+  fluidFluxesX3  = new grid(N1, N2, N3,
+                            dim, numVars, numGhost,
+                            periodicBoundariesX1,
+                            periodicBoundariesX2,
+                            periodicBoundariesX3
+                           );
 
-  emfX1  = new grid(N1, N2, N3,
-                    dim, 1, numGhost,
-                    periodicBoundariesX1,
-                    periodicBoundariesX2,
-                    periodicBoundariesX3
-                   );
+  magneticFluxesX1  = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               periodicBoundariesX1,
+                               periodicBoundariesX2,
+                               periodicBoundariesX3
+                              );
 
-  emfX2  = new grid(N1, N2, N3,
-                    dim, 1, numGhost,
-                    periodicBoundariesX1,
-                    periodicBoundariesX2,
-                    periodicBoundariesX3
-                   );
+  magneticFluxesX2  = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               periodicBoundariesX1,
+                               periodicBoundariesX2,
+                               periodicBoundariesX3
+                              );
 
-  emfX3  = new grid(N1, N2, N3,
-                    dim, 1, numGhost,
-                    periodicBoundariesX1,
-                    periodicBoundariesX2,
-                    periodicBoundariesX3
-                   );
+  magneticFluxesX3  = new grid(N1, N2, N3,
+                               dim, 3, numGhost,
+                               periodicBoundariesX1,
+                               periodicBoundariesX2,
+                               periodicBoundariesX3
+                              );
 
   divFluxes = new grid(N1, N2, N3,
                        dim, numVars, numGhost,
@@ -190,6 +190,182 @@ timeStepper::timeStepper(const int N1,
                   periodicBoundariesX2,
                   periodicBoundariesX3
                  );
+
+  /* Primary magnetic field variables, indicated by their respective
+   * locations */
+  B1Left = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B2Bottom = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  B3Back = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  /* Cell centered magnetic fields, computed using interpolation from 
+   * face-centered fields */
+  B1Center = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  B2Center = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  B3Center = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  /* Reconstructed face-centered magnetic fields, computed using
+   * reconstruction of the cell-centered magnetic fields */
+  B1Bottom = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  B1Top = new grid(N1, N2, N3,
+                   dim, 1, numGhost,
+                   periodicBoundariesX1,
+                   periodicBoundariesX2,
+                   periodicBoundariesX3
+                  );
+
+  B1Back = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B1Front = new grid(N1, N2, N3,
+                     dim, 1, numGhost,
+                     periodicBoundariesX1,
+                     periodicBoundariesX2,
+                     periodicBoundariesX3
+                    );
+
+  B2Left = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B2Right = new grid(N1, N2, N3,
+                     dim, 1, numGhost,
+                     periodicBoundariesX1,
+                     periodicBoundariesX2,
+                     periodicBoundariesX3
+                    );
+
+  B2Back = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B2Front = new grid(N1, N2, N3,
+                     dim, 1, numGhost,
+                     periodicBoundariesX1,
+                     periodicBoundariesX2,
+                     periodicBoundariesX3
+                    );
+
+  B3Left = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B3Right = new grid(N1, N2, N3,
+                     dim, 1, numGhost,
+                     periodicBoundariesX1,
+                     periodicBoundariesX2,
+                     periodicBoundariesX3
+                    );
+
+  B3Bottom = new grid(N1, N2, N3,
+                      dim, 1, numGhost,
+                      periodicBoundariesX1,
+                      periodicBoundariesX2,
+                      periodicBoundariesX3
+                     );
+
+  B3Top = new grid(N1, N2, N3,
+                   dim, 1, numGhost,
+                   periodicBoundariesX1,
+                   periodicBoundariesX2,
+                   periodicBoundariesX3
+                  );
+
+  /* Primary electric field variables, indicated by their locations */
+  E1BottomBack  = new grid(N1, N2, N3,
+                           dim, 1, numGhost,
+                           periodicBoundariesX1,
+                           periodicBoundariesX2,
+                           periodicBoundariesX3
+                          );
+
+  E2LeftBack  = new grid(N1, N2, N3,
+                         dim, 1, numGhost,
+                         periodicBoundariesX1,
+                         periodicBoundariesX2,
+                         periodicBoundariesX3
+                        );
+
+  E3LeftBottom  = new grid(N1, N2, N3,
+                           dim, 1, numGhost,
+                           periodicBoundariesX1,
+                           periodicBoundariesX2,
+                           periodicBoundariesX3
+                          );
+
+  /* Auxiliary grids needed for inputs into the Riemann solver */
+  magneticFieldsLeft  = new grid(N1, N2, N3,
+                                 dim, 3, numGhost,
+                                 periodicBoundariesX1,
+                                 periodicBoundariesX2,
+                                 periodicBoundariesX3
+                                );
+
+  magneticFieldsRight  = new grid(N1, N2, N3,
+                                  dim, 3, numGhost,
+                                  periodicBoundariesX1,
+                                  periodicBoundariesX2,
+                                  periodicBoundariesX3
+                                 );
+
+  magneticFieldsCenter  = new grid(N1, N2, N3,
+                                   dim, 3, numGhost,
+                                   periodicBoundariesX1,
+                                   periodicBoundariesX2,
+                                   periodicBoundariesX3
+                                  );
 
   XCoords = new coordinatesGrid(N1, N2, N3,
                                 dim, numGhost,
@@ -235,19 +411,21 @@ timeStepper::timeStepper(const int N1,
   geomCenter->computeConnectionCoeffs();
   /* XCoords set to locations::CENTER */
 
-
   int numReads, numWrites;
-  elem          = new fluidElement(*prim, *geomCenter,
+  elem          = new fluidElement(*prim, *magneticFieldsCenter,
+                                   *geomCenter,
                                    numReads, numWrites
                                   ); /* n+1   */
-  elemOld       = new fluidElement(*primOld, *geomCenter,
+  elemOld       = new fluidElement(*primOld, *magneticFieldsCenter,
+                                   *geomCenter,
                                    numReads, numWrites
                                   ); /* n     */
-  elemHalfStep  = new fluidElement(*primHalfStep, *geomCenter,
+  elemHalfStep  = new fluidElement(*primHalfStep, *magneticFieldsCenter,
+                                   *geomCenter,
                                    numReads, numWrites
                                   ); /* n+1/2 */
 
-  riemann = new riemannSolver(*prim, *geomCenter);
+  riemann = new riemannSolver(*prim, *magneticFieldsCenter, *geomCenter);
 
   /* Data structures needed for the nonlinear solver */
   residual        = new grid(N1, N2, N3,
@@ -316,6 +494,9 @@ timeStepper::timeStepper(const int N1,
 
   int a,b;
   initialConditions(a,b);
+  XCoords->setXCoords(locations::CENTER);
+  /* Reset XCoords to CENTER in case it has been changed in initalConditions()
+   */
 }
 
 timeStepper::~timeStepper()
@@ -324,10 +505,19 @@ timeStepper::~timeStepper()
   delete cons, consOld;
   delete sourcesExplicit, sourcesImplicit, sourcesImplicitOld, sourcesTimeDer;
   delete primLeft, primRight;
-  delete fluxesX1, fluxesX2, fluxesX3;
+  delete fluidFluxesX1,    fluidFluxesX2,    fluidFluxesX3;
+  delete magneticFluxesX1, magneticFluxesX2, magneticFluxesX3;
   delete divFluxes;
   delete divB;
-  delete emfX1, emfX2, emfX3;
+
+  delete B1Left, B2Bottom, B3Back;
+  delete B1Center, B2Center, B3Center;
+  delete B1Bottom, B1Top,   B1Back,   B1Front;
+  delete B2Left,   B2Right, B2Back,   B2Front;
+  delete B3Left,   B3Right, B3Bottom, B3Top;
+  delete magneticFieldsLeft, magneticFieldsRight, magneticFieldsCenter;
+  delete E1BottomBack, E2LeftBack, E3LeftBottom;
+
   delete elem, elemOld, elemHalfStep;
   delete riemann;
   delete geomLeft, geomRight, geomBottom, geomTop, geomCenter;

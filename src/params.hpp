@@ -8,10 +8,15 @@ namespace vars
 {
   enum
   {
-    RHO, U, U1, U2, U3, B1, B2, B3
+    RHO, U, U1, U2, U3
   };
   extern int Q, DP;
   extern int dof;
+
+  enum
+  {
+    B1, B2, B3
+  };
 };
 
 namespace locations

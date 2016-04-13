@@ -67,6 +67,7 @@ class grid
 class coordinatesGrid : public grid
 {
   public:
+    int location;
     double X1Start, X1End;
     double X2Start, X2End;
     double X3Start, X3End;

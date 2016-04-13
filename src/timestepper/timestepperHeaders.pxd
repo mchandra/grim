@@ -30,14 +30,23 @@ cdef extern from "timestepper.hpp":
     grid *prim
     grid *primOld
     grid *primHalfStep
-    grid *fluxesX1
-    grid *fluxesX2
-    grid *fluxesX3
+    grid *fluidFluxesX1
+    grid *fluidFluxesX2
+    grid *fluidFluxesX3
+    grid *magneticFluxesX1
+    grid *magneticFluxesX2
+    grid *magneticFluxesX3
     grid *divFluxes
-    grid *emfX1
-    grid *emfX2
-    grid *emfX3
     grid *divB
+    grid *B1Left
+    grid *B2Bottom
+    grid *B3Back
+    grid *B1Center
+    grid *B2Center
+    grid *B3Center
+    grid *E1BottomBack
+    grid *E2LeftBack
+    grid *E3LeftBottom
     grid *cons
     grid *consOld
     grid *sourcesExplicit
@@ -57,8 +66,7 @@ cdef extern from "timestepper.hpp":
 
     void timeStep(int &numReads, int &numWrites)
 
-    void fluxCT(int &numReads, int &numWrites)
-    void computeEMF(int &numReadsEMF, int &numWritesEMF)
+    void computeEdgeElectricFields(int &numReads, int &numWrites)
     void computeDivB(const grid &prim,
                      int &numReads,
                      int &numWrites

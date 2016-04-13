@@ -13,6 +13,7 @@ from physicsHeaders cimport fluidElement
 cdef class fluidElementPy(object):
 
   def __cinit__(self, gridPy prim = gridPy(),
+                      gridPy magneticFields = gridPy(),
                       geometryPy geom = geometryPy()
                ):
     cdef int numReads  = 0
@@ -24,21 +25,22 @@ cdef class fluidElementPy(object):
       
     self.usingExternalPtr = 0
     self.elemPtr = new fluidElement(prim.getGridPtr()[0],
+                                    magneticFields.getGridPtr()[0],
                                     geom.getGeometryPtr()[0],
                                     numReads, numWrites
                                    )
 
-  def computeFluxes(self, geometryPy geom,
-                          const int direction,
-                          gridPy flux
-                   ):
+  def computeFluidFluxes(self, geometryPy geom,
+                         const int direction,
+                         gridPy flux
+                        ):
     cdef int numReads  = 0
     cdef int numWrites = 0
-    self.elemPtr.computeFluxes(geom.getGeometryPtr()[0],
-                               direction,
-                               flux.getGridPtr()[0],
-                               numReads, numWrites
-                              )
+    self.elemPtr.computeFluidFluxes(geom.getGeometryPtr()[0],
+                                    direction,
+                                    flux.getGridPtr()[0],
+                                    numReads, numWrites
+                                   )
     return numReads, numWrites
 
   def __dealloc__(self):

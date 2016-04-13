@@ -381,16 +381,16 @@ void timeStepper::initialConditions(int &numReads,int &numWrites)
   const array& g = geomCenter->g;
   const double dX1 = XCoords->dX1;
   const double dX2 = XCoords->dX2;
-  primOld->vars[vars::B1] = 
-    (af::shift(Avec,0,-1,0)-af::shift(Avec,0,0,0)
-     +af::shift(Avec,-1,-1,0)-af::shift(Avec,-1,0,0))/
-    (2.*dX2*g);
-  primOld->vars[vars::B2] = 
-    (af::shift(Avec,0,0,0)-af::shift(Avec,-1,0,0)
-     +af::shift(Avec,0,-1,0)-af::shift(Avec,-1,-1,0))/
-    (2.*dX1*g);
-  primOld->vars[vars::B1].eval();
-  primOld->vars[vars::B2].eval();
+//  primOld->vars[vars::B1] = 
+//    (af::shift(Avec,0,-1,0)-af::shift(Avec,0,0,0)
+//     +af::shift(Avec,-1,-1,0)-af::shift(Avec,-1,0,0))/
+//    (2.*dX2*g);
+//  primOld->vars[vars::B2] = 
+//    (af::shift(Avec,0,0,0)-af::shift(Avec,-1,0,0)
+//     +af::shift(Avec,0,-1,0)-af::shift(Avec,-1,-1,0))/
+//    (2.*dX1*g);
+//  primOld->vars[vars::B1].eval();
+//  primOld->vars[vars::B2].eval();
 
   // Set fields to zero in ghost zones
   // (Communication below only sets fields to correct value in inner GZ,

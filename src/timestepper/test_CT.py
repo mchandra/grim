@@ -51,8 +51,8 @@ boundaryBack   = boundaryPy.PERIODIC
 
 
 time = 0.
-dt   = 0.002
-numVars = 8
+dt   = 0.0005
+numVars = 5
 #metric = geometryPy.MODIFIED_KERR_SCHILD
 metric = geometryPy.MINKOWSKI
 ts = timeStepperPy.timeStepperPy(N1, N2, N3,
@@ -95,25 +95,26 @@ ts = timeStepperPy.timeStepperPy(N1, N2, N3,
 #          )
 
 
-for n in xrange(1000):
+for n in xrange(4000):
   print "Time step = ", n
   ts.timeStep()
   ts.computeDivB(ts.primHalfStep)
-  print "Div B primHalfStep = ", \
+  if (n%10 == 0):
+    print "Div B primHalfStep = ", \
     np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost,
-                                          numGhost:N1+numGhost]
-                 )
-          )
-  ts.computeDivB(ts.primOld)
-  print "Div B primOld = ", \
-    np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost, numGhost:N1+numGhost]))
+                                              numGhost:N1+numGhost]
+                     )
+              )
+    ts.computeDivB(ts.primOld)
+    print "Div B primOld = ", \
+        np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost, numGhost:N1+numGhost]))
+  
+    pl.contourf(np.log10(np.abs(ts.divB.getVars()[0, 0,numGhost:N2+numGhost,
+                                            numGhost:N1+numGhost])), 100)
+    pl.colorbar()
+    pl.savefig("divB_" + str(n) + ".png")
+    pl.clf()
 
-  pl.contourf(np.log10(np.abs(ts.divB.getVars()[0, 0,numGhost:N2+numGhost,
-                                                numGhost:N1+numGhost])), 100)
-  pl.colorbar()
-  pl.savefig("divB_" + str(n) + ".png")
-  pl.clf()
-
-  pl.contourf(ts.primOld.getVars()[0, 0, :, :], 100)
-  pl.savefig("rho_" + str(n) + ".png")
-  pl.clf()
+    pl.contourf(ts.primOld.getVars()[0, 0, :, :], 100)
+    pl.savefig("rho_" + str(n) + ".png")
+    pl.clf()

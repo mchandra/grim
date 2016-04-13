@@ -55,10 +55,31 @@ class timeStepper
     grid *sourcesImplicitOld;
     grid *sourcesTimeDer;
     grid *primLeft, *primRight;
-    grid *fluxesX1, *fluxesX2, *fluxesX3;
-    grid *emfX1, *emfX2, *emfX3;
+    grid *fluidFluxesX1,    *fluidFluxesX2,    *fluidFluxesX3;
+    grid *magneticFluxesX1, *magneticFluxesX2, *magneticFluxesX3;
+
     grid *divFluxes;
     grid *divB;
+    /* Primary magnetic field variables, indicated by their respective
+     * locations */
+    grid *B1Left,   *B2Bottom, *B3Back;
+    
+    /* Cell centered magnetic fields, computed using interpolation from 
+     * face-centered fields */
+    grid *B1Center, *B2Center, *B3Center;
+
+    /* Reconstructed face-centered magnetic fields, computed using
+     * reconstruction of the cell-centered magnetic fields */
+    grid *B1Bottom, *B1Top,   *B1Back,   *B1Front;
+    grid *B2Left,   *B2Right, *B2Back,   *B2Front;
+    grid *B3Left,   *B3Right, *B3Bottom, *B3Top;
+
+    /* Primary electric field variables, indicated by their locations */
+    grid *E1BottomBack, *E2LeftBack, *E3LeftBottom;
+
+    /* Auxiliary grids needed for inputs into the Riemann solver */
+    grid *magneticFieldsLeft, *magneticFieldsRight;
+    grid *magneticFieldsCenter;
 
     geometry *geomLeft,   *geomRight;
     geometry *geomBottom, *geomTop;
@@ -67,6 +88,13 @@ class timeStepper
     fluidElement *elem, *elemOld, *elemHalfStep;
 
     riemannSolver *riemann;
+
+    void computeCellCenteredMagneticFields(int &numReads,
+                                           int &numWrites
+                                          );
+    void computeEdgeElectricFields(int &numReads,
+                                   int &numWrites
+                                  );
 
     void computeDivOfFluxes(const grid &prim,
                             int &numReads, int &numWrites
@@ -95,6 +123,10 @@ class timeStepper
     ~timeStepper();
 
     void timeStep(int &numReads, int &numWrites);
+    void timeStepBFields(const double dt,
+                         int &numReads,
+                         int &numWrites
+                        );
 
     void fluxCT(int &numReads, int &numWrites);
     void computeEMF(int &numReadsEMF, int &numWritesEMF);

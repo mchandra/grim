@@ -10,10 +10,13 @@ void timeStepper::computeResidual(const grid &primGuess,
   numReads = 0; numWrites = 0;
   int numReadsElemSet, numWritesElemSet;
   int numReadsComputeFluxes, numWritesComputeFluxes;
-  elem->set(primGuess, *geomCenter, numReadsElemSet, numWritesElemSet);
-  elem->computeFluxes(*geomCenter, 0, *cons, 
-                      numReadsComputeFluxes, numWritesComputeFluxes
-                     );
+  elem->set(primGuess, *magneticFieldsCenter, *geomCenter,
+            numReadsElemSet, numWritesElemSet
+           );
+  elem->computeFluidFluxes(*geomCenter, 0, *cons,
+                           numReadsComputeFluxes,
+                           numWritesComputeFluxes
+                          );
   numReads  += numReadsElemSet  + numReadsComputeFluxes;
   numWrites += numWritesElemSet + numWritesComputeFluxes;
 
@@ -31,7 +34,7 @@ void timeStepper::computeResidual(const grid &primGuess,
     }
     else
     {
-      for (int var=0; var<vars::dof; var++)
+      for (int var=0; var < numVars; var++)
       {
 	      sourcesExplicit->vars[var] = 0.;
       }
@@ -68,7 +71,6 @@ void timeStepper::computeResidual(const grid &primGuess,
   	  + 0.5*(sourcesImplicitOld->vars[var] + sourcesImplicit->vars[var])
 	    + sourcesTimeDer->vars[var];
     }
-
     /* Reads:
      * -----
      *  cons[var], consOld[var], divFluxes[var]       : 3*numVars
@@ -133,7 +135,7 @@ void timeStepper::computeResidual(const grid &primGuess,
     }
     else
     {
-      for (int var=0; var<vars::dof; var++)
+      for (int var=0; var < numVars; var++)
       {
 	      sourcesExplicit->vars[var]=0.;
       }
@@ -161,7 +163,7 @@ void timeStepper::computeResidual(const grid &primGuess,
     numReads  += 2*numReadsImplicitSources  + numReadsTimeDerivSources;
     numWrites += 2*numWritesImplicitSources + numWritesTimeDerivSources; 
 
-    for (int var=0; var<vars::dof; var++)
+    for (int var=0; var<numVars; var++)
     {
       residualGuess.vars[var] = 
         (cons->vars[var] - consOld->vars[var])/dt

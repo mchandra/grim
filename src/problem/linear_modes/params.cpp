@@ -14,7 +14,7 @@ namespace params
   int N2 = 64;
   int N3 = 64;
 
-  int dim = 3;
+  int dim = 2;
   int numGhost = 3;
 
   int timeStepper = timeStepping::EXPLICIT;

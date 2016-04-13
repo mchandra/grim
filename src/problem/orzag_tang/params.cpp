@@ -3,8 +3,8 @@
 
 namespace params
 {
-  int N1 = 256;
-  int N2 = 256;
+  int N1 = 128;
+  int N2 = 128;
   int N3 = 1;
   int dim = 2;
   int numGhost = 3;
@@ -69,7 +69,7 @@ namespace params
   int reconstruction = reconstructionOptions::MINMOD;
   int riemannSolver  = riemannSolvers::LOCAL_LAX_FRIEDRICH;
 
-  int maxNonLinearIter = 5;
+  int maxNonLinearIter = 3;
   int maxLineSearchIters = 3;
 
   //Parameters controlling accuracy of nonlinear solver
@@ -84,8 +84,8 @@ namespace params
 
 namespace vars
 {
-  int dof = 8+params::conduction+params::viscosity;
-  int Q = 8;
-  int DP = 9;
+  int dof = 5+params::conduction+params::viscosity;
+  int Q = 5;
+  int DP = 6;
 };
 
