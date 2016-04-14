@@ -214,6 +214,48 @@ timeStepper::timeStepper(const int N1,
                     periodicBoundariesX3
                    );
 
+  B1LeftHalfStep = new grid(N1, N2, N3,
+                    dim, 1, numGhost,
+                    periodicBoundariesX1,
+                    periodicBoundariesX2,
+                    periodicBoundariesX3
+                   );
+
+  B2BottomHalfStep = new grid(N1, N2, N3,
+                              dim, 1, numGhost,
+                              periodicBoundariesX1,
+                              periodicBoundariesX2,
+                              periodicBoundariesX3
+                             );
+
+  B3BackHalfStep = new grid(N1, N2, N3,
+                            dim, 1, numGhost,
+                            periodicBoundariesX1,
+                            periodicBoundariesX2,
+                            periodicBoundariesX3
+                           );
+
+  B1LeftOld = new grid(N1, N2, N3,
+                       dim, 1, numGhost,
+                       periodicBoundariesX1,
+                       periodicBoundariesX2,
+                       periodicBoundariesX3
+                      );
+
+  B2BottomOld = new grid(N1, N2, N3,
+                         dim, 1, numGhost,
+                         periodicBoundariesX1,
+                         periodicBoundariesX2,
+                         periodicBoundariesX3
+                        );
+
+  B3BackOld = new grid(N1, N2, N3,
+                       dim, 1, numGhost,
+                       periodicBoundariesX1,
+                       periodicBoundariesX2,
+                       periodicBoundariesX3
+                      );
+
   /* Cell centered magnetic fields, computed using interpolation from 
    * face-centered fields */
   B1Center = new grid(N1, N2, N3,
@@ -510,7 +552,10 @@ timeStepper::~timeStepper()
   delete divFluxes;
   delete divB;
 
-  delete B1Left, B2Bottom, B3Back;
+  delete B1Left,         B2Bottom,         B3Back;
+  delete B1LeftHalfStep, B2BottomHalfStep, B3BackHalfStep;
+  delete B1LeftOld,      B2BottomOld,      B3BackOld;
+
   delete B1Center, B2Center, B3Center;
   delete B1Bottom, B1Top,   B1Back,   B1Front;
   delete B2Left,   B2Right, B2Back,   B2Front;

@@ -13,6 +13,9 @@ cdef class timeStepperPy(object):
   cdef geometryPy geomTop, geomBottom
   cdef geometryPy geomFront, geomBack
   cdef gridPy prim, primOld, primHalfStep
+  cdef gridPy B1Left, B2Bottom, B3Back
+  cdef gridPy B1LeftHalfStep, B2BottomHalfStep, B3BackHalfStep
+  cdef gridPy B1LeftOld, B2BottomOld, B3BackOld
   cdef gridPy fluidFluxesX1,    fluidFluxesX2, fluidFluxesX3
   cdef gridPy magneticFluxesX1, magneticFluxesX2, magneticFluxesX3
   cdef gridPy divFluxes

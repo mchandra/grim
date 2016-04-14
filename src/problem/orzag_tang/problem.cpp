@@ -26,13 +26,13 @@ void timeStepper::initialConditions(int &numReads, int &numWrites)
 //  primOld->vars[vars::U3] = gamma*v3;
 
   XCoords->setXCoords(locations::LEFT);
-  B1Left->vars[0] = 
+  B1LeftOld->vars[0] = 
     -1./sqrt(4*M_PI) * af::sin(2*M_PI*XCoords->vars[directions::X2]);
 
   XCoords->setXCoords(locations::BOTTOM);
-  B2Bottom->vars[0] = 
+  B2BottomOld->vars[0] = 
     1./sqrt(4*M_PI) * af::sin(4*M_PI*XCoords->vars[directions::X1]);
-  B3Back->vars[0] = 0.;
+  B3BackOld->vars[0] = 0.;
 
 }
 

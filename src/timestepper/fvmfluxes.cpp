@@ -1,6 +1,9 @@
 #include "timestepper.hpp"
 
 void timeStepper::computeDivOfFluxes(const grid &primFlux,
+                                     const grid &B1Left,
+                                     const grid &B2Bottom,
+                                     const grid &B3Back,
                                      int &numReads,
                                      int &numWrites
                                     )
@@ -9,8 +12,8 @@ void timeStepper::computeDivOfFluxes(const grid &primFlux,
   int numReadsRiemann, numWritesRiemann;
   int numReadsCT, numWritesCT;
 
-  /* 1) Compute cell-centered B-fields */
-  computeCellCenteredMagneticFields(numReads, numWrites);
+  /* 1) Compute cell-centered B-fields : already done in timeStep(), before this
+   * function has been invoked. TODO: do this in a cleaner way*/
 
   /*---- directions::X1 ----*/
   /* 2) Reconstuct fluid variables from cell-averages to i-1/2+eps and
@@ -45,12 +48,12 @@ void timeStepper::computeDivOfFluxes(const grid &primFlux,
    * magnetic fields. Note that we don't need to reconstruct B1 along X1
    * since it lives on the left faces : just shift to get the right face
    * values */
-  magneticFieldsLeft->vars[vars::B1] = B1Left->vars[0];
+  magneticFieldsLeft->vars[vars::B1] = B1Left.vars[0];
   magneticFieldsLeft->vars[vars::B2] = B2Left->vars[0];
   magneticFieldsLeft->vars[vars::B3] = B3Left->vars[0];
 
   magneticFieldsRight->vars[vars::B1] = 
-    shift(B1Left->vars[0], -1, 0, 0);
+    shift(B1Left.vars[0], -1, 0, 0);
   magneticFieldsRight->vars[vars::B2] = B2Right->vars[0];
   magneticFieldsRight->vars[vars::B3] = B3Right->vars[0];
 
@@ -102,12 +105,12 @@ void timeStepper::computeDivOfFluxes(const grid &primFlux,
      * since it lives on the bottom faces : just shift to get the top face
      * values */
     magneticFieldsLeft->vars[vars::B1] = B1Bottom->vars[0];
-    magneticFieldsLeft->vars[vars::B2] = B2Bottom->vars[0];
+    magneticFieldsLeft->vars[vars::B2] = B2Bottom.vars[0];
     magneticFieldsLeft->vars[vars::B3] = B3Bottom->vars[0];
 
     magneticFieldsRight->vars[vars::B1] = B1Top->vars[0];
     magneticFieldsRight->vars[vars::B2] =
-      af::shift(B2Bottom->vars[0], 0, -1, 0);
+      shift(B2Bottom.vars[0], 0, -1, 0);
     magneticFieldsRight->vars[vars::B3] = B3Top->vars[0];
 
     /* 11) Finally, solve the Riemann problem. Inputs are values of prim, geom
@@ -159,12 +162,12 @@ void timeStepper::computeDivOfFluxes(const grid &primFlux,
        * values */
       magneticFieldsLeft->vars[vars::B1] = B1Back->vars[0];
       magneticFieldsLeft->vars[vars::B2] = B2Back->vars[0];
-      magneticFieldsLeft->vars[vars::B3] = B3Back->vars[0];
+      magneticFieldsLeft->vars[vars::B3] = B3Back.vars[0];
 
       magneticFieldsRight->vars[vars::B1] = B1Front->vars[0];
       magneticFieldsRight->vars[vars::B2] = B2Front->vars[0];
       magneticFieldsRight->vars[vars::B3] =
-        shift(B3Back->vars[0], 0, 0, -1);
+        shift(B3Back.vars[0], 0, 0, -1);
 
       /* 11) Finally, solve the Riemann problem. Inputs are values of prim, geom
        * and the magnetic fields at k-1/2+eps and k+1/2-eps */
@@ -179,7 +182,7 @@ void timeStepper::computeDivOfFluxes(const grid &primFlux,
       numWrites += numWritesRiemann;
     }
 
-    /* 12) Constrained transport : Compute electric fields at the corners
+    /* 12) Constrained transport : Compute electric fields at the edges
      */
     computeEdgeElectricFields(numReadsCT, numWritesCT);
     numReads  += numReadsCT;

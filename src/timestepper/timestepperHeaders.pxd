@@ -41,6 +41,12 @@ cdef extern from "timestepper.hpp":
     grid *B1Left
     grid *B2Bottom
     grid *B3Back
+    grid *B1LeftHalfStep
+    grid *B2BottomHalfStep
+    grid *B3BackHalfStep
+    grid *B1LeftOld
+    grid *B2BottomOld
+    grid *B3BackOld
     grid *B1Center
     grid *B2Center
     grid *B3Center
@@ -67,11 +73,17 @@ cdef extern from "timestepper.hpp":
     void timeStep(int &numReads, int &numWrites)
 
     void computeEdgeElectricFields(int &numReads, int &numWrites)
-    void computeDivB(const grid &prim,
+    void computeDivOfFluxes(const grid &primFlux,
+                            const grid &B1Left,
+                            const grid &B2Bottom,
+                            const grid &B3Back,
+                            int &numReads,
+                            int &numWrites
+                           );
+    void computeDivB(const grid &B1Left,
+                     const grid &B2Bottom,
+                     const grid &B3Back,
                      int &numReads,
                      int &numWrites
                     )
 
-    void computeDivOfFluxes(const grid &prim,
-                            int &numReads, int &numWrites
-                           )

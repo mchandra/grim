@@ -62,7 +62,9 @@ class timeStepper
     grid *divB;
     /* Primary magnetic field variables, indicated by their respective
      * locations */
-    grid *B1Left,   *B2Bottom, *B3Back;
+    grid *B1Left,         *B2Bottom,          *B3Back;
+    grid *B1LeftOld,      *B2BottomOld,       *B3BackOld;
+    grid *B1LeftHalfStep, *B2BottomHalfStep,  *B3BackHalfStep;
     
     /* Cell centered magnetic fields, computed using interpolation from 
      * face-centered fields */
@@ -89,15 +91,22 @@ class timeStepper
 
     riemannSolver *riemann;
 
-    void computeCellCenteredMagneticFields(int &numReads,
+    void computeCellCenteredMagneticFields(const grid &B1Left,
+                                           const grid &B2Bottom,
+                                           const grid &B3Back,          
+                                           int &numReads,
                                            int &numWrites
                                           );
     void computeEdgeElectricFields(int &numReads,
                                    int &numWrites
                                   );
 
-    void computeDivOfFluxes(const grid &prim,
-                            int &numReads, int &numWrites
+    void computeDivOfFluxes(const grid &primFlux,
+                            const grid &B1Left,
+                            const grid &B2Bottom,
+                            const grid &B3Back,
+                            int &numReads,
+                            int &numWrites
                            );
 
     int currentStep;
@@ -130,7 +139,9 @@ class timeStepper
 
     void fluxCT(int &numReads, int &numWrites);
     void computeEMF(int &numReadsEMF, int &numWritesEMF);
-    void computeDivB(const grid &prim,
+    void computeDivB(const grid &B1Left,
+                     const grid &B2Bottom,
+                     const grid &B3Back,
                      int &numReads,
                      int &numWrites
                     );

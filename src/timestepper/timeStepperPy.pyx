@@ -76,6 +76,27 @@ cdef class timeStepperPy(object):
     self.divFluxes = \
         gridPy.createGridPyFromGridPtr(self.timeStepperPtr.divFluxes)
 
+    self.B1Left   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B1Left)
+    self.B2Bottom = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B2Bottom)
+    self.B3Back   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B3Back)
+
+    self.B1LeftHalfStep   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B1LeftHalfStep)
+    self.B2BottomHalfStep = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B2BottomHalfStep)
+    self.B3BackHalfStep   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B3BackHalfStep)
+
+    self.B1LeftOld   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B1LeftOld)
+    self.B2BottomOld = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B2BottomOld)
+    self.B3BackOld   = \
+        gridPy.createGridPyFromGridPtr(self.timeStepperPtr.B3BackOld)
+
     self.E1BottomBack = \
         gridPy.createGridPyFromGridPtr(self.timeStepperPtr.E1BottomBack)
     self.E2LeftBack = \
@@ -163,6 +184,42 @@ cdef class timeStepperPy(object):
     def __get__(self):
      return self.divFluxes
 
+  property B1Left:
+    def __get__(self):
+     return self.B1Left
+
+  property B2Bottom:
+    def __get__(self):
+     return self.B2Bottom
+
+  property B3Back:
+    def __get__(self):
+     return self.B3Back
+
+  property B1LeftHalfStep:
+    def __get__(self):
+     return self.B1LeftHalfStep
+
+  property B2BottomHalfStep:
+    def __get__(self):
+     return self.B2BottomHalfStep
+
+  property B3BackHalfStep:
+    def __get__(self):
+     return self.B3BackHalfStep
+
+  property B1LeftOld:
+    def __get__(self):
+     return self.B1LeftOld
+
+  property B2BottomOld:
+    def __get__(self):
+     return self.B2BottomOld
+
+  property B3BackOld:
+    def __get__(self):
+     return self.B3BackOld
+
   property E1BottomBack:
     def __get__(self):
      return self.E1BottomBack
@@ -183,10 +240,12 @@ cdef class timeStepperPy(object):
     def __get__(self):
      return self.divB
 
-  def computeDivB(self, gridPy prim):
+  def computeDivB(self, gridPy B1Left, gridPy B2Bottom, gridPy B3Back):
      cdef int numReads  = 0
      cdef int numWrites = 0
-     self.timeStepperPtr.computeDivB(prim.getGridPtr()[0],
+     self.timeStepperPtr.computeDivB(B1Left.getGridPtr()[0],
+                                     B2Bottom.getGridPtr()[0],
+                                     B3Back.getGridPtr()[0],
                                      numReads, numWrites
                                     )
      return numReads, numWrites
@@ -203,10 +262,17 @@ cdef class timeStepperPy(object):
       self.timeStepperPtr.timeStep(numReads, numWrites)
       return numReads, numWrites
 
-  def computeDivOfFluxes(self, gridPy prim):
+  def computeDivOfFluxes(self, gridPy prim, 
+                               gridPy B1Left,
+                               gridPy B2Bottom,
+                               gridPy B3Back
+                        ):
     cdef int numReads  = 0
     cdef int numWrites = 0
     self.timeStepperPtr.computeDivOfFluxes(prim.getGridPtr()[0],
+                                           B1Left.getGridPtr()[0],
+                                           B2Bottom.getGridPtr()[0],
+                                           B3Back.getGridPtr()[0],
                                            numReads, numWrites
                                           )
     return numReads, numWrites

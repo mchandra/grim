@@ -98,23 +98,25 @@ ts = timeStepperPy.timeStepperPy(N1, N2, N3,
 for n in xrange(4000):
   print "Time step = ", n
   ts.timeStep()
-  ts.computeDivB(ts.primHalfStep)
   if (n%10 == 0):
+    ts.computeDivB(ts.B1LeftHalfStep, ts.B2BottomHalfStep, ts.B3BackHalfStep)
     print "Div B primHalfStep = ", \
     np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost,
                                               numGhost:N1+numGhost]
                      )
               )
-    ts.computeDivB(ts.primOld)
+    ts.computeDivB(ts.B1LeftOld, ts.B2BottomOld, ts.B3BackOld)
     print "Div B primOld = ", \
         np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost, numGhost:N1+numGhost]))
   
     pl.contourf(np.log10(np.abs(ts.divB.getVars()[0, 0,numGhost:N2+numGhost,
                                             numGhost:N1+numGhost])), 100)
     pl.colorbar()
+    pl.title("Time = " + str(n*dt))
     pl.savefig("divB_" + str(n) + ".png")
     pl.clf()
 
     pl.contourf(ts.primOld.getVars()[0, 0, :, :], 100)
+    pl.title("Time = " + str(n*dt))
     pl.savefig("rho_" + str(n) + ".png")
     pl.clf()
