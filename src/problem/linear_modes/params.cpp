@@ -3,16 +3,16 @@
 
 namespace vars
 {
-  int Q = 8;
-  int DP = 9;
-  int dof = 10;
+  int Q   = 5;
+  int DP  = 6;
+  int dof = 7;
 };
 
 namespace params
 {
-  int N1 = 64;
-  int N2 = 64;
-  int N3 = 64;
+  int N1 = 256;
+  int N2 = 256;
+  int N3 = 1;
 
   int dim = 2;
   int numGhost = 3;
