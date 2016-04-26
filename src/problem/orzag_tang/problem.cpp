@@ -18,12 +18,12 @@ void timeStepper::initialConditions(int &numReads, int &numWrites)
   array v2 =  0.5*af::sin(2*M_PI*XCoords->vars[directions::X1]);
 //  array v1 = 0.7 * elem->one;
 //  array v2 = 0.7 * elem->one;
-//  array v3 =  0.*primOld->vars[vars::U3];
-//  array gamma = 1./af::sqrt(1. - v1*v1 - v2*v2 - v3*v3);
+  array v3 =  0.*primOld->vars[vars::U3];
+  array lorentzFactor = 1./af::sqrt(1. - v1*v1 - v2*v2 - v3*v3);
 
-  primOld->vars[vars::U1] = gamma*v1;
-  primOld->vars[vars::U2] = gamma*v2;
-//  primOld->vars[vars::U3] = gamma*v3;
+  primOld->vars[vars::U1] = lorentzFactor*v1;
+  primOld->vars[vars::U2] = lorentzFactor*v2;
+  primOld->vars[vars::U3] = lorentzFactor*v3;
 
   XCoords->setXCoords(locations::LEFT);
   B1LeftOld->vars[0] = 

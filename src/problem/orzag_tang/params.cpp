@@ -66,7 +66,7 @@ namespace params
   double ViscosityClosureFactor = 1.;
 
   double slopeLimTheta = 2.;
-  int reconstruction = reconstructionOptions::MINMOD;
+  int reconstruction = reconstructionOptions::WENO5;
   int riemannSolver  = riemannSolvers::LOCAL_LAX_FRIEDRICH;
 
   int maxNonLinearIter = 3;

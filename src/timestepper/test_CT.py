@@ -95,28 +95,73 @@ ts = timeStepperPy.timeStepperPy(N1, N2, N3,
 #          )
 
 
+# Set plot parameters to make beautiful plots
+pl.rcParams['figure.figsize']  = 12, 7.5
+pl.rcParams['lines.linewidth'] = 1.5
+pl.rcParams['font.family']     = 'serif'
+pl.rcParams['font.weight']     = 'bold'
+pl.rcParams['font.size']       = 20
+pl.rcParams['font.sans-serif'] = 'serif'
+pl.rcParams['text.usetex']     = True
+pl.rcParams['axes.linewidth']  = 1.5
+pl.rcParams['axes.titlesize']  = 'medium'
+pl.rcParams['axes.labelsize']  = 'medium'
+
+pl.rcParams['xtick.major.size'] = 8     
+pl.rcParams['xtick.minor.size'] = 4     
+pl.rcParams['xtick.major.pad']  = 8     
+pl.rcParams['xtick.minor.pad']  = 8     
+pl.rcParams['xtick.color']      = 'k'     
+pl.rcParams['xtick.labelsize']  = 'medium'
+pl.rcParams['xtick.direction']  = 'in'    
+
+pl.rcParams['ytick.major.size'] = 8     
+pl.rcParams['ytick.minor.size'] = 4     
+pl.rcParams['ytick.major.pad']  = 8     
+pl.rcParams['ytick.minor.pad']  = 8     
+pl.rcParams['ytick.color']      = 'k'     
+pl.rcParams['ytick.labelsize']  = 'medium'
+pl.rcParams['ytick.direction']  = 'in'
+
 for n in xrange(4000):
   print "Time step = ", n
-  ts.timeStep()
-  if (n%10 == 0):
-    ts.computeDivB(ts.B1LeftHalfStep, ts.B2BottomHalfStep, ts.B3BackHalfStep)
-    print "Div B primHalfStep = ", \
-    np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost,
-                                              numGhost:N1+numGhost]
-                     )
-              )
-    ts.computeDivB(ts.B1LeftOld, ts.B2BottomOld, ts.B3BackOld)
-    print "Div B primOld = ", \
-        np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost, numGhost:N1+numGhost]))
-  
-    pl.contourf(np.log10(np.abs(ts.divB.getVars()[0, 0,numGhost:N2+numGhost,
-                                            numGhost:N1+numGhost])), 100)
-    pl.colorbar()
-    pl.title("Time = " + str(n*dt))
-    pl.savefig("divB_" + str(n) + ".png")
-    pl.clf()
 
-    pl.contourf(ts.primOld.getVars()[0, 0, :, :], 100)
-    pl.title("Time = " + str(n*dt))
-    pl.savefig("rho_" + str(n) + ".png")
-    pl.clf()
+  if (n%10 == 0):
+    print "Dumping data at t = ", str(n*dt)
+    rhoOld = ts.primOld.getVars()[0, 0, :, :]
+    filename = 'data_' + '%04d'%(n) + '.txt'
+    np.savetxt(filename, rhoOld)
+
+  ts.timeStep()
+
+  if (n%10 == 0):
+    print "Dumping data at t = ", str((n+1)*dt)
+    rhoOld = ts.primOld.getVars()[0, 0, :, :]
+    filename = 'data_post_time_step_' + '%04d'%(n) + '.txt'
+    np.savetxt(filename, rhoOld)
+#  ts.computeDivB(ts.B1LeftHalfStep, ts.B2BottomHalfStep, ts.B3BackHalfStep)
+#  print "Div B primHalfStep = ", \
+#  np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost,
+#                                            numGhost:N1+numGhost]
+#                   )
+#            )
+#  ts.computeDivB(ts.B1LeftOld, ts.B2BottomOld, ts.B3BackOld)
+#  print "Div B primOld = ", \
+#      np.max(np.abs(ts.divB.getVars()[0, 0, numGhost:N2+numGhost, numGhost:N1+numGhost]))
+  
+#  if (n%10 == 0):
+#    pl.figure(figsize=(10,10))
+#    pl.contourf(np.log10(np.abs(ts.divB.getVars()[0, 0,numGhost:N2+numGhost,
+#                                            numGhost:N1+numGhost])), 100)
+#    pl.colorbar()
+#    pl.title("Time = " + str(n*dt))
+#    pl.savefig("divB_" + str(n) + ".png")
+#    pl.clf()
+#    pl.close()
+#
+#    pl.figure(figsize=(10,10))
+#    pl.contourf(ts.primOld.getVars()[0, 0, :, :], 100)
+#    pl.title("Time = " + str(n*dt))
+#    pl.savefig("rho_" + '%04d'%(n/10) + ".png")
+#    pl.clf()
+#    pl.close()
