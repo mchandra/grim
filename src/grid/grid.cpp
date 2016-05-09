@@ -233,6 +233,66 @@ void coordinatesGrid::setXCoords(const int location)
       vars[directions::X2] = X2Start + (indicesX2 + 0.5)*dX2;
       vars[directions::X3] = X3Start + (indicesX3      )*dX3;
 
+    case locations::LEFT_BOTTOM_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1      )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2      )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 0.5)*dX3;
+
+    case locations::LEFT_TOP_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1      )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 1. )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 0.5)*dX3;
+
+    case locations::RIGHT_BOTTOM_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 1. )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2      )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 0.5)*dX3;
+
+    case locations::RIGHT_TOP_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 1. )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 1. )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 0.5)*dX3;
+
+    case locations::BOTTOM_BACK_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 0.5)*dX1;
+      vars[directions::X2] = X2Start + (indicesX2      )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3      )*dX3;
+
+    case locations::BOTTOM_FRONT_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 0.5)*dX1;
+      vars[directions::X2] = X2Start + (indicesX2      )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 1. )*dX3;
+
+    case locations::TOP_BACK_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 0.5)*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 1. )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3      )*dX3;
+
+    case locations::TOP_FRONT_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 0.5)*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 1. )*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 1. )*dX3;
+
+    case locations::LEFT_BACK_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1      )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 0.5)*dX2;
+      vars[directions::X3] = X3Start + (indicesX3      )*dX3;
+
+    case locations::LEFT_FRONT_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1      )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 0.5)*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 1. )*dX3;
+
+    case locations::RIGHT_BACK_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 1. )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 0.5)*dX2;
+      vars[directions::X3] = X3Start + (indicesX3      )*dX3;
+
+    case locations::RIGHT_FRONT_EDGE:
+      vars[directions::X1] = X1Start + (indicesX1 + 1. )*dX1;
+      vars[directions::X2] = X2Start + (indicesX2 + 0.5)*dX2;
+      vars[directions::X3] = X3Start + (indicesX3 + 1. )*dX3;
+
       break;
   }
 }

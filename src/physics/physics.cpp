@@ -315,6 +315,11 @@ void fluidElement::computeMagneticFluxes(const geometry &geom,
                                          int &numWrites
                                         )
 {
+  /* Note: Perhaps we should not be multiplying the fluxes by geom.g here unlike the fluid
+   * fluxes. The g factors will then come in when doing the line integrals over
+   * the faces in timeStepBFields()
+   */
+
   array g = geom.g;
 
   flux.vars[vars::B1]  = g*(bCon[1]*uCon[dir] - bCon[dir]*uCon[1]);

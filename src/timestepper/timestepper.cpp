@@ -24,7 +24,11 @@ timeStepper::timeStepper(const int N1,
   this->N1 = N1;
   this->N2 = N2;
   this->N3 = N3;
+  this->numGhost = numGhost;
   this->numVars = numVars;
+
+  this->timeStepCounter = 0;
+  this->dumpCounter     = 0;
 
   this->boundaryLeft   = boundaryLeft;
   this->boundaryRight  = boundaryRight;
@@ -443,6 +447,66 @@ timeStepper::timeStepper(const int N1,
                              hSlope, 
                              *XCoords
                             );
+
+  XCoords->setXCoords(locations::LEFT_BOTTOM_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gLeftBottomEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::LEFT_TOP_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gLeftTopEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::RIGHT_BOTTOM_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gRightBottomEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::RIGHT_TOP_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gRightTopEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::BOTTOM_BACK_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gBottomBackEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::BOTTOM_FRONT_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gBottomFrontEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::TOP_BACK_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gTopBackEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::TOP_FRONT_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gTopFrontEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::LEFT_BACK_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gLeftBackEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::LEFT_FRONT_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gLeftFrontEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::RIGHT_BACK_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gRightBackEdge = geomEdge->g;
+  delete geomEdge;
+
+  XCoords->setXCoords(locations::RIGHT_FRONT_EDGE);
+  geomEdge  = new geometry(metric, blackHoleSpin, hSlope, *XCoords);
+  gRightFrontEdge = geomEdge->g;
+  delete geomEdge;
 
   XCoords->setXCoords(locations::CENTER);
   geomCenter  = new geometry(metric,

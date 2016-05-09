@@ -38,10 +38,14 @@ class timeStepper
                       );
   void batchLinearSolve(const array &A, const array &b, array &x);
 
+  geometry *geomEdge;
   public:
     double dt, time;
-    int N1, N2, N3;
+    int N1, N2, N3, numGhost;
     int numVars;
+
+    int timeStepCounter;
+    int dumpCounter;
 
     int boundaryLeft, boundaryRight;
     int boundaryTop,  boundaryBottom;
@@ -86,6 +90,12 @@ class timeStepper
     geometry *geomLeft,   *geomRight;
     geometry *geomBottom, *geomTop;
     geometry *geomCenter;
+    array gLeftBottomEdge,  gLeftTopEdge;
+    array gRightBottomEdge, gRightTopEdge;
+    array gBottomBackEdge,  gBottomFrontEdge;
+    array gTopBackEdge,     gTopFrontEdge;
+    array gLeftBackEdge,    gLeftFrontEdge;
+    array gRightBackEdge,   gRightFrontEdge;
 
     fluidElement *elem, *elemOld, *elemHalfStep;
 
@@ -150,7 +160,13 @@ class timeStepper
     void initialConditions(int &numReads, int &numWrites);
     void halfStepDiagnostics(int &numReads, int &numWrites);
     void fullStepDiagnostics(int &numReads, int &numWrites);
-    void setProblemSpecificBCs(int &numReads, int &numWrites);
+    void setProblemSpecificBCs(grid &prim,
+                               grid &B1Left,
+                               grid &B2Bottom,
+                               grid &B3Back,
+                               int &numReads, 
+                               int &numWrites
+                              );
 };
 
 #endif /* GRIM_TIMESTEPPER_H_ */
