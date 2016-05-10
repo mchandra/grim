@@ -29,7 +29,10 @@ void timeStepper::timeStep(int &numReads, int &numWrites)
                                       boundaryFront, boundaryBack,
                                       *B3BackOld
                                      );
-  setProblemSpecificBCs(numReads,numWrites);
+  setProblemSpecificBCs(*primOld,
+                        *B1LeftOld, *B2BottomOld, *B3BackOld,
+                        numReads,numWrites
+                       );
 
   /* 2) Compute B1Center, B2Center and B3Center using B1LeftOld, B2BottomOld and
    * B3BackOld */
@@ -156,7 +159,10 @@ void timeStepper::timeStep(int &numReads, int &numWrites)
                                       boundaryFront, boundaryBack,
                                       *B3BackHalfStep
                                      );
-  setProblemSpecificBCs(numReads,numWrites);
+  setProblemSpecificBCs(*primHalfStep, 
+                        *B1LeftHalfStep, *B2BottomHalfStep, *B3BackHalfStep,
+                        numReads,numWrites
+                        );
 
   /* 13) Compute B1Center, B2Center and B3Center using B1LeftHalfStep, 
    * B2BottomHalfStep and B3BackHalfStep */
