@@ -15,8 +15,26 @@ fluidElement::fluidElement(const grid &prim,
            		      );
 
   array zero = 0.*one;
+  rho = zero;
+  u = zero;
+  u1 = zero; u2=zero; u3=zero;
+  B1=zero; B2=zero; B3=zero;
+  pressure = zero; temperature = zero;
   gammaLorentzFactor = zero;
-
+  bSqr = zero; soundSpeed = zero;
+  bNorm = zero;
+  
+  for(int d=0;d<NDIM;d++)
+    {
+      uCon[d]=zero; uCov[d]=zero;
+      bCon[d]=zero; bCov[d]=zero;
+      NUp[d]=zero;
+      for(int dd=0;dd<NDIM;dd++)
+	{
+	  TUpDown[d][dd]=zero;
+	}
+    }
+  
   /* Allocate memory for gradients used in EMHD */
   if (params::conduction || params::viscosity)
   {
@@ -24,54 +42,71 @@ fluidElement::fluidElement(const grid &prim,
     
     for(int mu=0;mu<NDIM;mu++)
     {
-	    gradT[mu] = zero;
-	    dtuCov[mu] = zero;
-	    for(int nu=0;nu<NDIM;nu++)
-	    {
-	      graduCov[nu][mu] = zero;
-	    }
+      gradT[mu] = zero;
+      dtuCov[mu] = zero;
+      for(int nu=0;nu<NDIM;nu++)
+	{
+	  graduCov[nu][mu] = zero;
+	}
     }
     
     deltaP0 = zero;
     q0 = zero;
+    tau = zero;
+    chi_emhd = zero;
+    nu_emhd = zero;
+    qTilde=zero; deltaPTilde=zero;
+    q=zero; deltaP=zero;
   }
 
   set(prim, geom, numReads, numWrites);
 }
 
+
+void fluidElement::set(const grid &prim,
+		       const geometry &geom,
+		       int &numReads,
+		       int &numWrites)
+{
+  array AllIdx = where(one>0.);
+  AllIdx.eval();
+  set(prim,geom,numReads,numWrites,AllIdx);
+}
+
 void fluidElement::set(const grid &prim,
                        const geometry &geom,
                        int &numReads,
-                       int &numWrites
+                       int &numWrites,
+		       const array Idx
                       )
 {
-  rho = af::max(prim.vars[vars::RHO],params::rhoFloorInFluidElement);
-  u   = af::max(prim.vars[vars::U  ],params::uFloorInFluidElement);
-  u1  = prim.vars[vars::U1 ];
-  u2  = prim.vars[vars::U2 ];
-  u3  = prim.vars[vars::U3 ];
-  B1  = prim.vars[vars::B1 ];
-  B2  = prim.vars[vars::B2 ];
-  B3  = prim.vars[vars::B3 ];
+  rho(Idx) = af::max(prim.vars[vars::RHO](Idx),params::rhoFloorInFluidElement);
+  u(Idx)   = af::max(prim.vars[vars::U  ](Idx),params::uFloorInFluidElement);
+  u1(Idx)  = prim.vars[vars::U1 ](Idx);
+  u2(Idx)  = prim.vars[vars::U2 ](Idx);
+  u3(Idx)  = prim.vars[vars::U3 ](Idx);
+  B1(Idx)  = prim.vars[vars::B1 ](Idx);
+  B2(Idx)  = prim.vars[vars::B2 ](Idx);
+  B3(Idx)  = prim.vars[vars::B3 ](Idx);
 
-  pressure    = (params::adiabaticIndex - 1.)*u;
-  temperature = af::max(pressure/rho,params::temperatureFloorInFluidElement);
+  pressure(Idx)    = (params::adiabaticIndex - 1.)*u(Idx);
+  temperature(Idx) = af::max(pressure(Idx)/rho(Idx),params::temperatureFloorInFluidElement);
 
-  soundSpeed  = af::sqrt( params::adiabaticIndex*pressure
-                         /(rho+params::adiabaticIndex*u)
+  soundSpeed(Idx)  = af::sqrt( params::adiabaticIndex*pressure(Idx)
+			       /(rho(Idx)+params::adiabaticIndex*u(Idx))
                         );
   
-  gammaLorentzFactor =
-    af::sqrt(1 + geom.gCov[1][1] * u1 * u1
-               + geom.gCov[2][2] * u2 * u2
-               + geom.gCov[3][3] * u3 * u3
+  gammaLorentzFactor(Idx) =
+    af::sqrt(1 + geom.gCov[1][1](Idx) * u1(Idx) * u1(Idx)
+	     + geom.gCov[2][2](Idx) * u2(Idx) * u2(Idx)
+	     + geom.gCov[3][3](Idx) * u3(Idx) * u3(Idx)
 
-             + 2*(  geom.gCov[1][2] * u1 * u2
-                  + geom.gCov[1][3] * u1 * u3
-                  + geom.gCov[2][3] * u2 * u3
+             + 2*(  geom.gCov[1][2](Idx) * u1(Idx) * u2(Idx)
+		    + geom.gCov[1][3](Idx) * u1(Idx) * u3(Idx)
+		    + geom.gCov[2][3](Idx) * u2(Idx) * u3(Idx)
                  )
             );
-  gammaLorentzFactor.eval(); 
+  gammaLorentzFactor(Idx).eval(); 
   /* Reads:
    * -----
    * gCov[1][1], gCov[2][2], gCov[3][3], gCov[1][2], gCov[1][3], gCov[2][3]: 6
@@ -81,8 +116,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * gammaLorentzFactor : 1 */
 
-  uCon[0] = gammaLorentzFactor/geom.alpha;
-  uCon[0].eval(); 
+  uCon[0](Idx) = gammaLorentzFactor(Idx)/geom.alpha(Idx);
+  uCon[0](Idx).eval(); 
   /* Reads:
    * -----
    * gammaLorentzFactor, alpha : 2
@@ -92,8 +127,8 @@ void fluidElement::set(const grid &prim,
    * uCon[0] : 1 */
 
 
-  uCon[1] = u1 - gammaLorentzFactor*geom.gCon[0][1]*geom.alpha;
-  uCon[1].eval(); 
+  uCon[1](Idx) = u1(Idx) - gammaLorentzFactor(Idx)*geom.gCon[0][1](Idx)*geom.alpha(Idx);
+  uCon[1](Idx).eval(); 
   /* Reads:
    * -----
    * u1, gammaLorentzFactor, gCon[0][1], alpha : 4
@@ -102,8 +137,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * uCon[1] : 1 */
 
-  uCon[2] = u2 - gammaLorentzFactor*geom.gCon[0][2]*geom.alpha;
-  uCon[2].eval(); 
+  uCon[2](Idx) = u2(Idx) - gammaLorentzFactor(Idx)*geom.gCon[0][2](Idx)*geom.alpha(Idx);
+  uCon[2](Idx).eval(); 
   /* Reads:
    * -----
    * u2, gammaLorentzFactor, gCon[0][2], alpha : 4
@@ -112,8 +147,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * uCon[2] : 1 */
 
-  uCon[3] = u3 - gammaLorentzFactor*geom.gCon[0][3]*geom.alpha;
-  uCon[3].eval();
+  uCon[3](Idx) = u3(Idx) - gammaLorentzFactor(Idx)*geom.gCon[0][3](Idx)*geom.alpha(Idx);
+  uCon[3](Idx).eval();
   /* Reads:
    * -----
    * u3, gammaLorentzFactor, gCon[0][3], alpha : 4
@@ -124,11 +159,12 @@ void fluidElement::set(const grid &prim,
 
   for (int mu=0; mu < NDIM; mu++)
   {
-    uCov[mu] =  geom.gCov[mu][0] * uCon[0]
-              + geom.gCov[mu][1] * uCon[1]
-              + geom.gCov[mu][2] * uCon[2]
-              + geom.gCov[mu][3] * uCon[3];
-    uCov[mu].eval(); 
+    uCov[mu](Idx) =  0.;
+    for(int nu=0;nu<NDIM;nu++)
+      {
+	uCov[mu](Idx)+=geom.gCov[mu][nu](Idx)*uCon[nu](Idx);
+      }
+    uCov[mu](Idx).eval(); 
   } 
   /* Reads:
    * -----
@@ -139,8 +175,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * uCov[mu] : 4 */
 
-  bCon[0] =  B1*uCov[1] + B2*uCov[2] + B3*uCov[3];
-  bCon[0].eval();
+  bCon[0](Idx) =  B1(Idx)*uCov[1](Idx) + B2(Idx)*uCov[2](Idx) + B3(Idx)*uCov[3](Idx);
+  bCon[0](Idx).eval();
   /* Reads:
    * -----
    * B1, B2, B3, uCov[1], uCov[2], uCov[3] : 6
@@ -149,8 +185,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * bCon[0] : 1 */
 
-  bCon[1] = (B1 + bCon[0] * uCon[1])/uCon[0];
-  bCon[1].eval();
+  bCon[1](Idx) = (B1(Idx) + bCon[0](Idx) * uCon[1](Idx))/uCon[0](Idx);
+  bCon[1](Idx).eval();
   /* Reads:
    * -----
    * B1, bCon[0], uCon[1], uCon[0]: 4
@@ -159,8 +195,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * bCon[1] : 1 */
 
-  bCon[2] = (B2 + bCon[0] * uCon[2])/uCon[0];
-  bCon[2].eval();
+  bCon[2](Idx) = (B2(Idx) + bCon[0](Idx) * uCon[2](Idx))/uCon[0](Idx);
+  bCon[2](Idx).eval();
   /* Reads:
    * -----
    * B2, bCon[0], uCon[2], uCon[0]: 4
@@ -169,8 +205,8 @@ void fluidElement::set(const grid &prim,
    * ------
    * bCon[2] : 1 */
 
-  bCon[3] = (B3 + bCon[0] * uCon[3])/uCon[0];
-  bCon[3].eval();
+  bCon[3](Idx) = (B3(Idx) + bCon[0](Idx) * uCon[3](Idx))/uCon[0](Idx);
+  bCon[3](Idx).eval();
   /* Reads:
    * -----
    * B3, bCon[0], uCon[3], uCon[0]: 4
@@ -181,11 +217,12 @@ void fluidElement::set(const grid &prim,
 
   for (int mu=0; mu < NDIM; mu++)
   {
-    bCov[mu] =  geom.gCov[mu][0] * bCon[0]
-              + geom.gCov[mu][1] * bCon[1]
-              + geom.gCov[mu][2] * bCon[2]
-              + geom.gCov[mu][3] * bCon[3];
-    bCov[mu].eval();
+    bCov[mu](Idx)=0.;
+    for(int nu=0;nu<NDIM;nu++)
+      {
+	bCov[mu](Idx)+=geom.gCov[mu][nu](Idx)*bCon[nu](Idx);
+      }
+    bCov[mu](Idx).eval();
   }
   /* Reads:
    * -----
@@ -196,8 +233,12 @@ void fluidElement::set(const grid &prim,
    * ------
    * bCov[mu] : 4 */
 
-  bSqr =  bCon[0]*bCov[0] + bCon[1]*bCov[1]
-        + bCon[2]*bCov[2] + bCon[3]*bCov[3] + params::bSqrFloorInFluidElement;
+  bSqr(Idx) = 0.;
+  for (int mu=0; mu < NDIM; mu++)
+    {
+      bSqr(Idx)+=bCon[mu](Idx)*bCov[mu](Idx);
+    }
+  bSqr(Idx) += params::bSqrFloorInFluidElement;
   bSqr.eval();
   /* Reads:
    * -----
@@ -208,68 +249,68 @@ void fluidElement::set(const grid &prim,
    * ------
    * bSqr : 1 */
 
-  bNorm = af::sqrt(bSqr);
+  bNorm(Idx) = af::sqrt(bSqr(Idx));
 
   // Note: this needs to be before setFluidElementParameters
   // because the closure relation uses q, deltaP!
   if (params::conduction==1)
   {
-    qTilde = prim.vars[vars::Q];
+    qTilde(Idx) = prim.vars[vars::Q](Idx);
 
     if (params::highOrderTermsConduction==1)
     {
-      q = qTilde * temperature * af::sqrt(rho*params::ConductionAlpha*soundSpeed*soundSpeed);
-      q.eval();
+      q(Idx) = qTilde(Idx) * temperature(Idx) * af::sqrt(rho(Idx)*params::ConductionAlpha*soundSpeed(Idx)*soundSpeed(Idx));
+      q(Idx).eval();
     }
     else
     {
-      q = qTilde;
+      q(Idx) = qTilde(Idx);
     }
   }
 
   if (params::viscosity==1)
   {
-    deltaPTilde = prim.vars[vars::DP];
+    deltaPTilde(Idx) = prim.vars[vars::DP](Idx);
 
     if (params::highOrderTermsViscosity == 1)
     {
-      deltaP = deltaPTilde * af::sqrt(temperature * rho * params::ViscosityAlpha*soundSpeed*soundSpeed);
-      deltaP.eval();
+      deltaP(Idx) = deltaPTilde(Idx) * af::sqrt(temperature(Idx) * rho(Idx) * params::ViscosityAlpha*soundSpeed(Idx)*soundSpeed(Idx));
+      deltaP(Idx).eval();
     }
     else
     {
-      deltaP = deltaPTilde;
+      deltaP(Idx) = deltaPTilde(Idx);
     }
   }
 
   // Note: this uses q, deltaP, bSqr!
-  setFluidElementParameters(geom);
+  setFluidElementParameters(geom,Idx);
 
   for (int mu=0; mu < NDIM; mu++)
   {
-    NUp[mu] = rho * uCon[mu];
+    NUp[mu](Idx) = rho(Idx) * uCon[mu](Idx);
 
     for (int nu=0; nu < NDIM; nu++)
     {
-      TUpDown[mu][nu] =   (rho + u + pressure + bSqr)*uCon[mu]*uCov[nu]
-                        + (pressure + 0.5*bSqr)*DELTA(mu, nu)
-                        - bCon[mu] * bCov[nu];
+      TUpDown[mu][nu](Idx) =   (rho(Idx) + u(Idx) + pressure(Idx) + bSqr(Idx))*uCon[mu](Idx)*uCov[nu](Idx)
+	+ (pressure(Idx) + 0.5*bSqr(Idx))*DELTA(mu, nu)
+	- bCon[mu](Idx) * bCov[nu](Idx);
 
       
       if (params::conduction==1)
       {
-        TUpDown[mu][nu] += q/bNorm * (uCon[mu]*bCov[nu] + bCon[mu]*uCov[nu]);
+        TUpDown[mu][nu](Idx) += q(Idx)/bNorm(Idx) * (uCon[mu](Idx)*bCov[nu](Idx) + bCon[mu](Idx)*uCov[nu](Idx));
       }
 
       if (params::viscosity==1)
       {
-        TUpDown[mu][nu] += (- deltaP)       
-                           * (  bCon[mu] * bCov[nu]/bSqr
-                              - (1./3.)*(DELTA(mu, nu) + uCon[mu]*uCov[nu])
+        TUpDown[mu][nu](Idx) += (deltaP(Idx)*(-1.0))       
+	  * (  bCon[mu](Idx) * bCov[nu](Idx)/bSqr(Idx)
+	       - (1./3.)*(DELTA(mu, nu) + uCon[mu](Idx)*uCov[nu](Idx))
                              );
       }
       
-      TUpDown[mu][nu].eval();
+      TUpDown[mu][nu](Idx).eval();
       /* Reads:
        * -----
        * rho, u, bSqr, q, deltaP: 5 x 16 = 80
@@ -279,7 +320,7 @@ void fluidElement::set(const grid &prim,
        * ------
        * TUpDown[mu][nu] : 16 */
     }
-    NUp[mu].eval();
+    NUp[mu](Idx).eval();
     /* Reads:
      * -----
      * rho : 1 x 4 = 4
@@ -315,10 +356,23 @@ void fluidElement::computeFluxes(const geometry &geom,
                                  int &numWrites
                                 )
 {
+  array AllIdx = where(one>0.);
+  AllIdx.eval();
+  computeFluxes(geom,dir,flux,numReads,numWrites,AllIdx);
+}
+
+void fluidElement::computeFluxes(const geometry &geom, 
+                                 const int dir,
+                                 grid &flux,
+                                 int &numReads,
+                                 int &numWrites,
+				 const array Idx
+                                )
+{
   array g = geom.g;
 
-  flux.vars[vars::RHO] = g*NUp[dir];
-  flux.vars[vars::RHO].eval();
+  flux.vars[vars::RHO](Idx) = g(Idx)*NUp[dir](Idx);
+  flux.vars[vars::RHO](Idx).eval();
   /* Reads:
    * -----
    * g, NUp[dir] : 2
@@ -327,8 +381,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::RHO] : 1 */
 
-  flux.vars[vars::U]   = g*TUpDown[dir][0] + flux.vars[vars::RHO];
-  flux.vars[vars::U].eval();
+  flux.vars[vars::U](Idx)   = g(Idx)*TUpDown[dir][0](Idx) + flux.vars[vars::RHO](Idx);
+  flux.vars[vars::U](Idx).eval();
   /* Reads:
    * -----
    * g, TUpDown[dir][0], flux[vars::RHO] : 3
@@ -337,8 +391,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::U] : 1 */
 
-  flux.vars[vars::U1]  = g*TUpDown[dir][1];
-  flux.vars[vars::U1].eval();
+  flux.vars[vars::U1](Idx)  = g(Idx)*TUpDown[dir][1](Idx);
+  flux.vars[vars::U1](Idx).eval();
   /* Reads:
    * -----
    * g, TUpDown[dir][1] : 2
@@ -347,8 +401,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::U1] : 1 */
 
-  flux.vars[vars::U2]  = g*TUpDown[dir][2];
-  flux.vars[vars::U2].eval();
+  flux.vars[vars::U2](Idx)  = g(Idx)*TUpDown[dir][2](Idx);
+  flux.vars[vars::U2](Idx).eval();
   /* Reads:
    * -----
    * g, TUpDown[dir][2] : 2
@@ -357,8 +411,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::U2] : 1 */
 
-  flux.vars[vars::U3]  = g*TUpDown[dir][3];
-  flux.vars[vars::U3].eval();
+  flux.vars[vars::U3](Idx)  = g(Idx)*TUpDown[dir][3](Idx);
+  flux.vars[vars::U3](Idx).eval();
   /* Reads:
    * -----
    * g, TUpDown[dir][3] : 2
@@ -367,8 +421,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::U3] : 1 */
 
-  flux.vars[vars::B1]  = g*(bCon[1]*uCon[dir] - bCon[dir]*uCon[1]);
-  flux.vars[vars::B1].eval();
+  flux.vars[vars::B1](Idx)  = g(Idx)*(bCon[1](Idx)*uCon[dir](Idx) - bCon[dir](Idx)*uCon[1](Idx));
+  flux.vars[vars::B1](Idx).eval();
   /* Reads:
    * -----
    * g, bCon[1], bCon[dir], uCon[1], uCon[dir] : 5
@@ -377,8 +431,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::B1] : 1 */
 
-  flux.vars[vars::B2]  = g*(bCon[2]*uCon[dir] - bCon[dir]*uCon[2]);
-  flux.vars[vars::B2].eval();
+  flux.vars[vars::B2](Idx)  = g(Idx)*(bCon[2](Idx)*uCon[dir](Idx) - bCon[dir](Idx)*uCon[2](Idx));
+  flux.vars[vars::B2](Idx).eval();
   /* Reads:
    * -----
    * g, bCon[2], bCon[dir], uCon[2], uCon[dir] : 5
@@ -387,8 +441,8 @@ void fluidElement::computeFluxes(const geometry &geom,
    * ------
    * flux[vars::B2] : 1 */
 
-  flux.vars[vars::B3]  = g*(bCon[3]*uCon[dir] - bCon[dir]*uCon[3]);
-  flux.vars[vars::B3].eval();
+  flux.vars[vars::B3](Idx) = g(Idx)*(bCon[3](Idx)*uCon[dir](Idx) - bCon[dir](Idx)*uCon[3](Idx));
+  flux.vars[vars::B3](Idx).eval();
   /* Reads:
    * -----
    * g, bCon[3], bCon[dir], uCon[3], uCon[dir] : 5
@@ -399,8 +453,8 @@ void fluidElement::computeFluxes(const geometry &geom,
 
   if (params::conduction)
   {
-    flux.vars[vars::Q] = g*(uCon[dir] * qTilde);
-    flux.vars[vars::Q].eval();
+    flux.vars[vars::Q](Idx) = g(Idx)*(uCon[dir](Idx) * qTilde(Idx));
+    flux.vars[vars::Q](Idx).eval();
     /* Reads:
      * -----
      * g, uCon[dir], qTilde : 3
@@ -412,8 +466,8 @@ void fluidElement::computeFluxes(const geometry &geom,
 
   if (params::viscosity)
   {
-    flux.vars[vars::DP] = g*(uCon[dir] * deltaPTilde);
-    flux.vars[vars::DP].eval();
+    flux.vars[vars::DP](Idx) = g(Idx)*(uCon[dir](Idx) * deltaPTilde(Idx));
+    flux.vars[vars::DP](Idx).eval();
     /* Reads:
      * -----
      * g, uCon[dir], deltaPTilde : 3
@@ -435,12 +489,13 @@ void fluidElement::computeTimeDerivSources(const geometry &geom,
                                            const double dt,
                                            grid &sources,
                                            int &numReads,
-                                           int &numWrites
+                                           int &numWrites,
+					   const array Idx
                                           )
 {
   for (int var=0; var<vars::dof; var++)
   {
-    sources.vars[var] = 0.;
+    sources.vars[var](Idx) = 0.;
   }
   numReads = 0;
   numWrites = 0;
@@ -456,16 +511,16 @@ void fluidElement::computeTimeDerivSources(const geometry &geom,
     // We only include the time derivative here!
     for(int mu=0; mu<NDIM; mu++)
     {
-      dtuCov[mu] = (elemNew.uCov[mu]-elemOld.uCov[mu])/dt;
+      dtuCov[mu](Idx) = (elemNew.uCov[mu](Idx)-elemOld.uCov[mu](Idx))/dt;
     }
     // Compute divergence. We could compute it from the derivatives of uCon,
     //    but we already have u_{\mu;\nu}, so let's make use of it
     // Naturally, this is not truly the divergence. Only the part proportional
     // to dt_u
-    divuCov = 0.;
+    divuCov(Idx) = 0.;
     for(int mu=0; mu<NDIM; mu++)
     {
-      divuCov += geom.gCon[0][mu]*dtuCov[mu];
+      divuCov(Idx) += geom.gCon[0][mu](Idx)*dtuCov[mu](Idx);
     }
       
     // -------------------------------------
@@ -473,28 +528,28 @@ void fluidElement::computeTimeDerivSources(const geometry &geom,
     if(params::viscosity)
     {
     	// Compute target deltaP (time deriv part)
-    	deltaP0 = -divuCov*rho*nu_emhd;	    
+      deltaP0(Idx) = divuCov(Idx)*rho(Idx)*nu_emhd(Idx)*(-1.0);	    
     
       for(int mu=0; mu<NDIM; mu++)
       {
-        deltaP0 += 3. * rho*nu_emhd*bCon[0]*bCon[mu]
-	                / bSqr*dtuCov[mu];
+        deltaP0(Idx) += 3. * rho(Idx)*nu_emhd(Idx)*bCon[0](Idx)*bCon[mu](Idx)
+	  / bSqr(Idx)*dtuCov[mu](Idx);
       }
 
     	if (params::highOrderTermsViscosity == 1)
       {
-	      deltaP0 *= af::sqrt(tau/rho/nu_emhd/temperature);
+	deltaP0(Idx) *= af::sqrt(tau(Idx)/rho(Idx)/nu_emhd(Idx)/temperature(Idx));
       }
 	
 	    //Note on sign: we put the sources on the LHS when
     	//computing the residual!
-    	sources.vars[vars::DP] = -geom.g*(deltaP0)/tau;
+    	sources.vars[vars::DP](Idx) = geom.g(Idx)*(deltaP0(Idx))/tau(Idx)*(-1.0);
 
     	if (params::highOrderTermsViscosity == 1)
       {
-	      sources.vars[vars::DP] -= 0.5*geom.g*divuCov*deltaPTilde;
+	sources.vars[vars::DP](Idx) -= 0.5*geom.g(Idx)*divuCov(Idx)*deltaPTilde(Idx);
       }
-      sources.vars[vars::DP].eval();
+	sources.vars[vars::DP](Idx).eval();
       /* Reads:
        * -----
        *  dtuCov[mu](elemNew.uCov[mu] : 4, elemOld.uCov[mu] :4) : 8
@@ -528,29 +583,29 @@ void fluidElement::computeTimeDerivSources(const geometry &geom,
     // Finally, look at conduction-specific terms (time deriv terms)
     if(params::conduction)
     {
-    	q0 =  - rho*chi_emhd*bCon[0]
-	          / bNorm *(elemNew.temperature - elemOld.temperature)/dt;
+      q0(Idx) = rho(Idx)*chi_emhd(Idx)*bCon[0](Idx)*(-1.0)
+	/ bNorm(Idx) *(elemNew.temperature(Idx) - elemOld.temperature(Idx))/dt;
     
       for(int nu=0;nu<NDIM;nu++)
       {
-	      q0 -= rho*chi_emhd*temperature*
-	            bCon[nu]/bNorm*uCon[0]*dtuCov[nu];
+	q0(Idx) -= rho(Idx)*chi_emhd(Idx)*temperature(Idx)*
+	  bCon[nu](Idx)/bNorm(Idx)*uCon[0](Idx)*dtuCov[nu](Idx);
       }
 	
     	if (params::highOrderTermsConduction == 1)
       {
-	      q0 *= af::sqrt(tau/rho/chi_emhd)/temperature;
+	q0(Idx) *= af::sqrt(tau(Idx)/rho(Idx)/chi_emhd(Idx))/temperature(Idx);
       }
 	    
 	    //Note on sign: we put the sources on the LHS when
     	//computing the residual!
-    	sources.vars[vars::Q] = -geom.g*(q0)/tau;
+    	sources.vars[vars::Q](Idx) = geom.g(Idx)*(q0(Idx))/tau(Idx)*(-1.0);
 	
     	if (params::highOrderTermsConduction == 1)
       {
-	      sources.vars[vars::Q] -= 0.5*geom.g*divuCov*qTilde;
+	sources.vars[vars::Q](Idx) -= 0.5*geom.g(Idx)*divuCov(Idx)*qTilde(Idx);
       }
-      sources.vars[vars::Q].eval();
+	sources.vars[vars::Q](Idx).eval();
       /* Reads:
        * -----
        *  q0(rho                      : 1,
@@ -584,15 +639,16 @@ void fluidElement::computeTimeDerivSources(const geometry &geom,
 
 
 void fluidElement::computeImplicitSources(const geometry &geom,
-					                                grid &sources,
-					                                array &tauDamp,
+					  grid &sources,
+					  array &tauDamp,
                                           int &numReads,
-                                          int &numWrites
+                                          int &numWrites,
+					  const array Idx
                                          )
 {
   for (int var=0; var<vars::dof; var++)
   {
-    sources.vars[var] = 0.;
+    sources.vars[var](Idx) = 0.;
   }
 
   numReads = 0;
@@ -605,8 +661,8 @@ void fluidElement::computeImplicitSources(const geometry &geom,
   {
     //Note on sign: we put the sources on the LHS when
     //computing the residual!
-    sources.vars[vars::DP] = geom.g*(deltaPTilde)/tauDamp;
-    sources.vars[vars::DP].eval();
+    sources.vars[vars::DP](Idx) = geom.g(Idx)*(deltaPTilde(Idx))/tauDamp(Idx);
+    sources.vars[vars::DP](Idx).eval();
     /* Reads:
      * -----
      *  geom.g          : 1
@@ -627,8 +683,8 @@ void fluidElement::computeImplicitSources(const geometry &geom,
   {
     //Note on sign: we put the sources on the LHS when
     //computing the residual!
-    sources.vars[vars::Q] = geom.g*(qTilde)/tauDamp;
-    sources.vars[vars::Q].eval();
+    sources.vars[vars::Q](Idx) = geom.g(Idx)*(qTilde(Idx))/tauDamp(Idx);
+    sources.vars[vars::Q](Idx).eval();
     /* Reads:
      * -----
      *  geom.g          : 1
@@ -646,14 +702,15 @@ void fluidElement::computeImplicitSources(const geometry &geom,
 }
 
 void fluidElement::computeExplicitSources(const geometry &geom,
-                              					  grid &sources,
+					  grid &sources,
                                           int &numReads,
-                                          int &numWrites
-                             					   )
+                                          int &numWrites,
+					  const array Idx
+					  )
 {
   for (int var=0; var<vars::dof; var++)
   {
-    sources.vars[var] = 0.;
+    sources.vars[var](Idx) = 0.;
   }
 
   //Note on sign: residual computation places
@@ -668,13 +725,13 @@ void fluidElement::computeExplicitSources(const geometry &geom,
       {
         for (int lamda=0; lamda<NDIM; lamda++)
         {
-          sources.vars[vars::U + nu] -=
-            geom.g
-          * TUpDown[kappa][lamda]
-          * geom.gammaUpDownDown[lamda][kappa][nu];
+          sources.vars[vars::U + nu](Idx) -=
+            geom.g(Idx)
+	    * TUpDown[kappa][lamda](Idx)
+	    * geom.gammaUpDownDown[lamda][kappa][nu](Idx);
         }
       }
-      sources.vars[vars::U + nu].eval();
+      sources.vars[vars::U + nu](Idx).eval();
       /* Reads:
        * -----
        *  geom.g                                         : 1
@@ -702,12 +759,12 @@ void fluidElement::computeExplicitSources(const geometry &geom,
     // Compute divergence. We could compute it from the derivatives of uCon,
     //    but we already have u_{\mu;\nu}, so let's make use of it
     // Note that this does NOT include terms proportional to dt_u
-    divuCov = 0.;
+    divuCov(Idx) = 0.;
     for(int mu=0;mu<NDIM;mu++)
     {  
       for(int nu=0;nu<NDIM;nu++)
       {
-	      divuCov += geom.gCon[mu][nu]*graduCov[mu][nu];
+	divuCov(Idx) += geom.gCon[mu][nu](Idx)*graduCov[mu][nu](Idx);
       }
     }
       
@@ -716,38 +773,34 @@ void fluidElement::computeExplicitSources(const geometry &geom,
     if(params::viscosity)
     {
 	    // Compute target deltaP (explicit part)
-    	deltaP0 = -divuCov*rho*nu_emhd;
+      deltaP0(Idx) = divuCov(Idx)*rho(Idx)*nu_emhd(Idx)*(-1.0);
 	
 	    for(int mu=0;mu<NDIM;mu++)
       {
 	      for(int nu=0;nu<NDIM;nu++)
         {
-    	    deltaP0 += 3. * rho * nu_emhd 
-                        * bCon[mu] * bCon[nu] / bSqr
-	                      * graduCov[mu][nu];
+	  deltaP0(Idx) += 3. * rho(Idx) * nu_emhd(Idx) 
+	    * bCon[mu](Idx) * bCon[nu](Idx) / bSqr(Idx)
+	    * graduCov[mu][nu](Idx);
          }
       }
 
-      array deltaP0Tilde;
-    	if (params::highOrderTermsViscosity == 1)
-      {
-	      deltaP0Tilde = deltaP0 * af::sqrt(tau/rho/nu_emhd/temperature);
-      }
-      else
-      {
-        deltaP0Tilde = deltaP0;
-      }
+      array deltaP0Tilde = deltaP0;
+      if (params::highOrderTermsViscosity == 1)
+	{
+	  deltaP0Tilde(Idx) = deltaP0(Idx) * af::sqrt(tau(Idx)/rho(Idx)/nu_emhd(Idx)/temperature(Idx));
+	}
 	
 	    //Note on sign: we put the sources on the LHS when
     	//computing the residual!
     	//The damping term proportional to deltaPTilde is in the implicit sector.
-    	sources.vars[vars::DP] = -geom.g*(deltaP0Tilde)/tau;
+      sources.vars[vars::DP](Idx) = geom.g(Idx)*(deltaP0Tilde(Idx))/tau(Idx)*(-1.0);
     
       if (params::highOrderTermsViscosity == 1)
 	    {
-	      sources.vars[vars::DP] -= 0.5*geom.g*divuCov*deltaPTilde;
+	      sources.vars[vars::DP](Idx) -= 0.5*geom.g(Idx)*divuCov(Idx)*deltaPTilde(Idx);
 	    }
-      sources.vars[vars::DP].eval();
+      sources.vars[vars::DP](Idx).eval();
 
       /* Reads:
        * -----
@@ -781,40 +834,36 @@ void fluidElement::computeExplicitSources(const geometry &geom,
     // Finally, look at conduction-specific terms (explicit part)
     if(params::conduction)
     {
-	    q0 = 0.;
+      q0(Idx) = 0.;
     	//q0 is not exactly targetQ, as the time derivative parts
     	// are in the implicit sector
     	for(int mu=0;mu<NDIM;mu++)
       {
-	      q0 -= rho*chi_emhd*bCon[mu]/bNorm*gradT[mu];		
+	q0(Idx) -= rho(Idx)*chi_emhd(Idx)*bCon[mu](Idx)/bNorm(Idx)*gradT[mu](Idx);		
 	  
         for(int nu=0;nu<NDIM;nu++)
         {
-	        q0 -=  rho*chi_emhd*temperature*bCon[nu]/bNorm
-               * uCon[mu]*graduCov[mu][nu];
+	  q0(Idx) -=  rho(Idx)*chi_emhd(Idx)*temperature(Idx)*bCon[nu](Idx)/bNorm(Idx)
+	    * uCon[mu](Idx)*graduCov[mu][nu](Idx);
         }
-	    }
+      }
     
-      array q0Tilde;
+      array q0Tilde = q0;
       if (params::highOrderTermsConduction == 1)
       {
-	      q0Tilde = q0 * af::sqrt(  tau/rho/chi_emhd)/temperature;
-      }
-      else
-      {
-        q0Tilde = q0;
+	q0Tilde(Idx) = q0(Idx) * af::sqrt(  tau(Idx)/rho(Idx)/chi_emhd(Idx))/temperature(Idx);
       }
 
       //Note on sign: we put the sources.vars on the LHS when
     	//computing the residual!
     	// The damping term proportional to qTilde is in the implicit sector. 
-      sources.vars[vars::Q] = -geom.g*(q0Tilde)/tau;
+      sources.vars[vars::Q](Idx) = geom.g(Idx)*(q0Tilde(Idx))/tau(Idx)*(-1.0);
 
     	if (params::highOrderTermsConduction == 1)
       {
-    	  sources.vars[vars::Q] -= 0.5*geom.g*divuCov*qTilde;
+	sources.vars[vars::Q](Idx) -= 0.5*geom.g(Idx)*divuCov(Idx)*qTilde(Idx);
       }
-      sources.vars[vars::Q].eval();
+	sources.vars[vars::Q](Idx).eval();
       /* Reads:
        * -----
        *  q0(rho                      : 1,

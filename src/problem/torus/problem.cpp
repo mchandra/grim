@@ -1,45 +1,45 @@
 #include "torus.hpp"
 
-void fluidElement::setFluidElementParameters(const geometry &geom)
+void fluidElement::setFluidElementParameters(const geometry &geom, const array Idx)
 {
   array xCoords[3];
   geom.getxCoords(xCoords);
-  array Radius = xCoords[0];
+  array Radius = xCoords[0](Idx);
   array DynamicalTimescale = af::pow(Radius,1.5);
   DynamicalTimescale.eval();
-  tau = DynamicalTimescale;
+  tau(Idx) = DynamicalTimescale;
 
   if(params::conduction)
     {
-      array Qmax = params::ConductionClosureFactor*rho*pow(soundSpeed,3.);
+      array Qmax = params::ConductionClosureFactor*rho(Idx)*pow(soundSpeed(Idx),3.);
       double lambda = 0.01;
-      array yCon = af::abs(q)/Qmax;
+      array yCon = af::abs(q(Idx))/Qmax;
       yCon = af::exp(-(yCon-1.)/lambda);
       yCon.eval();
       array fdCon = yCon/(yCon+1.)+1.e-5;
-      tau=af::min(tau,DynamicalTimescale*fdCon);
+      tau(Idx)=af::min(tau(Idx),DynamicalTimescale*fdCon);
     }
   if(params::viscosity)
     {
-      array dPmod = af::max(pressure-2./3.*deltaP,params::bSqrFloorInFluidElement)/af::max(pressure+1./3.*deltaP,params::bSqrFloorInFluidElement);
-      array dPmaxPlus = af::min(params::ViscosityClosureFactor*bSqr*0.5*dPmod,1.49*pressure/1.07);
-      array dPmaxMinus = af::max(-params::ViscosityClosureFactor*bSqr,-2.99*pressure/1.07);
+      array dPmod = af::max(pressure(Idx)-2./3.*deltaP(Idx),params::bSqrFloorInFluidElement)/af::max(pressure(Idx)+1./3.*deltaP(Idx),params::bSqrFloorInFluidElement);
+      array dPmaxPlus = af::min(params::ViscosityClosureFactor*bSqr(Idx)*0.5*dPmod,1.49*pressure(Idx)/1.07);
+      array dPmaxMinus = af::max(-params::ViscosityClosureFactor*bSqr(Idx),-2.99*pressure(Idx)/1.07);
 
-      array condition = deltaP>0.;
+      array condition = deltaP(Idx)>0.;
       array dPmax = condition*dPmaxPlus + (1.-condition)*dPmaxMinus;
 
       double lambda = 0.01;
-      array yVis = af::abs(deltaP)/(af::abs(dPmax)+params::bSqrFloorInFluidElement);
+      array yVis = af::abs(deltaP(Idx))/(af::abs(dPmax)+params::bSqrFloorInFluidElement);
       yVis = af::exp(-(yVis-1.)/lambda);
       yVis.eval();
       array fdVis = yVis/(yVis+1.)+1.e-5;
-      tau=af::min(tau,DynamicalTimescale*fdVis);
+      tau(Idx)=af::min(tau(Idx),DynamicalTimescale*fdVis);
     }
-  tau.eval();
-  chi_emhd = params::ConductionAlpha*soundSpeed*soundSpeed*tau;
-  nu_emhd  = params::ViscosityAlpha*soundSpeed*soundSpeed*tau;
-  chi_emhd.eval();
-  nu_emhd.eval();
+  tau(Idx).eval();
+  chi_emhd(Idx) = params::ConductionAlpha*soundSpeed(Idx)*soundSpeed(Idx)*tau(Idx);
+  nu_emhd(Idx)  = params::ViscosityAlpha*soundSpeed(Idx)*soundSpeed(Idx)*tau(Idx);
+  chi_emhd(Idx).eval();
+  nu_emhd(Idx).eval();
   af::sync();
 }
 

@@ -12,19 +12,29 @@ void timeStepper::solve(grid &primGuess)
   int world_size;
   MPI_Comm_size(PETSC_COMM_WORLD, &world_size);
 
+  array l2Norm,notConverged;
+  int localNonConverged,globalNonConverged;
+  double localresnorm,globalresnorm;
+  notConverged = GZmask;
+
   for (int nonLinearIter=0;
        nonLinearIter < params::maxNonLinearIter; nonLinearIter++
       )
   {
     /* True residual, with explicit terms (not needed for Jacobian) */
     int numReadsResidual, numWritesResidual;
+
+    array IdxToComputeInit = where(notConverged > 0);
+    IdxToComputeInit.eval();
     computeResidual(primGuess, *residual, true, 
-                    numReadsResidual, numWritesResidual
-                   );
+		    numReadsResidual, numWritesResidual,
+		    IdxToComputeInit
+		    );
+
     for (int var=0; var < vars::dof; var++)
     {
       /* Need residualSoA to compute norms */
-      residualSoA(span, span, span, var) = residual->vars[var];
+      residualSoA(span, span, span, var) = residual->vars[var]*GZmask;
 
       /* Initialize primGuessPlusEps. Needed to numerically assemble the
        * Jacobian */
@@ -32,20 +42,20 @@ void timeStepper::solve(grid &primGuess)
     }
 
     /* Sum along last dim:vars to get L2 norm */
-    array l2Norm  = 
-      af::sum(af::pow(residualSoA(domainX1, domainX2, domainX3), 2.), 3);
+    l2Norm  = 
+      af::sum(af::pow(residualSoA, 2.), 3);
     l2Norm.eval();
-    array notConverged      = l2Norm > params::nonlinearsolve_atol;
+    notConverged      = l2Norm > params::nonlinearsolve_atol;
     array conditionIndices  = where(notConverged > 0);
-    int localNonConverged = conditionIndices.elements();
+    localNonConverged = conditionIndices.elements();
 
     /* Communicate residual */
-    double localresnorm = 
-      af::norm(af::flat(residualSoA(domainX1, domainX2, domainX3)),
+    localresnorm = 
+      af::norm(af::flat(residualSoA),
                AF_NORM_VECTOR_1
               );
-    double globalresnorm = localresnorm;
-    int globalNonConverged = localNonConverged;
+    globalresnorm = localresnorm;
+    globalNonConverged = localNonConverged;
     if (world_rank == 0)
     {
 	    double temp;
@@ -76,10 +86,44 @@ void timeStepper::solve(grid &primGuess)
       break;
     }
 
+    /*if(nonLinearIter==2 && localNonConverged>100)
+      {
+	array l2Norm_t  =
+	  af::sum(af::pow(residualSoA, 2.), 3);
+	array l2Norm2 = l2Norm_t*0.;
+	l2Norm2(domainX1, domainX2, domainX3) = l2Norm_t(domainX1, domainX2, domainX3);
+	l2Norm2.eval();
+	array notConverged2      = l2Norm2 > 100.;
+	array conditionIndices2  = where(notConverged2 > 0);
+
+	PetscPrintf(PETSC_COMM_WORLD, "Points which have not converged:\n");
+	array xCoords[3];
+	geomCenter->getxCoords(xCoords);
+	af_print(xCoords[0](conditionIndices2),12);
+	af_print(xCoords[1](conditionIndices2),12);
+	af_print(xCoords[2](conditionIndices2),12);
+	for(int var=0;var<vars::dof;var++)
+	  af_print(prim->vars[var](conditionIndices2),12);
+	for(int var=0;var<vars::dof;var++)
+	  af_print(residual->vars[var](conditionIndices2),12);
+	af_print(elem->bSqr(conditionIndices2),12);
+	af_print(elem->gammaLorentzFactor(conditionIndices2),12);
+	af_print(elem->tau(conditionIndices2),12);
+	af_print(elem->chi_emhd(conditionIndices2),12);
+	af_print(elem->nu_emhd(conditionIndices2),12);
+	}*/
+
+    // Figure out which points should be solved for.
+    // On the first step, solve even if the residual is small
+    array IdxToComputeMain = where(notConverged > 0);
+    if(nonLinearIter==0)
+      IdxToComputeMain = IdxToComputeInit;
+    IdxToComputeMain.eval();
     /* Residual without explicit terms, for faster Jacobian assembly */
     computeResidual(primGuess, *residual, false,
-                    numReadsResidual, numWritesResidual
-                   );
+                    numReadsResidual, numWritesResidual,
+		    IdxToComputeMain
+		    );
 
     /* Assemble the Jacobian in Struct of Arrays format where the physics
      * operations are all vectorized */
@@ -89,26 +133,30 @@ void timeStepper::solve(grid &primGuess)
        * machine precision */
       double epsilon = params::JacobianAssembleEpsilon;
 
-      array smallPrim = af::abs(primGuess.vars[row])<.5*epsilon;
+      array smallPrim = af::abs(primGuess.vars[row](IdxToComputeMain))<.5*epsilon;
 
-      primGuessPlusEps->vars[row]  = 
-          (1. + epsilon)*primGuess.vars[row]*(1.-smallPrim)
-	      + smallPrim*epsilon; 
+      primGuessPlusEps->vars[row](IdxToComputeMain)  = 
+	(1. + epsilon)*primGuess.vars[row](IdxToComputeMain)*(1.-smallPrim)
+	+ smallPrim*epsilon; 
 
       computeResidual(*primGuessPlusEps, *residualPlusEps, false,
-                      numReadsResidual, numWritesResidual
+                      numReadsResidual, numWritesResidual,
+		      IdxToComputeMain
                      );
 
       for (int column=0; column < vars::dof; column++)
       {
+	array temp = jacobianSoA(span, span, span, column + vars::dof*row);
+	temp(IdxToComputeMain) = (  residualPlusEps->vars[column](IdxToComputeMain)
+				    -residual->vars[column](IdxToComputeMain)
+				    )
+	  /(primGuessPlusEps->vars[row](IdxToComputeMain)-primGuess.vars[row](IdxToComputeMain));
+	  
         jacobianSoA(span, span, span, column + vars::dof*row)
-          = (  residualPlusEps->vars[column] 
-             - residual->vars[column]
-            )
-            /(primGuessPlusEps->vars[row]-primGuess.vars[row]);
+          = temp;
       }
       /* reset */
-      primGuessPlusEps->vars[row]  = primGuess.vars[row]; 
+      primGuessPlusEps->vars[row](IdxToComputeMain)  = primGuess.vars[row](IdxToComputeMain); 
     }
     /* Jacobian assembly complete */
 
@@ -129,7 +177,7 @@ void timeStepper::solve(grid &primGuess)
      * Currently inverting locally by looping over individual zones. Need to
      * call the batch function magma_dgesv_batched() from the MAGMA library
      * for optimal use on NVIDIA cards */
-    batchLinearSolve(jacobianAoS, bAoS, deltaPrimAoS);
+    batchLinearSolve(jacobianAoS, bAoS, deltaPrimAoS,notConverged);
 
     /* Done with the solve. Now rearrange from AoS -> SoA */
     array deltaPrimSoA = af::reorder(deltaPrimAoS, 1, 2, 3, 0);
@@ -146,7 +194,7 @@ void timeStepper::solve(grid &primGuess)
      which has a minimum at the new value of stepLength,
        stepLength = -fPrime0*stepLength0^2 / (f1-f0-fPrime0*stepLength0)/2
      */
-    array f0      = 0.5 * l2Norm;
+    array f0      = 0.5 * l2Norm(IdxToComputeMain);
     array fPrime0 = -2.*f0;
     
     /* Start with a full step */
@@ -158,20 +206,22 @@ void timeStepper::solve(grid &primGuess)
       /* 1) First take current step stepLength */
       for (int var=0; var<vars::dof; var++)
       {
-        primGuessLineSearchTrial->vars[var] =  
-          primGuess.vars[var] + stepLength*deltaPrimSoA(span, span, span, var);
+	array dP = deltaPrimSoA(span, span, span, var);
+        primGuessLineSearchTrial->vars[var](IdxToComputeMain) =  
+          primGuess.vars[var](IdxToComputeMain) + stepLength(IdxToComputeMain)*dP(IdxToComputeMain);
       } 
 
       /* ...and then compute the norm */
       computeResidual(*primGuessLineSearchTrial, *residual, true,
-                      numReadsResidual, numWritesResidual
+                      numReadsResidual, numWritesResidual,
+		      IdxToComputeMain
                      );
       for (int var=0; var<vars::dof; var++)
       {
-        residualSoA(span, span, span, var) = residual->vars[var];
+        residualSoA(span, span, span, var) = residual->vars[var]*GZmask;
       }
-      l2Norm = af::sum(af::pow(residualSoA(domainX1, domainX2, domainX3), 2.), 3);
-      array f1 = 0.5 * l2Norm;
+      l2Norm = af::sum(af::pow(residualSoA, 2.), 3);
+      array f1 = 0.5 * l2Norm(IdxToComputeMain);
 
       /* We have 3 pieces of information:
        * a) f(0)
@@ -181,14 +231,12 @@ void timeStepper::solve(grid &primGuess)
     
       const double alpha    = 1e-4;
       const double EPS      = params::linesearchfloor;
-      array stepLengthNoGhost = stepLength(domainX1, domainX2, domainX3);
-      array condition = f1 > (f0*(1. - alpha*stepLengthNoGhost) +EPS);
-      array denom     =   (f1-f0-fPrime0*stepLengthNoGhost) * condition 
-                        + (1.-condition);
-      array nextStepLengthNoGhost =
-        -fPrime0*stepLengthNoGhost*stepLengthNoGhost/denom/2.;
-      stepLength(domainX1, domainX2, domainX3)
-        = stepLengthNoGhost*(1. - condition) + condition*nextStepLengthNoGhost;
+      array condition = f1 > (f0*(1. - alpha*stepLength(IdxToComputeMain)) +EPS);
+      array denom     =   (f1-f0-fPrime0*stepLength(IdxToComputeMain)) * condition 
+	+ (1.-condition);
+      array nextStepLength =
+        -fPrime0*stepLength(IdxToComputeMain)*stepLength(IdxToComputeMain)/denom/2.;
+      stepLength(IdxToComputeMain) = stepLength(IdxToComputeMain)*(1. - condition) + condition*nextStepLength;
       
       array conditionIndices = where(condition > 0);
       if (conditionIndices.elements() == 0)
@@ -200,11 +248,11 @@ void timeStepper::solve(grid &primGuess)
     /* stepLength has now been set */
     for (int var=0; var<vars::dof; var++)
     {
-      primGuess.vars[var] = 
-        primGuess.vars[var] + stepLength*deltaPrimSoA(span, span, span, var);
+      array dP = deltaPrimSoA(span, span, span, var);
+      primGuess.vars[var](IdxToComputeMain) = 
+        primGuess.vars[var](IdxToComputeMain) + stepLength(IdxToComputeMain)*dP(IdxToComputeMain);
     }
   }
-
   
   /* Diagnostics */
   /*{
@@ -232,70 +280,88 @@ void timeStepper::solve(grid &primGuess)
       }*/
 }
 
-void timeStepper::batchLinearSolve(const array &A, const array &b, array &x)
+void timeStepper::batchLinearSolve(const array &A, const array &b, array &x, const array UsePt)
 {
-  A.host(AHostPtr);
-  b.host(bHostPtr);
-  x.host(xHostPtr);
-
+  array Idx = where(UsePt > 0);
   int numVars = residual->numVars;
-  int N1Total = residual->N1Total;
-  int N2Total = residual->N2Total;
-  int N3Total = residual->N3Total;
+  int numPoints = Idx.elements();
 
-  #pragma omp parallel for
-  for (int k=0; k<N3Total; k++)
-  {
-    for (int j=0; j<N2Total; j++)
+  array UsePtVec = b*0;
+  for(int v=0;v<numVars;v++)
     {
-      for (int i=0; i<N1Total; i++)
-      {
-        double ALocal[numVars*numVars];
-        double bLocal[numVars];
-        int pivot[numVars];
+      array temp = UsePtVec(v,span,span,span);
+      temp(Idx) = 1.;
+      UsePtVec(v,span,span,span)=temp;
+    }
+  array IdxPtVec = where(UsePtVec>0);
+  IdxPtVec.eval();
+  array UsePtMat = A*0.;
+  for(int v=0;v<numVars*numVars;v++)
+    {
+      array temp = UsePtMat(v,span,span,span);
+      temp(Idx) = 1.;
+      UsePtMat(v,span,span,span) = temp;
+    }
+  array IdxPtMat = where(UsePtMat>0);
+  IdxPtMat.eval();
 
-        const int spatialIndex = 
-          i +  N1Total*(j + (N2Total*k) );
+  array AIdx = A(IdxPtMat);
+  array bIdx = b(IdxPtVec);
+  array xIdx = x(IdxPtVec);
+  AIdx.eval();
+  bIdx.eval();
+  xIdx.eval();
+  AIdx.host(AHostPtr); 
+  bIdx.host(bHostPtr);
+  xIdx.host(xHostPtr);
+  
+  #pragma omp parallel for
+  for (int k=0; k<numPoints; k++)
+    {
+      double ALocal[numVars*numVars];
+      double bLocal[numVars];
+      int pivot[numVars];
 
-        /* Assemble ALocal */
-        for (int row=0; row < numVars; row++)
-        {
+      const int spatialIndex = k;
+	
+      /* Assemble ALocal */
+      for (int row=0; row < numVars; row++)
+	{
           for (int column=0; column < numVars; column++)
-          {
-            const int indexALocal = column + (numVars*row);
-            const int indexAHost  = 
-              column + numVars*(row + (numVars*spatialIndex) );
-
-            ALocal[indexALocal] = AHostPtr[indexAHost];
-          }
+	    {
+	      const int indexALocal = column + (numVars*row);
+	      const int indexAHost  = 
+		column + numVars*(row + (numVars*spatialIndex) );
+	      
+	      ALocal[indexALocal] = AHostPtr[indexAHost];
+	    }
         }
-
-        /* Assemble bLocal */
-        for (int column=0; column < numVars; column++)
+      
+      /* Assemble bLocal */
+      for (int column=0; column < numVars; column++)
         {
           const int indexbLocal = column;
           const int indexbHost  = column + numVars*spatialIndex;
-
+	  
           bLocal[indexbLocal] = bHostPtr[indexbHost];
         }
-
-        LAPACKE_dgesv(LAPACK_COL_MAJOR, numVars, 1, ALocal, numVars, 
-                      pivot, bLocal, numVars
-                     );
-
-        /* Copy solution to xHost */
-        for (int column=0; column < numVars; column++)
+      
+      LAPACKE_dgesv(LAPACK_COL_MAJOR, numVars, 1, ALocal, numVars, 
+		    pivot, bLocal, numVars
+		    );
+      
+      /* Copy solution to xHost */
+      for (int column=0; column < numVars; column++)
         {
           const int indexbLocal = column;
           const int indexbHost  = column + numVars*spatialIndex;
-
+	  
           xHostPtr[indexbHost] = bLocal[indexbLocal];
         }
-
-      }
     }
-  }
-
+  
   /* Copy solution to x on device */
-  x = array(numVars, N1Total, N2Total, N3Total, xHostPtr);
+  xIdx = array(numVars*numPoints, xHostPtr);
+  x(IdxPtVec) = xIdx;
+  x.eval();
 }

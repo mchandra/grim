@@ -28,16 +28,18 @@ class timeStepper
   array jacobianSoA;
   array deltaPrimAoS;
   array stepLength;
+  array GZmask;
 
   double *AHostPtr, *bHostPtr, *xHostPtr;
 
   void solve(grid &primGuess);
   void computeResidual(const grid &prim, grid &residual,
-		                   const bool ComputeExplicitTerms,
+		       const bool ComputeExplicitTerms,
                        int &numReads,
-                       int &numWrites
-                      );
-  void batchLinearSolve(const array &A, const array &b, array &x);
+                       int &numWrites,
+		       const array IdxToCompute 
+		       );
+  void batchLinearSolve(const array &A, const array &b, array &x, const array UsePt);
 
   public:
     double dt, time;

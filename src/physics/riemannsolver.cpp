@@ -83,36 +83,26 @@ void fluidElement::computeMinMaxCharSpeeds(const geometry &geom,
    * Writes: 0
    * ------ */
 
-  /* Approximate contribution from dP */
-  array cVisSqr = zero;
-  if (params::viscosity)
-  {
-    cVisSqr = 4./3./(rho+params::adiabaticIndex*u)*rho*nu_emhd/tau;
-    numReads += 2;
-    /* Reads:
-     * -----
-     *  nu_emhd, tau : 2
-     *
-     * Writes: 0
-     * ------ */
-  }
-
-  /* Approximate contribution from Q */
-  array cConSqr = zero;
-  if (params::conduction)
-  {
-    cConSqr = (params::adiabaticIndex-1.)*chi_emhd/tau;
-    numReads += 1;
-    /* Reads:
-     * -----
-     *  nu_emhd : 1
-     *  (Not counting tau since it is already read if params::viscosity==1)
-     *
-     * Writes: 0
-     * ------ */
-  }
-  cConSqr = 0.5*(csSqr+cConSqr+af::sqrt(csSqr*csSqr+cConSqr*cConSqr));
-  csSqr = cConSqr + cVisSqr;
+  // Correction from EMHD, assuming
+  // c_s^2 -> 0.5*(v_p^2+v_q^2 + (v_p^4 + v_q^4)^0.5)
+  // v_p^2 = c_s^2 + v_{dP}^2
+  // using v_q and v_{dP} from Chandra et al. 2015
+  // and computing the maximum characteristic speed as
+  // c_s^2 + v_A^2 - v_A*c_S
+  double phi = 0.;
+  double psi = 0.;
+  if(params::viscosity)
+    {
+      psi = params::ViscosityAlpha;
+    }
+  if(params::conduction)
+    {
+      phi = params::ConductionAlpha;
+    }
+  double cq = phi*(params::adiabaticIndex-1.);
+  double cv = 4./3.*psi;
+  double EMHD_corr = 0.5*(1.+cv+cq+sqrt((1.+cv)*(1.+cv)+cq*cq));
+  csSqr = csSqr*EMHD_corr;
 
   /* Combine speeds using relativistic velocity additions */
   csSqr = csSqr + cAlvenSqr - csSqr*cAlvenSqr; 

@@ -287,12 +287,16 @@ timeStepper::timeStepper(const int N1,
   residualSoA  = residual->varsSoA;
 
   /* Jacobian \partial residual/ \prim in Struct of Arrays format */
-  jacobianSoA  = af::constant(1., residual->vars[0].dims(0),
+  jacobianSoA  = af::constant(0., residual->vars[0].dims(0),
                                   residual->vars[0].dims(1),
                                   residual->vars[0].dims(2),
                                   numVars * numVars,
                                   f64
                              );
+  for(int mu=0;mu<NDIM;mu++)
+    {
+      jacobianSoA(mu+mu*numVars,span,span,span)=1.;
+    }
 
   /* Correction dP_k in P_{k+1} = P_k + lambda*dP_k in Array of Structs format */
   deltaPrimAoS = af::constant(0., 
@@ -305,6 +309,16 @@ timeStepper::timeStepper(const int N1,
 
   /* Steplength lambda in P_{k+1} = P_k + lambda*dP_k */ 
   stepLength  = zero;
+  GZmask = zero;
+  // Set mask to 1 in active regions
+  {
+    af::seq domainX1 = *residual->domainX1;
+    af::seq domainX2 = *residual->domainX2;
+    af::seq domainX3 = *residual->domainX3;
+    GZmask(domainX1,domainX2,domainX3) = 1.;
+    GZmask.eval();
+  }
+  
                      
   int N1Total = residual->N1Total;
   int N2Total = residual->N2Total;

@@ -49,42 +49,58 @@ class fluidElement
              int &numReads,
              int &numWrites
             );
-    void setFluidElementParameters(const geometry &geom);
+    void set(const grid &prim,
+             const geometry &geom,
+             int &numReads,
+             int &numWrites,
+	     const array Idx
+            );
+    void setFluidElementParameters(const geometry &geom, const array Idx);
     void computeFluxes(const geometry &geom, 
                        const int direction,
                        grid &flux,
                        int &numReads,
                        int &numWrites
                       );                                
+    void computeFluxes(const geometry &geom, 
+                       const int direction,
+                       grid &flux,
+                       int &numReads,
+                       int &numWrites,
+		       const array Idx
+                      );                                
 
     void computeMinMaxCharSpeeds(const geometry &geom,
-			                           const int dir,
-                    			       array &MinSpeed,
-                        				 array &MaxSpeed,
+				 const int dir,
+				 array &MinSpeed,
+				 array &MaxSpeed,
                                  int &numReads,
                                  int &numWrites
                                 );
 
     void computeTimeDerivSources(const geometry &geom,
-		  		                       const fluidElement &elemOld,
-                            		 const fluidElement &elemNew,
-                             		 const double dt,
+				 const fluidElement &elemOld,
+				 const fluidElement &elemNew,
+				 const double dt,
                                  grid &sources,
                                  int &numReads,
-                                 int &numWrites
-				                        );
+                                 int &numWrites,
+				 const array Idx
+				 );
 
     void computeImplicitSources(const geometry &geom,
-	  			                      grid &sources,
+				grid &sources,
                                 array &tauDamp,
                                 int &numReads,
-                                int &numWrites
-				                       );
+                                int &numWrites,
+				const array Idx
+				);
 
     void computeExplicitSources(const geometry &geom,
-                      		      grid &sources,
+				grid &sources,
                                 int &numReads,
-                                int &numWrites
+                                int &numWrites,
+				const array Idx
                                );
     void computeEMHDGradients(const geometry &geom,
                               const double dX[3],
