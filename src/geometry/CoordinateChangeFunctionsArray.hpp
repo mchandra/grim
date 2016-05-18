@@ -15,6 +15,37 @@ array GammieTheta(const array X2)
   return res;
 }
 
+
+// Modify Theta without cylindrification, but
+// setting a constant spacing on the horizon
+array Ftr( const array x );
+array ThetaNoCyl(const array X1, const array X2)
+{
+  if(params::DerefineThetaHorizon)
+    {
+      // This leads to Theta(X2) as in HARM at large distances
+      // and Theta ~ X2 for small radii:
+      // X2=cst lines are straight lines in the r-z plane
+      // The lines are equally spaced on the excision surface
+      // but use increase resolution in the equatorial plane
+      // at large radii, as in HARM
+      array cTh0 = af::cos(M_PI*X2);
+      array cTh1 = af::cos(GammieTheta(X2));
+      array cTh = cTh1 + exp(params::X1Start)/af::exp(X1)*(cTh0-cTh1);
+      array res = af::acos(cTh);
+      res.eval();
+      return res;
+    }
+  else
+    {
+      // Use standard HARM choice
+      array res = GammieTheta(X2);
+      res.eval();
+      return res;
+    }
+}
+
+
 /**************************************
 // The following code is largely copied
 // from Sasha Tchekhovskoy's version of HARM,
@@ -101,7 +132,7 @@ array sinth0( array X0[3], array X[3])
   for(int j=0;j<3;j++)
     Xc0[j]=X[j];
   Xc0[directions::X2] = X0[directions::X2];
-  array res = GammieRadius(X0[directions::X1]) * af::sin(GammieTheta(X0[directions::X2])) / GammieRadius(Xc0[directions::X1]);
+  array res = GammieRadius(X0[directions::X1]) * af::sin(ThetaNoCyl(X0[directions::X1],X0[directions::X2])) / GammieRadius(Xc0[directions::X1]);
   res.eval();
   return res;
 }
@@ -112,7 +143,7 @@ array sinth1in( array X0[3], array X[3])
   for(int j=0;j<3;j++)
     X0c[j]=X0[j];
   X0c[directions::X2] = X[directions::X2];
-  array res = GammieRadius(X0[directions::X1]) * af::sin(GammieTheta(X0c[directions::X2])) / GammieRadius(X[directions::X1]); 
+  array res = GammieRadius(X0[directions::X1]) * af::sin(ThetaNoCyl(X0c[directions::X1],X0c[directions::X2])) / GammieRadius(X[directions::X1]); 
   res.eval();
   return res;
 }
@@ -131,15 +162,16 @@ array th2in( array X0[3], array X[3])
   
   array th0 = af::asin( sinth0(X0, X) );
   th0.eval();
-  array res = (GammieTheta(X[directions::X2]) - GammieTheta(Xc0[directions::X2]))/(GammieTheta(Xcmid[directions::X2]) - GammieTheta(Xc0[directions::X2])) *
-    (GammieTheta(Xcmid[directions::X2])-th0) + th0;
+  array res = (ThetaNoCyl(X[directions::X1],X[directions::X2]) - ThetaNoCyl(Xc0[directions::X1],Xc0[directions::X2]))/
+    (ThetaNoCyl(Xcmid[directions::X1],Xcmid[directions::X2]) - ThetaNoCyl(Xc0[directions::X1],Xc0[directions::X2])) *
+    (ThetaNoCyl(Xcmid[directions::X1],Xcmid[directions::X2])-th0) + th0;
   res.eval();
   return res;
 }
 
 array func1( array X0[3], array X[3])
 {
-  array res = sin(GammieTheta(X[directions::X2]));
+  array res = af::sin(ThetaNoCyl(X[directions::X1],X[directions::X2]));
   res.eval();
   return res;
 }

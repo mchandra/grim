@@ -404,10 +404,8 @@ void geometry::XCoordsToxCoords(const array XCoords[3],
 
     case metrics::MODIFIED_KERR_SCHILD:
       
-      xCoords[directions::X1] = af::exp(XCoords[directions::X1]);
-      xCoords[directions::X2] =  M_PI*XCoords[directions::X2] 
-                               + 0.5*(1 - hSlope)
-                               * af::sin(2.*M_PI*XCoords[directions::X2]);
+      xCoords[directions::X1] = GammieRadius(XCoords[directions::X1]);
+      xCoords[directions::X2] = ThetaNoCyl(XCoords[directions::X1],XCoords[directions::X2]); 
       xCoords[directions::X3] = XCoords[directions::X3];
 
       xCoords[directions::X1].eval();
@@ -421,32 +419,14 @@ void geometry::XCoordsToxCoords(const array XCoords[3],
       // cylinders instead of cones.
       if(params::DoCylindrify)
 	{
-	  // We cylindrify the region with 
-	  // X1 < params::X1cyl
-	  // X2 < params::X2cyl
-	  array X0[3];
-	  for(int d=0;d<3;d++)
-	    X0[d] = XCoords[d]*1.;
-	  X0[directions::X1] = params::X1cyl;
-	  X0[directions::X2] = params::X2cyl;
-	  X0[directions::X3]=0.;
-	  array R_cyl = GammieRadius(X0[directions::X1]);
-	  array Theta_cyl = GammieTheta(X0[directions::X2]);
-	  array X1_tr = af::log(0.5*(R_cyl+exp(params::X1Start)));
-	  
-	  array Xtr[3];
+
 	  array Xgrid[3];
-	  array xcyl[3];
 	  array xGam[3];
 	  for(int d=0;d<3;d++)
 	    {
-	      Xtr[d]=XCoords[d];
 	      Xgrid[d]=XCoords[d];
-	      xcyl[d]=xCoords[d];
 	      xGam[d]=xCoords[d];
 	    }
-	  Xtr[directions::X1]=X1_tr;
-	  
 	  // Transform lower hemisphere and ghost zones
 	  // to upper hemisphere, 0<theta<pi/2
 	  array IsMirrored = Xgrid[directions::X2]>0.5;
@@ -460,11 +440,33 @@ void geometry::XCoordsToxCoords(const array XCoords[3],
 	  xGam[directions::X2] = xGam[directions::X2]*(1-IsGhost)
             + IsGhost* (-(1.0)*xGam[directions::X2]);
 
+	  // We cylindrify the region with 
+	  // X1 < params::X1cyl
+	  // X2 < params::X2cyl
+	  array X0[3];
+	  for(int d=0;d<3;d++)
+	    X0[d] = Xgrid[d]*1.;
+	  X0[directions::X1] = params::X1cyl;
+	  X0[directions::X2] = params::X2cyl;
+	  X0[directions::X3]=0.;
+	  array R_cyl = GammieRadius(X0[directions::X1]);
+	  array Theta_cyl = ThetaNoCyl(X0[directions::X1],X0[directions::X2]);
+	  array X1_tr = af::log(0.5*(R_cyl+exp(params::X1Start)));
+	  
+	  array Xtr[3];
+	  array xcyl[3];
+	  for(int d=0;d<3;d++)
+	    {
+	      Xtr[d]=Xgrid[d];
+	      xcyl[d]=xGam[d];
+	    }
+	  Xtr[directions::X1]=X1_tr;
+	  
 	  // Sasha's new theta
 	  array f1 = func1(X0,Xgrid);
 	  array f2 = func2(X0,Xgrid);
 	  array dftr = func2(X0,Xtr)-func1(X0,Xtr);
-	  array sinth = maxs( xGam[directions::X1]*f1, xGam[directions::X1]*f2, GammieRadius(Xtr[directions::X1])*af::abs(dftr)+1.e-20 ) / xGam[directions::X1]; 
+	  array sinth = maxs(xGam[directions::X1]*f1, xGam[directions::X1]*f2, GammieRadius(Xtr[directions::X1])*af::abs(dftr)+1.e-20 ) / xGam[directions::X1]; 
 	  array th = af::asin(sinth);
 	  th.eval();
 
