@@ -53,7 +53,13 @@ void timeStepper::fullStepDiagnostics(int &numReads,int &numWrites)
 
 }
 
-void timeStepper::setProblemSpecificBCs(int &numReads,int &numWrites)
+void timeStepper::setProblemSpecificBCs(grid &prim,
+                                        grid &B1Left,
+                                        grid &B2Bottom,
+                                        grid &B3Back,
+                                        int &numReads, 
+                                        int &numWrites
+                                       )
 {
 
 }

@@ -1,5 +1,229 @@
 #include "timestepper.hpp"
 
+array pressureRho0W(const array rho0,
+                    const array w
+                   )
+{
+  array pressure = ((w - rho0)*(params::adiabaticIndex - 1.)/params::adiabaticIndex);
+  pressure.eval();
+
+  return pressure;
+}
+
+array gammaFunc(const array &BSqr,
+                const array &D,
+                const array &QDotB,
+                const array &QTildeSqr,
+                const array &Wp
+               )
+{
+  array QDotBWholeSqr = QDotB * QDotB;
+  array W     = D + Wp;
+  array WSqr  = W * W;
+  array WB    = W + BSqr;
+  array W2    = W*W;
+
+  array uTildeSqr = - ( (W + WB)*QDotBWholeSqr + W2*QTildeSqr )
+                    / (QDotBWholeSqr*(W + WB) + W2*(QTildeSqr - WB*WB)) ; 
+
+  array gamma = af::sqrt(1 + af::abs(uTildeSqr));
+  gamma.eval();
+
+  return gamma;
+}
+
+array errFunc(const array &BSqr,
+              const array &D,
+              const array &Ep,
+              const array &QDotB,
+              const array &QTildeSqr,
+              const array &Wp
+             )
+{
+  array W = Wp + D;
+  array gamma = gammaFunc(BSqr, D, QDotB, QTildeSqr, Wp);
+  array w = W/(gamma * gamma);
+  array rho0 = D/gamma;
+  array p = pressureRho0W(rho0, w);
+
+  array err = - Ep + Wp - p + 0.5*BSqr 
+              + 0.5*(BSqr*QTildeSqr - QDotB*QDotB)
+              / ((BSqr + W)*(BSqr + W)) ;
+  err.eval();
+
+  return err;
+}
+
+void timeStepper::solver1DW(grid &primGuess,
+                            int &numReads,
+                            int &numWrites
+                           )
+{
+  elem->set(primGuess, *magneticFieldsCenter, *geomCenter,
+            numReads, numWrites
+           );
+  
+  array lapse = geomCenter->alpha;
+  array g     = geomCenter->g;
+
+  array D = cons->vars[vars::RHO] * lapse / g;
+
+  array zero = 0. * elem->B1;
+
+  array BCon[NDIM];
+  BCon[0] = zero;
+  BCon[1] = elem->B1 * lapse; BCon[1].eval();
+  BCon[2] = elem->B2 * lapse; BCon[2].eval();
+  BCon[3] = elem->B3 * lapse; BCon[3].eval();
+
+  array BCov[NDIM];
+  for (int mu=0; mu<NDIM; mu++)
+  {
+    BCov[mu] =   geomCenter->gCov[mu][0] * BCon[0]
+               + geomCenter->gCov[mu][1] * BCon[1]
+               + geomCenter->gCov[mu][2] * BCon[2]
+               + geomCenter->gCov[mu][3] * BCon[3];
+    BCov[mu].eval();
+  }
+  array BSqr =   BCov[0]*BCon[0] + BCov[1]*BCon[1]
+               + BCov[2]*BCon[2] + BCov[3]*BCon[3];
+  BSqr.eval();
+
+  array QCov[NDIM];
+  QCov[0] = cons->vars[vars::U]  * lapse / g; QCov[0].eval();
+  QCov[1] = cons->vars[vars::U1] * lapse / g; QCov[1].eval();
+  QCov[2] = cons->vars[vars::U2] * lapse / g; QCov[2].eval();
+  QCov[3] = cons->vars[vars::U3] * lapse / g; QCov[3].eval();
+
+  array QCon[NDIM];
+  for (int mu=0; mu<NDIM; mu++)
+  {
+    QCon[mu] =   geomCenter->gCon[mu][0] * QCov[0]
+               + geomCenter->gCon[mu][1] * QCov[1]
+               + geomCenter->gCon[mu][2] * QCov[2]
+               + geomCenter->gCon[mu][3] * QCov[3];
+    QCon[mu].eval();
+  }
+
+  array nCov[NDIM];
+  nCov[0] = -lapse;
+  nCov[1] = zero;
+  nCov[2] = zero;
+  nCov[3] = zero;
+
+  array nCon[NDIM];
+  for (int mu=0; mu<NDIM; mu++)
+  {
+    nCon[mu] =   geomCenter->gCon[mu][0] * nCov[0]
+               + geomCenter->gCon[mu][1] * nCov[1]
+               + geomCenter->gCon[mu][2] * nCov[2]
+               + geomCenter->gCon[mu][3] * nCov[3];
+    nCon[mu].eval();
+  }
+
+  array QDotn =   QCov[0]*nCon[0] + QCov[1]*nCon[1]
+                + QCov[2]*nCon[2] + QCov[3]*nCon[3];
+  QDotn.eval();
+
+  array QDotB =   QCov[0]*BCon[0] + QCov[1]*BCon[1]
+                + QCov[2]*BCon[2] + QCov[3]*BCon[3];
+  QDotB.eval();
+  
+  array QSqr =   QCov[0]*QCon[0] + QCov[1]*QCon[1]
+               + QCov[2]*QCon[2] + QCov[3]*QCon[3];
+  QSqr.eval();
+
+  array QTildeCon[NDIM];
+  for (int mu=0; mu < NDIM; mu++)
+  {
+    QTildeCon[mu] = QCon[mu] + nCon[mu]*QDotn;
+  }
+  array QTildeSqr = QSqr + QDotn*QDotn;
+
+  array Ep = -QDotn - D;
+
+  array uTildeCon[NDIM];
+
+  uTildeCon[0] = zero;
+  uTildeCon[1] = elem->u1;
+  uTildeCon[2] = elem->u2;
+  uTildeCon[3] = elem->u3;
+
+  array uTildeCov[NDIM];
+  for (int mu=0; mu<NDIM; mu++)
+  {
+    uTildeCov[mu] =   geomCenter->gCov[mu][0] * uTildeCon[0]
+                    + geomCenter->gCov[mu][1] * uTildeCon[1]
+                    + geomCenter->gCov[mu][2] * uTildeCon[2]
+                    + geomCenter->gCov[mu][3] * uTildeCon[3];
+  }
+
+  array uTildeSqr =  uTildeCov[0] * uTildeCon[0] + uTildeCov[1] * uTildeCon[1]
+                   + uTildeCov[2] * uTildeCon[2] + uTildeCov[3] * uTildeCon[3];
+
+  array gammaTilde = af::sqrt(1. + af::abs(uTildeSqr));
+
+  array Wp =   (elem->rho + elem->u + elem->pressure)*gammaTilde*gammaTilde
+             - elem->rho*gammaTilde;
+
+  double DEL = 1e-5;
+  array WpMinus = (1. - DEL)*Wp;
+  array h       = Wp - WpMinus;
+  array WpPlus  = Wp + h;
+
+  array errPlus  = errFunc(BSqr, Ep, D, QDotB, QTildeSqr, WpPlus );
+  array err      = errFunc(BSqr, Ep, D, QDotB, QTildeSqr, Wp     );
+  array errMinus = errFunc(BSqr, Ep, D, QDotB, QTildeSqr, WpMinus);
+
+  array dErrdW   = (errPlus - errMinus)/(WpPlus - WpMinus);
+  array dErr2dW2 = (errPlus - 2.*err + errMinus)/(h*h);
+
+  array f = 0.5*err*dErr2dW2/(dErrdW * dErrdW);
+  array dW = -err/dErrdW/(1. - af::min(af::max(-0.3, f), 0.3));
+
+  array Wp1  = Wp;
+  array err1 = err;
+
+  Wp  = Wp + af::max( af::min(dW, 2.0*Wp), -0.5*Wp );
+  err = errFunc(BSqr, D, Ep, QDotB, QTildeSqr, Wp);
+
+  for (int iter=0; iter < 2; iter++)
+  {
+    dW  = (Wp1 - Wp)*err/(err - err1);
+
+    Wp1  = Wp;
+    err1 = err;
+
+    Wp  = Wp + af::max( af::min(dW, 2.0*Wp), -0.5*Wp );
+    err  = errFunc(BSqr, Ep, D, QDotB, QTildeSqr, Wp);
+  }
+
+  array gamma = gammaFunc(BSqr, D, QDotB, QTildeSqr, Wp);
+  array rho0  = D/gamma;
+  array W     = Wp + D;
+  array w     = W/(gamma * gamma);
+  array P     = pressureRho0W(rho0, w);
+  
+  primGuess.vars[vars::RHO] = rho0;
+  primGuess.vars[vars::U]   = w - (rho0 + P);
+
+  primGuess.vars[vars::U1] =   (gamma/(W + BSqr))
+                             * (QTildeCon[1] + QDotB*BCon[1]/W) ;
+
+  primGuess.vars[vars::U2] =   (gamma/(W + BSqr))
+                             * (QTildeCon[2] + QDotB*BCon[2]/W) ;
+
+  primGuess.vars[vars::U3] =   (gamma/(W + BSqr))
+                             * (QTildeCon[3] + QDotB*BCon[3]/W) ;
+
+  for (int var=0; var <= vars::U3; var++)
+  {
+    primGuess.vars[var].eval();
+  }
+
+  return;
+}
+
 void timeStepper::solve(grid &primGuess)
 {
   /* Get the domain of the bulk */

@@ -146,6 +146,10 @@ class timeStepper
                          int &numReads,
                          int &numWrites
                         );
+    void timeStepFluidCons(const double dt,
+                           int &numReads,
+                           int &numWrites
+                          );
 
     void fluxCT(int &numReads, int &numWrites);
     void computeEMF(int &numReadsEMF, int &numWritesEMF);
@@ -155,6 +159,11 @@ class timeStepper
                      int &numReads,
                      int &numWrites
                     );
+
+    void solver1DW(grid &primGuess,
+                   int &numReads,
+                   int &numWrites
+                  );
 
     /* Function definitions in the problem folder */
     void initialConditions(int &numReads, int &numWrites);

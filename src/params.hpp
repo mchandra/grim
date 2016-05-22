@@ -81,6 +81,12 @@ namespace riemannSolvers
   };
 };
 
+namespace solvers
+{
+  enum
+  {ONE_D_W, GRIM};
+};
+
 namespace params
 {
   extern int N1;
@@ -166,6 +172,8 @@ namespace params
   extern double k2;
   extern double Gamma;
   extern double Omega;
+
+  extern int solver;
 };
 
 #endif /* GRIM_PARAMS_H_ */

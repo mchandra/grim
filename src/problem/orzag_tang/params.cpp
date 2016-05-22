@@ -66,13 +66,14 @@ namespace params
   double ViscosityClosureFactor = 1.;
 
   double slopeLimTheta = 2.;
-  int reconstruction = reconstructionOptions::WENO5;
+  int reconstruction = reconstructionOptions::MINMOD;
   int riemannSolver  = riemannSolvers::LOCAL_LAX_FRIEDRICH;
 
   int maxNonLinearIter = 3;
   int maxLineSearchIters = 3;
 
   //Parameters controlling accuracy of nonlinear solver
+  int solver = solvers::ONE_D_W;
   double nonlinearsolve_atol = 1.e-12;
   double JacobianAssembleEpsilon = 4.e-8;
   double linesearchfloor = 1.e-24;

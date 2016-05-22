@@ -108,8 +108,26 @@ void timeStepper::timeStep(int &numReads, int &numWrites)
     numReads  += 1;
     numWrites += 1;
   }
-  /* Solve dU/dt + div.F - S = 0 to get prim at n+1/2 */
-  solve(*prim);
+  if (   params::conduction == 0 
+      && params::viscosity  == 0 
+      && params::solver == solvers::ONE_D_W
+     )
+  {
+    int numReadsConsUpdate, numWritesConsUpdate;
+    timeStepFluidCons(0.5*dt, numReadsConsUpdate, numWritesConsUpdate);
+    numReads  += numReadsConsUpdate;
+    numWrites += numWritesConsUpdate;
+
+    int numReadsSolver, numWritesSolver;
+    //solver1DW(*prim, numReadsSolver, numWritesSolver);
+    numReads  += numReadsSolver;
+    numWrites += numWritesSolver;
+  }
+  else /* Use residual based nonlinear solver */
+  { 
+    /* Solve dU/dt + div.F - S = 0 to get prim at n+1/2 */
+    solve(*prim);
+  }
 
   /* 9) Copy solution to primHalfStep, B1LeftHalfStep, B2BottomHalfStep and
    * B3BackHalfStep */
@@ -224,9 +242,27 @@ void timeStepper::timeStep(int &numReads, int &numWrites)
   magneticFieldsCenter->vars[vars::B2] = B2Center->vars[0];
   magneticFieldsCenter->vars[vars::B3] = B3Center->vars[0];
 
-  /* 19) Solve dU/dt + div.F - S = 0 to get prim at n+1. NOTE: prim already has
-   * primHalfStep as a guess */
-  solve(*prim);
+  if (   params::conduction == 0 
+      && params::viscosity  == 0 
+      && params::solver == solvers::ONE_D_W
+     )
+  {
+    int numReadsConsUpdate, numWritesConsUpdate;
+    timeStepFluidCons(0.5*dt, numReadsConsUpdate, numWritesConsUpdate);
+    numReads  += numReadsConsUpdate;
+    numWrites += numWritesConsUpdate;
+
+    int numReadsSolver, numWritesSolver;
+    //solver1DW(*prim, numReadsSolver, numWritesSolver);
+    numReads  += numReadsSolver;
+    numWrites += numWritesSolver;
+  }
+  else /* Use residual based nonlinear solver */
+  { 
+    /* 19) Solve dU/dt + div.F - S = 0 to get prim at n+1. NOTE: prim already has
+     * primHalfStep as a guess */
+    solve(*prim);
+  }
 
   /* 20) Copy solution to primOld, B1LeftOld, B2BottomOld, and B3BackOld */
   for (int var=0; var < prim->numVars; var++)
@@ -289,4 +325,21 @@ void timeStepper::timeStepBFields(const double dt,
                              - E2LeftBack->vars[0]    * dX2
                              + E1BottomBack->vars[0]  * dX1
                             ) / (geomCenter->g * dX1 * dX2);
+}
+
+void timeStepper::timeStepFluidCons(const double dt,
+                                    int &numReads,
+                                    int &numWrites
+                                   )
+{
+  /* consOld, divFluxes, and sourcesExplicit have already been set in timeStep()
+   */
+  for (int var=0; var <= vars::U3; var++)
+  {
+    cons->vars[var] =       consOld->vars[var] 
+                      - dt*(   divFluxes->vars[var] 
+                             - sourcesExplicit->vars[var]
+                           );
+  }
+
 }
